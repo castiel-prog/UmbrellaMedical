@@ -97,6 +97,8 @@ namespace UmbrellaMedical.Api
             builder.Services.AddAuthorization();
             builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Email"));
             builder.Services.AddScoped<IUserTokenService, UserTokenService>();
+            builder.Services.AddScoped<IClinicalAccess, ClinicalAccess>();
+            builder.Services.AddSingleton<IFileStorage, LocalFileStorage>();
 
             if (builder.Environment.IsDevelopment() && string.IsNullOrWhiteSpace(builder.Configuration["Email:Password"]))
                 builder.Services.AddScoped<IEmailSender, DevEmailSender>();
