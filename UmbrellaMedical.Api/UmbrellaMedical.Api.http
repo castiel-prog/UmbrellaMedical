@@ -1,0 +1,6 @@
+@UmbrellaMedical.Api_HostAddress = http://localhost:5076
+
+GET {{UmbrellaMedical.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

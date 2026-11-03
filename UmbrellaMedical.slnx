@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="UmbrellaMedical.Api/UmbrellaMedical.Api.csproj" />
+  <Project Path="UmbrellaMedical.Domain/UmbrellaMedical.Domain.csproj" />
+  <Project Path="UmbrellaMedical.Infrastructure/UmbrellaMedical.Infrastructure.csproj" />
+</Solution>
