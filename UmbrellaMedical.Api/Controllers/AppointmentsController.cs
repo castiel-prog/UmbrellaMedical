@@ -65,7 +65,7 @@ namespace UmbrellaMedical.Api.Controllers
         public async Task<ActionResult<SlotsResponse>> GetSlots(
             int doctorId, [FromQuery] DateOnly date, [FromQuery] int serviceId)
         {
-            if (!await _db.Doctors.AnyAsync(d => d.Id == doctorId)) return NotFound();
+            if (!await _db.Doctors.AnyAsync(d => d.Id == doctorId && d.User.IsActive)) return NotFound();
 
             var service = await _db.Services.AsNoTracking()
                 .FirstOrDefaultAsync(s => s.Id == serviceId && s.IsActive);
@@ -186,8 +186,7 @@ namespace UmbrellaMedical.Api.Controllers
                 if (!await _db.Patients.AnyAsync(p => p.Id == patientId))
                     return Invalid(nameof(request.PatientId), "This patient does not exist.");
             }
-
-            if (!await _db.Doctors.AnyAsync(d => d.Id == request.DoctorId))
+            if (!await _db.Doctors.AnyAsync(d => d.Id == request.DoctorId && d.User.IsActive))
                 return Invalid(nameof(request.DoctorId), "This doctor does not exist.");
 
             var service = await _db.Services.AsNoTracking()

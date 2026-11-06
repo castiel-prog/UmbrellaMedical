@@ -36,7 +36,7 @@ namespace UmbrellaMedical.Api.Controllers
             page = Math.Max(page, 1);
             pageSize = Math.Clamp(pageSize, 1, 100);
 
-            var query = _db.Doctors.AsNoTracking().AsQueryable();
+            var query = _db.Doctors.AsNoTracking().Where(d => d.User.IsActive);
 
             if (specializationId is not null)
                 query = query.Where(d => d.SpecializationId == specializationId);
@@ -224,7 +224,7 @@ namespace UmbrellaMedical.Api.Controllers
         {
             return _db.Doctors
                 .AsNoTracking()
-                .Where(d => d.Id == id)
+                 .Where(d => d.Id == id && d.User.IsActive)
                 .Select(d => new DoctorDetailsDto
                 {
                     Id = d.Id,

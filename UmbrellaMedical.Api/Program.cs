@@ -62,14 +62,24 @@ namespace UmbrellaMedical.Api
                 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
             builder.Services.AddHttpContextAccessor();
+            builder.Services.AddProblemDetails();
+
             builder.Services.AddScoped<ICurrentUser, CurrentUser>();
             builder.Services.AddScoped<IAuditService, AuditService>();
-            builder.Services.AddProblemDetails();
-            builder.Services.AddSingleton<IClinicClock, ClinicClock>();
             builder.Services.AddScoped<IAppointmentSlotService, AppointmentSlotService>();
+            builder.Services.AddScoped<IClinicalAccess, ClinicalAccess>();
+            builder.Services.AddScoped<IUserTokenService, UserTokenService>();
+            builder.Services.AddSingleton<IClinicClock, ClinicClock>();
+            builder.Services.AddSingleton<IFileStorage, LocalFileStorage>();
 
             builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
+            builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Email"));
             builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+
+            if (builder.Environment.IsDevelopment() && string.IsNullOrWhiteSpace(builder.Configuration["Email:Password"]))
+                builder.Services.AddScoped<IEmailSender, DevEmailSender>();
+            else
+                builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 
             var jwt = builder.Configuration.GetSection("Jwt").Get<JwtSettings>()
                       ?? throw new InvalidOperationException("Missing 'Jwt' section in appsettings.json");
@@ -93,17 +103,26 @@ namespace UmbrellaMedical.Api
                         RoleClaimType = ClaimTypes.Role,
                         ClockSkew = TimeSpan.Zero
                     };
+
+                    options.Events = new JwtBearerEvents
+                    {
+                        OnTokenValidated = async context =>
+                        {
+                            var idClaim = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+                            if (!int.TryParse(idClaim, out var userId))
+                            {
+                                context.Fail("Invalid token.");
+                                return;
+                            }
+
+                            var db = context.HttpContext.RequestServices.GetRequiredService<UmbrellaDbContext>();
+                            var active = await db.Users.AsNoTracking().AnyAsync(u => u.Id == userId && u.IsActive);
+
+                            if (!active) context.Fail("The account is not active.");
+                        }
+                    };
                 });
             builder.Services.AddAuthorization();
-            builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Email"));
-            builder.Services.AddScoped<IUserTokenService, UserTokenService>();
-            builder.Services.AddScoped<IClinicalAccess, ClinicalAccess>();
-            builder.Services.AddSingleton<IFileStorage, LocalFileStorage>();
-
-            if (builder.Environment.IsDevelopment() && string.IsNullOrWhiteSpace(builder.Configuration["Email:Password"]))
-                builder.Services.AddScoped<IEmailSender, DevEmailSender>();
-            else
-                builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 
             var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
                                  ?? Array.Empty<string>();
