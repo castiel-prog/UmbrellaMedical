@@ -22,13 +22,17 @@ public class TimeOffController : ControllerBase
     private readonly ICurrentUser _current;
     private readonly IAuditService _audit;
     private readonly IClinicClock _clock;
+    private readonly INotificationService _notifications;
 
-    public TimeOffController(UmbrellaDbContext db, ICurrentUser current, IAuditService audit, IClinicClock clock)
+    public TimeOffController(
+        UmbrellaDbContext db, ICurrentUser current, IAuditService audit,
+        IClinicClock clock, INotificationService notifications)
     {
         _db = db;
         _current = current;
         _audit = audit;
         _clock = clock;
+        _notifications = notifications;
     }
 
     private static readonly Expression<Func<TimeOff, TimeOffDto>> Projection = t => new TimeOffDto
@@ -213,6 +217,7 @@ public class TimeOffController : ControllerBase
         var end = timeOff.EndDateTime;
 
         var conflicts = await _db.Appointments
+            .Include(a => a.Patient)
             .Where(a => a.DoctorId == doctorId
                         && a.Status == AppointmentStatus.Scheduled
                         && a.StartDateTime < end
@@ -229,7 +234,24 @@ public class TimeOffController : ControllerBase
         {
             appointment.Status = AppointmentStatus.Cancelled;
             appointment.CancellationReason = "The doctor is on leave";
+
+            if (appointment.Patient.UserId is int patientUserId)
+                _notifications.Queue(
+                    patientUserId,
+                    "Appointment cancelled",
+                    $"Your appointment on {NotificationText.When(appointment.StartDateTime)} was cancelled because the doctor is on leave. Please book a new time.",
+                    appointment.Id);
         }
+
+        var doctorUserId = await _db.Doctors
+            .Where(d => d.Id == doctorId)
+            .Select(d => d.UserId)
+            .FirstAsync();
+
+        _notifications.Queue(
+            doctorUserId,
+            "Time off approved",
+            $"Your time off from {NotificationText.When(start)} to {NotificationText.When(end)} was approved.");
 
         timeOff.Status = TimeOffStatus.Approved;
         timeOff.DeclineReason = null;
@@ -254,6 +276,16 @@ public class TimeOffController : ControllerBase
                 detail: "Only pending requests can be declined.",
                 statusCode: StatusCodes.Status409Conflict,
                 title: "Request already reviewed");
+
+        var doctorUserId = await _db.Doctors
+            .Where(d => d.Id == timeOff.DoctorId)
+            .Select(d => d.UserId)
+            .FirstAsync();
+
+        _notifications.Queue(
+            doctorUserId,
+            "Time off declined",
+            $"Your time off from {NotificationText.When(timeOff.StartDateTime)} to {NotificationText.When(timeOff.EndDateTime)} was declined. Reason: {request.Reason.Trim()}");
 
         timeOff.Status = TimeOffStatus.Declined;
         timeOff.DeclineReason = request.Reason.Trim();

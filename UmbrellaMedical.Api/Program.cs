@@ -69,11 +69,15 @@ namespace UmbrellaMedical.Api
             builder.Services.AddScoped<IAppointmentSlotService, AppointmentSlotService>();
             builder.Services.AddScoped<IClinicalAccess, ClinicalAccess>();
             builder.Services.AddScoped<IUserTokenService, UserTokenService>();
+            builder.Services.AddScoped<INotificationService, NotificationService>();
+            builder.Services.AddScoped<IReminderService, ReminderService>();
             builder.Services.AddSingleton<IClinicClock, ClinicClock>();
             builder.Services.AddSingleton<IFileStorage, LocalFileStorage>();
+            builder.Services.AddHostedService<AppointmentReminderWorker>();
 
             builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
             builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Email"));
+            builder.Services.Configure<ReminderSettings>(builder.Configuration.GetSection("Reminders"));
             builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 
             if (builder.Environment.IsDevelopment() && string.IsNullOrWhiteSpace(builder.Configuration["Email:Password"]))

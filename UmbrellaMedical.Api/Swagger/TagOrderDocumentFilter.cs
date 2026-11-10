@@ -8,7 +8,15 @@ public class TagOrderDocumentFilter : IDocumentFilter
 {
     private static readonly string[] Order =
     {
-"Auth", "Account", "Patients", "Doctors", "DoctorServices", "Services", "Specializations", "Appointments", "TimeOff", "Reviews", "Receptionists", "MedicalRecords", "Prescriptions", "Documents", "Catalog", "PatientAllergies", "Invoices", "Payments", "Insurance", "Departments", "Rooms", "AdminServices", "AdminUsers", "StaffSchedule", "Reports"   };
+"Auth", "Account", "Patients", 
+        "Doctors", "DoctorServices", "Services",
+        "Specializations", "Appointments", "TimeOff",
+        "Reviews", "Receptionists", "MedicalRecords",
+        "Prescriptions", "Documents", "Catalog",
+        "PatientAllergies", "Invoices", "Payments",
+        "Insurance", "Departments", "Rooms", 
+        "AdminServices", "AdminUsers", "StaffSchedule",
+        "Reports" ,"Notifications", "AdminReminders"  };
 
     public void Apply(OpenApiDocument swaggerDoc, DocumentFilterContext context)
     {

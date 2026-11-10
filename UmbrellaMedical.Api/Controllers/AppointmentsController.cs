@@ -18,24 +18,26 @@ namespace UmbrellaMedical.Api.Controllers
     [Authorize]
     public class AppointmentsController : ControllerBase
     {
-        private const int MaxDaysAhead = 90;         
-        private const int MinHoursBeforeChange = 2;   
+        private const int MaxDaysAhead = 90;
+        private const int MinHoursBeforeChange = 2;
 
         private readonly UmbrellaDbContext _db;
         private readonly ICurrentUser _current;
         private readonly IAuditService _audit;
         private readonly IClinicClock _clock;
         private readonly IAppointmentSlotService _slots;
+        private readonly INotificationService _notifications;
 
         public AppointmentsController(
             UmbrellaDbContext db, ICurrentUser current, IAuditService audit,
-            IClinicClock clock, IAppointmentSlotService slots)
+            IClinicClock clock, IAppointmentSlotService slots, INotificationService notifications)
         {
             _db = db;
             _current = current;
             _audit = audit;
             _clock = clock;
             _slots = slots;
+            _notifications = notifications;
         }
 
         private static readonly Expression<Func<Appointment, AppointmentDto>> Projection = a => new AppointmentDto
@@ -58,9 +60,6 @@ namespace UmbrellaMedical.Api.Controllers
             DurationMinutes = a.Service.DurationMinutes
         };
 
-      
-
-        
         [HttpGet("~/api/doctors/{doctorId:int}/slots")]
         public async Task<ActionResult<SlotsResponse>> GetSlots(
             int doctorId, [FromQuery] DateOnly date, [FromQuery] int serviceId)
@@ -90,8 +89,6 @@ namespace UmbrellaMedical.Api.Controllers
             });
         }
 
-       
-
         [HttpGet]
         [Authorize(Roles = "Admin,Receptionist,Doctor,Patient")]
         public async Task<ActionResult<PagedResult<AppointmentDto>>> GetAll(
@@ -104,7 +101,6 @@ namespace UmbrellaMedical.Api.Controllers
 
             var query = _db.Appointments.AsNoTracking().AsQueryable();
 
-           
             if (_current.Role == "Patient")
             {
                 var ownPatientId = await _current.GetPatientIdAsync();
@@ -164,8 +160,6 @@ namespace UmbrellaMedical.Api.Controllers
             return Ok(await LoadDtoAsync(id));
         }
 
-       
-
         [HttpPost]
         [Authorize(Roles = "Admin,Receptionist,Patient")]
         public async Task<ActionResult<AppointmentDto>> Create(CreateAppointmentRequest request)
@@ -186,6 +180,7 @@ namespace UmbrellaMedical.Api.Controllers
                 if (!await _db.Patients.AnyAsync(p => p.Id == patientId))
                     return Invalid(nameof(request.PatientId), "This patient does not exist.");
             }
+
             if (!await _db.Doctors.AnyAsync(d => d.Id == request.DoctorId && d.User.IsActive))
                 return Invalid(nameof(request.DoctorId), "This doctor does not exist.");
 
@@ -206,7 +201,6 @@ namespace UmbrellaMedical.Api.Controllers
 
             try
             {
-               
                 await using var tx = await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
 
                 var free = await _slots.GetFreeSlotsAsync(request.DoctorId, DateOnly.FromDateTime(start), service.DurationMinutes);
@@ -230,12 +224,15 @@ namespace UmbrellaMedical.Api.Controllers
                     Reason = request.Reason?.Trim()
                 };
 
+                if (_current.Role != "Patient")
+                    await QueueForPatientAsync(patientId, "Appointment booked", $"An appointment was booked for you on {NotificationText.When(start)}.", null);
+
                 _db.Appointments.Add(appointment);
                 await _db.SaveChangesAsync();
                 await tx.CommitAsync();
                 newId = appointment.Id;
             }
-            catch (SqlException ex) when (ex.Number == 1205)   
+            catch (SqlException ex) when (ex.Number == 1205)
             {
                 return SlotTaken();
             }
@@ -243,8 +240,6 @@ namespace UmbrellaMedical.Api.Controllers
             await _audit.LogAsync("CreatedAppointment", nameof(Appointment), newId);
             return CreatedAtAction(nameof(GetById), new { id = newId }, await LoadDtoAsync(newId));
         }
-
-        
 
         [HttpPut("{id:int}")]
         [Authorize(Roles = "Admin,Receptionist,Patient")]
@@ -273,7 +268,6 @@ namespace UmbrellaMedical.Api.Controllers
             {
                 await using var tx = await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
 
-               
                 var free = await _slots.GetFreeSlotsAsync(
                     appointment.DoctorId, DateOnly.FromDateTime(start), appointment.Service.DurationMinutes, appointment.Id);
                 if (!free.Any(s => s.Start == start))
@@ -289,6 +283,9 @@ namespace UmbrellaMedical.Api.Controllers
                 appointment.EndDateTime = end;
                 appointment.ReminderSent = false;
 
+                if (_current.Role != "Patient")
+                    await QueueForPatientAsync(appointment.PatientId, "Appointment rescheduled", $"Your appointment was moved to {NotificationText.When(start)}.", appointment.Id);
+
                 await _db.SaveChangesAsync();
                 await tx.CommitAsync();
             }
@@ -300,8 +297,6 @@ namespace UmbrellaMedical.Api.Controllers
             await _audit.LogAsync("RescheduledAppointment", nameof(Appointment), id);
             return Ok(await LoadDtoAsync(id));
         }
-
-       
 
         [HttpDelete("{id:int}")]
         [Authorize(Roles = "Admin,Receptionist,Doctor,Patient")]
@@ -328,13 +323,14 @@ namespace UmbrellaMedical.Api.Controllers
                 ? $"Cancelled by {_current.Role}"
                 : reason.Trim();
 
+            if (_current.Role != "Patient")
+                await QueueForPatientAsync(appointment.PatientId, "Appointment cancelled", $"Your appointment on {NotificationText.When(appointment.StartDateTime)} was cancelled. Reason: {appointment.CancellationReason}", appointment.Id);
+
             await _db.SaveChangesAsync();
             await _audit.LogAsync("CancelledAppointment", nameof(Appointment), id);
 
             return NoContent();
         }
-
-        
 
         [HttpPost("{id:int}/complete")]
         [Authorize(Roles = "Admin,Doctor")]
@@ -393,8 +389,6 @@ namespace UmbrellaMedical.Api.Controllers
             return Ok(await LoadDtoAsync(id));
         }
 
-        
-
         private ActionResult Invalid(string field, string message)
         {
             ModelState.AddModelError(field, message);
@@ -451,6 +445,17 @@ namespace UmbrellaMedical.Api.Controllers
                 default:
                     return false;
             }
+        }
+
+        private async Task QueueForPatientAsync(int patientId, string title, string message, int? appointmentId)
+        {
+            var userId = await _db.Patients
+                .Where(p => p.Id == patientId)
+                .Select(p => p.UserId)
+                .FirstOrDefaultAsync();
+
+            if (userId is not null)
+                _notifications.Queue(userId.Value, title, message, appointmentId);
         }
 
         private Task<AppointmentDto?> LoadDtoAsync(int id) =>
