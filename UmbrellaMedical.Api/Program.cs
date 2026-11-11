@@ -1,8 +1,10 @@
+using System.Diagnostics;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -63,6 +65,10 @@ namespace UmbrellaMedical.Api
 
             builder.Services.AddHttpContextAccessor();
             builder.Services.AddProblemDetails();
+            builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+
+            builder.Services.AddHealthChecks()
+                .AddDbContextCheck<UmbrellaDbContext>("database", tags: new[] { "ready" });
 
             builder.Services.AddScoped<ICurrentUser, CurrentUser>();
             builder.Services.AddScoped<IAuditService, AuditService>();
@@ -193,6 +199,20 @@ namespace UmbrellaMedical.Api
 
             app.UseExceptionHandler();
 
+            app.Use(async (context, next) =>
+            {
+                var timer = Stopwatch.StartNew();
+                await next();
+                timer.Stop();
+
+                app.Logger.LogInformation(
+                    "{Method} {Path} responded {Status} in {Elapsed} ms",
+                    context.Request.Method,
+                    context.Request.Path,
+                    context.Response.StatusCode,
+                    timer.ElapsedMilliseconds);
+            });
+
             if (!app.Environment.IsDevelopment())
                 app.UseHsts();
 
@@ -225,6 +245,9 @@ namespace UmbrellaMedical.Api
             app.UseAuthorization();
 
             app.MapControllers();
+
+            app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
+            app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") });
 
             await app.RunAsync();
         }
