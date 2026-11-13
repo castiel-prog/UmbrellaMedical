@@ -17,10 +17,10 @@
              dotnet-version: 10.0.x
 
          - name: Restore
-           run: dotnet restore UmbrellaMedical.sln
+           run: dotnet restore UmbrellaMedical.slnx
 
          - name: Build
-           run: dotnet build UmbrellaMedical.sln --configuration Release --no-restore
+           run: dotnet build UmbrellaMedical.slnx --configuration Release --no-restore
 
          - name: Test
-           run: dotnet test UmbrellaMedical.sln --configuration Release --no-build --verbosity normal
+           run: dotnet test UmbrellaMedical.slnx --configuration Release --no-build --verbosity normal
