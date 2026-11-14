@@ -93,6 +93,37 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/staff-schedule/staff-schedule.page').then(m => m.StaffSchedulePage)
   },
 
+  // Store
+  {
+    path: 'store',
+    title: title('Store'),
+    loadComponent: () => import('./pages/store/store.page').then(m => m.StorePage)
+  },
+  {
+    path: 'store/checkout',
+    title: title('Checkout'),
+    canActivate: [roleGuard('Patient')],
+    loadComponent: () => import('./pages/store/checkout.page').then(m => m.CheckoutPage)
+  },
+  {
+    path: 'orders',
+    title: title('My orders'),
+    canActivate: [roleGuard('Patient')],
+    loadComponent: () => import('./pages/store/orders.page').then(m => m.OrdersPage)
+  },
+  {
+    path: 'store-orders',
+    title: title('Store orders'),
+    canActivate: [roleGuard('Receptionist', 'Admin')],
+    loadComponent: () => import('./pages/store/orders.page').then(m => m.OrdersPage)
+  },
+  {
+    path: 'prescriptions',
+    title: title('Prescriptions'),
+    canActivate: [roleGuard('Doctor', 'Receptionist', 'Admin')],
+    loadComponent: () => import('./pages/prescriptions/prescriptions.page').then(m => m.PrescriptionsPage)
+  },
+
   // Admin
   {
     path: 'admin',
@@ -104,6 +135,7 @@ export const routes: Routes = [
       { path: 'users', loadComponent: () => import('./pages/admin/users.tab').then(m => m.AdminUsersTab) },
       { path: 'staff', loadComponent: () => import('./pages/admin/staff.tab').then(m => m.AdminStaffTab) },
       { path: 'services', loadComponent: () => import('./pages/admin/services.tab').then(m => m.AdminServicesTab) },
+      { path: 'store', loadComponent: () => import('./pages/admin/products.tab').then(m => m.AdminProductsTab) },
       { path: 'departments', loadComponent: () => import('./pages/admin/departments.tab').then(m => m.AdminDepartmentsTab) },
       { path: 'insurers', loadComponent: () => import('./pages/admin/insurers.tab').then(m => m.AdminInsurersTab) },
       { path: 'reviews', loadComponent: () => import('./pages/admin/reviews.tab').then(m => m.AdminReviewsTab) }
@@ -137,7 +169,7 @@ export const routes: Routes = [
   },
   {
     path: 'account',
-    title: title('My account'),
+    title: title('My profile'),
     canActivate: [authGuard],
     loadComponent: () => import('./pages/account/account.page').then(m => m.AccountPage)
   },

@@ -15,6 +15,7 @@ import { DocumentsPanel } from '../../shared/documents-panel';
 import { InsurancePanel } from '../../shared/insurance-panel';
 import { InvoiceList } from '../../shared/invoice-list';
 import { PatientForm } from '../../shared/patient-form';
+import { Avatar } from '../../shared/avatar';
 
 type Tab = 'overview' | 'appointments' | 'records' | 'prescriptions' | 'documents' | 'insurance' | 'invoices';
 
@@ -32,7 +33,7 @@ const TABS: { id: Tab; label: string; roles: Role[] }[] = [
   selector: 'app-patient-chart',
   imports: [
     FormsModule, RouterLink, DatePipe, CurrencyPipe, AllergiesPanel, RecordsPanel, PrescriptionsPanel,
-    DocumentsPanel, InsurancePanel, InvoiceList, PatientForm
+    DocumentsPanel, InsurancePanel, InvoiceList, PatientForm, Avatar
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -43,7 +44,7 @@ const TABS: { id: Tab; label: string; roles: Role[] }[] = [
     @if (patient(); as p) {
       <div class="page-head">
         <div class="profile-head">
-          <div class="avatar big" aria-hidden="true">{{ p.firstName[0] }}{{ p.lastName[0] }}</div>
+          <app-avatar size="big" [url]="p.photoUrl" [name]="p.firstName + ' ' + p.lastName" />
           <div>
             <h1>{{ p.firstName }} {{ p.lastName }}</h1>
             <p class="muted">{{ p.personalNumber }} · {{ p.gender }} · born {{ p.dateOfBirth | date: 'd MMM y' }} ({{ age(p.dateOfBirth) }} years)</p>

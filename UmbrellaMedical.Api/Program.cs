@@ -77,6 +77,15 @@ namespace UmbrellaMedical.Api
             builder.Services.AddScoped<IUserTokenService, UserTokenService>();
             builder.Services.AddScoped<INotificationService, NotificationService>();
             builder.Services.AddScoped<IReminderService, ReminderService>();
+            // Simulated card processor. Replace with a real provider's IPaymentGateway before taking real money.
+            builder.Services.AddScoped<IPaymentGateway, TestPaymentGateway>();
+            builder.Services.AddScoped<IPrepaidBookingService, PrepaidBookingService>();
+            builder.Services.AddMemoryCache();
+            // Help chat: the built-in assistant always works; Claude takes over when Anthropic:ApiKey is set.
+            builder.Services.AddSingleton<IClinicDirectory, ClinicDirectory>();
+            builder.Services.AddSingleton<ClaudeChatAssistant>();
+            builder.Services.AddSingleton<RuleBasedChatAssistant>();
+            builder.Services.AddSingleton<IChatAssistant, ChatAssistantRouter>();
             builder.Services.AddSingleton<IClinicClock, ClinicClock>();
             builder.Services.AddSingleton<IFileStorage, LocalFileStorage>();
             builder.Services.AddHostedService<AppointmentReminderWorker>();
@@ -171,6 +180,18 @@ namespace UmbrellaMedical.Api
                             QueueLimit = 0
                         }));
 
+                // The AI chat costs money per message, so it gets its own, tighter limit.
+                var chatPerMinute = builder.Configuration.GetValue<int?>("RateLimiting:ChatPerMinute") ?? 12;
+                options.AddPolicy("chat", context =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                        _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = chatPerMinute,
+                            Window = TimeSpan.FromMinutes(1),
+                            QueueLimit = 0
+                        }));
+
                 options.OnRejected = async (context, cancellationToken) =>
                 {
                     context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
@@ -190,11 +211,31 @@ namespace UmbrellaMedical.Api
                 var db = scope.ServiceProvider.GetRequiredService<UmbrellaDbContext>();
                 await db.Database.MigrateAsync();
 
+                // In Development every staff account shares one simple password (default "Umbrella123")
+                // so testing is easy. Production never gets a default: set the secrets explicitly there.
+                var isDev = app.Environment.IsDevelopment();
+                var demoPassword = builder.Configuration["Seed:DemoStaffPassword"];
+                if (isDev && string.IsNullOrWhiteSpace(demoPassword)) demoPassword = DemoStaffSeeder.DevelopmentPassword;
+
                 var adminPassword = builder.Configuration["Seed:AdminPassword"];
+                if (isDev && string.IsNullOrWhiteSpace(adminPassword)) adminPassword = demoPassword;
                 if (string.IsNullOrWhiteSpace(adminPassword) || adminPassword.Length < 8)
                     app.Logger.LogWarning("Seed:AdminPassword is missing or shorter than 8 characters, so no admin account was created.");
 
                 await DbSeeder.SeedAsync(db, adminPassword);
+
+                // Demo doctors and receptionists; existing ones are skipped.
+                if (!string.IsNullOrWhiteSpace(demoPassword) && demoPassword.Length >= 8)
+                {
+                    await DemoStaffSeeder.SeedAsync(db, demoPassword);
+
+                    if (isDev)
+                    {
+                        var changed = await DemoStaffSeeder.UseSharedStaffPasswordAsync(db, demoPassword);
+                        if (changed > 0)
+                            app.Logger.LogInformation("Development: {Count} staff account(s) now use the shared demo password.", changed);
+                    }
+                }
             }
 
             app.UseExceptionHandler();

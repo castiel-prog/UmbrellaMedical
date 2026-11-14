@@ -84,7 +84,11 @@ namespace UmbrellaMedical.Api.Controllers
             if (doctorId is null) return NotFound();
 
             var dto = await BuildDetailsAsync(doctorId.Value);
-            return dto is null ? NotFound() : Ok(dto);
+            if (dto is null) return NotFound();
+
+            // The phone number is private: only the doctor sees it, for editing their profile.
+            dto.Phone = await _db.Doctors.Where(d => d.Id == doctorId.Value).Select(d => d.Phone).FirstOrDefaultAsync();
+            return Ok(dto);
         }
 
         [HttpGet("{id:int}")]
@@ -247,6 +251,8 @@ namespace UmbrellaMedical.Api.Controllers
                     AverageRating = d.AverageRating,
                     ReviewCount = d.ReviewCount,
                     Bio = d.Bio,
+                    LicenseNumber = d.LicenseNumber,
+                    MemberSince = d.CreatedAt,
                     Educations = d.Educations
                         .OrderByDescending(e => e.GraduationYear)
                         .Select(e => new EducationDto

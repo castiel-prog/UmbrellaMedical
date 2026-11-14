@@ -1,19 +1,21 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { CurrencyPipe, DatePipe } from '@angular/common';
-import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormControl, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { DoctorsApi } from '../../core/doctors.api';
 import { AppointmentsApi } from '../../core/appointments.api';
 import { PatientsApi } from '../../core/patients.api';
-import { Appointment, DoctorDetails, PatientListItem } from '../../core/model';
+import { Appointment, BookingQuote, DoctorDetails, PatientListItem } from '../../core/model';
 import { apiErrorMessage } from '../../core/api-error';
 import { SlotPicker } from '../../shared/slot-picker';
 import { PatientPicker } from '../../shared/patient-picker';
 
+interface CardForm { holderName: string; number: string; expiry: string; cvc: string; }
+
 @Component({
   selector: 'app-book',
-  imports: [ReactiveFormsModule, RouterLink, DatePipe, CurrencyPipe, SlotPicker, PatientPicker],
+  imports: [ReactiveFormsModule, FormsModule, RouterLink, DatePipe, CurrencyPipe, SlotPicker, PatientPicker],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (booked(); as a) {
@@ -24,14 +26,25 @@ import { PatientPicker } from '../../shared/patient-picker';
           <dt>Service</dt><dd>{{ a.serviceName }}</dd>
           <dt>When</dt><dd>{{ a.startDateTime | date: 'EEEE, d MMMM y, HH:mm' }}</dd>
           <dt>Price</dt><dd>{{ a.price | currency: 'GEL' : 'symbol-narrow' }}</dd>
+          @if (!isStaff()) {
+            <dt>Paid</dt>
+            <dd>
+              <span class="badge ok">✓ {{ a.amountPaid | currency: 'GEL' : 'symbol-narrow' }}</span>
+              @if (a.amountPaid < a.price) { <span class="muted"> · the rest is covered by your insurance</span> }
+            </dd>
+          }
         </dl>
-        <p class="muted">You will get a reminder before the visit.</p>
+        <p class="muted">
+          You will get a reminder before the visit.
+          @if (!isStaff()) { If you cancel at least 2 hours before, the payment is refunded to your card automatically. }
+        </p>
         <div class="card-actions">
           @if (isStaff()) {
             <a class="btn primary" [routerLink]="['/patients', a.patientId]">Patient chart</a>
             <a class="btn" routerLink="/desk">Appointments</a>
           } @else {
             <a class="btn primary" routerLink="/appointments">My appointments</a>
+            @if (a.invoiceId) { <a class="btn" [routerLink]="['/invoices', a.invoiceId]">Receipt</a> }
             <a class="btn" routerLink="/doctors">Back to doctors</a>
           }
         </div>
@@ -39,10 +52,6 @@ import { PatientPicker } from '../../shared/patient-picker';
     } @else {
       <a class="back" [routerLink]="['/doctors', doctorId]">← Doctor profile</a>
       <h1>Book a visit</h1>
-
-      @if (error()) {
-        <p class="alert error" role="alert">{{ error() }}</p>
-      }
 
       @if (doctor(); as d) {
         <p class="lead">Dr. {{ d.firstName }} {{ d.lastName }} · <span class="spec">{{ d.specialization }}</span></p>
@@ -71,7 +80,7 @@ import { PatientPicker } from '../../shared/patient-picker';
           </li>
 
           <li class="card">
-            <h3>3. Confirm</h3>
+            <h3>3. {{ isStaff() ? 'Confirm' : 'Details' }}</h3>
             @if (isStaff()) {
               <app-patient-picker label="Patient this visit is for" [(selected)]="patient" />
             }
@@ -87,12 +96,86 @@ import { PatientPicker } from '../../shared/patient-picker';
               </p>
             }
 
-            <button class="btn primary" type="button" (click)="book()" [disabled]="!canBook() || saving()">
-              {{ saving() ? 'Booking...' : 'Book this visit' }}
-            </button>
+            @if (isStaff()) {
+              @if (error()) { <p class="alert error" role="alert">{{ error() }}</p> }
+              <p class="muted small">Visits booked by the clinic are paid at the desk.</p>
+              <button class="btn primary" type="button" (click)="book()" [disabled]="!canBook() || saving()">
+                {{ saving() ? 'Booking...' : 'Book this visit' }}
+              </button>
+            }
           </li>
+
+          @if (!isStaff()) {
+            <li class="card pay-step">
+              <h3>4. Pay and confirm</h3>
+
+              @if (!canBook()) {
+                <p class="muted">Choose a service and a time first.</p>
+              } @else if (quoteLoading()) {
+                <p class="muted">Working out the price...</p>
+              } @else if (quote(); as q) {
+                <dl class="price-lines">
+                  <dt>{{ selectedService()?.name }}</dt><dd>{{ q.price | currency: 'GEL' : 'symbol-narrow' }}</dd>
+                  @if (q.insuranceCoverage > 0) {
+                    <dt>Insurance – {{ q.insuranceCompany }} ({{ q.coveragePercent }}%)</dt>
+                    <dd>−{{ q.insuranceCoverage | currency: 'GEL' : 'symbol-narrow' }}</dd>
+                  }
+                  <dt class="total">You pay now</dt><dd class="total">{{ q.amountDue | currency: 'GEL' : 'symbol-narrow' }}</dd>
+                </dl>
+
+                @if (q.paymentRequired) {
+                  @if (q.testMode) {
+                    <p class="alert warn small-alert">
+                      Test mode: no real money is taken. Use card <strong>4242 4242 4242 4242</strong>, any future expiry date and any 3-digit CVC.
+                      (4000 0000 0000 0002 shows a declined card.)
+                    </p>
+                  }
+
+                  <form class="card-form" (ngSubmit)="book()" autocomplete="on">
+                    <div class="field">
+                      <label for="cc-name">Name on card</label>
+                      <input id="cc-name" name="ccname" autocomplete="cc-name" maxlength="100" [(ngModel)]="card.holderName" />
+                    </div>
+                    <div class="field">
+                      <label for="cc-number">Card number</label>
+                      <input id="cc-number" name="cardnumber" autocomplete="cc-number" inputmode="numeric" maxlength="23"
+                        placeholder="1234 5678 9012 3456" [ngModel]="card.number" (ngModelChange)="card.number = formatNumber($event)" />
+                    </div>
+                    <div class="form-grid">
+                      <div class="field">
+                        <label for="cc-exp">Expiry (MM/YY)</label>
+                        <input id="cc-exp" name="cc-exp" autocomplete="cc-exp" inputmode="numeric" maxlength="5" placeholder="MM/YY"
+                          [ngModel]="card.expiry" (ngModelChange)="card.expiry = formatExpiry($event)" />
+                      </div>
+                      <div class="field">
+                        <label for="cc-cvc">CVC</label>
+                        <input id="cc-cvc" name="cvc" autocomplete="cc-csc" inputmode="numeric" maxlength="4" placeholder="123" [(ngModel)]="card.cvc" />
+                      </div>
+                    </div>
+
+                    @if (error()) { <p class="alert error" role="alert">{{ error() }}</p> }
+
+                    <button class="btn primary block" type="submit" [disabled]="saving()">
+                      {{ saving() ? 'Processing payment...' : 'Pay ' + (q.amountDue | currency: 'GEL' : 'symbol-narrow') + ' and book' }}
+                    </button>
+                    <p class="muted small center">🔒 Your card details are sent securely and never stored. Free cancellation up to 2 hours before the visit.</p>
+                  </form>
+                } @else {
+                  <p class="muted">Your insurance covers this visit in full. Nothing to pay.</p>
+                  @if (error()) { <p class="alert error" role="alert">{{ error() }}</p> }
+                  <button class="btn primary" type="button" (click)="book()" [disabled]="saving()">
+                    {{ saving() ? 'Booking...' : 'Book this visit' }}
+                  </button>
+                }
+              } @else if (error()) {
+                <p class="alert error" role="alert">{{ error() }}</p>
+              }
+            </li>
+          }
         </ol>
-      } @else if (!error()) {
+      } @else if (error()) {
+        <p class="alert error" role="alert">{{ error() }}</p>
+      } @else {
         <p class="muted">Loading...</p>
       }
     }
@@ -113,9 +196,12 @@ export class BookPage {
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly booked = signal<Appointment | null>(null);
+  protected readonly quote = signal<BookingQuote | null>(null);
+  protected readonly quoteLoading = signal(false);
 
   protected readonly reason = new FormControl('', { nonNullable: true, validators: [Validators.maxLength(500)] });
   protected readonly patient = signal<PatientListItem | null>(null);
+  protected card: CardForm = { holderName: '', number: '', expiry: '', cvc: '' };
 
   protected readonly isStaff = computed(() => this.auth.hasRole('Admin', 'Receptionist'));
   protected readonly selectedService = computed(() =>
@@ -138,6 +224,36 @@ export class BookPage {
     if (this.isStaff() && patientId > 0) {
       this.patientsApi.get(patientId).subscribe({ next: p => this.patient.set(p) });
     }
+
+    // Patients: refresh the price whenever the service or time changes (insurance depends on the visit date).
+    effect(() => {
+      const serviceId = this.serviceId();
+      const start = this.start();
+      untracked(() => {
+        this.quote.set(null);
+        if (this.isStaff() || serviceId === null || start === null) return;
+        this.quoteLoading.set(true);
+        this.appointmentsApi.quote(serviceId, start).subscribe({
+          next: q => {
+            this.quote.set(q);
+            this.quoteLoading.set(false);
+          },
+          error: err => {
+            this.quoteLoading.set(false);
+            this.error.set(apiErrorMessage(err));
+          }
+        });
+      });
+    });
+  }
+
+  protected formatNumber(value: string): string {
+    return value.replace(/\D/g, '').slice(0, 19).replace(/(\d{4})(?=\d)/g, '$1 ');
+  }
+
+  protected formatExpiry(value: string): string {
+    const digits = value.replace(/\D/g, '').slice(0, 4);
+    return digits.length > 2 ? `${digits.slice(0, 2)}/${digits.slice(2)}` : digits;
   }
 
   protected book(): void {
@@ -150,6 +266,23 @@ export class BookPage {
       return;
     }
 
+    let card = null;
+    if (!this.isStaff() && this.quote()?.paymentRequired) {
+      const problem = this.checkCard();
+      if (problem) {
+        this.error.set(problem);
+        return;
+      }
+      const [month, year] = this.card.expiry.split('/').map(Number);
+      card = {
+        holderName: this.card.holderName.trim(),
+        number: this.card.number.replace(/\s/g, ''),
+        expiryMonth: month,
+        expiryYear: 2000 + year,
+        cvc: this.card.cvc.trim()
+      };
+    }
+
     this.saving.set(true);
     this.error.set(null);
 
@@ -159,12 +292,15 @@ export class BookPage {
         serviceId,
         startDateTime: start,
         reason: this.reason.value.trim() || null,
-        patientId: this.isStaff() ? this.patient()?.id ?? null : null
+        patientId: this.isStaff() ? this.patient()?.id ?? null : null,
+        card
       })
       .subscribe({
         next: appointment => {
           this.saving.set(false);
+          this.card = { holderName: '', number: '', expiry: '', cvc: '' };
           this.booked.set(appointment);
+          window.scrollTo({ top: 0 });
         },
         error: err => {
           this.saving.set(false);
@@ -172,4 +308,35 @@ export class BookPage {
         }
       });
   }
+
+  /** Quick checks before sending; the server checks the card again. */
+  private checkCard(): string | null {
+    if (!this.card.holderName.trim()) return 'Enter the name on the card.';
+    const digits = this.card.number.replace(/\D/g, '');
+    if (digits.length < 12 || !luhn(digits)) return 'The card number is not valid.';
+    const match = /^(\d{2})\/(\d{2})$/.exec(this.card.expiry);
+    if (!match) return 'Enter the expiry date as MM/YY.';
+    const month = Number(match[1]);
+    const year = 2000 + Number(match[2]);
+    const now = new Date();
+    if (month < 1 || month > 12) return 'The expiry month is not valid.';
+    if (year < now.getFullYear() || (year === now.getFullYear() && month < now.getMonth() + 1)) return 'The card has expired.';
+    if (!/^\d{3,4}$/.test(this.card.cvc.trim())) return 'The CVC is the 3 or 4 digits on the back of the card.';
+    return null;
+  }
+}
+
+function luhn(digits: string): boolean {
+  let sum = 0;
+  let double = false;
+  for (let i = digits.length - 1; i >= 0; i--) {
+    let d = Number(digits[i]);
+    if (double) {
+      d *= 2;
+      if (d > 9) d -= 9;
+    }
+    sum += d;
+    double = !double;
+  }
+  return sum % 10 === 0;
 }

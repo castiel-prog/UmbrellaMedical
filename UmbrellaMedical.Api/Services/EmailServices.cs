@@ -255,6 +255,20 @@ public static class EmailTemplates
         "Your invoice from Umbrella Medical Center",
         $"Hello {patient}, a new invoice was issued for your visit.{Nl}{Nl}Invoice number: {number}{Nl}Total: {total}{Nl}Due date: {due}{Nl}{Nl}You can see the details and payments in your account.");
 
+    public static EmailContent AccountDeactivated(string name, string reason, string date) => new(
+        "Your Umbrella Medical Center account has been deactivated",
+        $"Hello {name}, we are writing to let you know that your Umbrella Medical Center account has been deactivated. " +
+        $"You can no longer log in, book or manage visits online.{Nl}{Nl}" +
+        $"Reason: {reason}{Nl}Date: {date}{Nl}{Nl}" +
+        $"If you believe this is a mistake, or you would like this decision reviewed, please visit our reception desk or contact the clinic. " +
+        $"Please bring a photo ID so we can confirm your identity.{Nl}{Nl}" +
+        $"Your medical records are kept safe and have not been deleted.");
+
+    public static EmailContent AccountReactivated(string name) => new(
+        "Your Umbrella Medical Center account is active again",
+        $"Hello {name}, after reviewing your account we have reactivated it.{Nl}{Nl}" +
+        $"You can log in again and book or manage your visits online. Thank you for your patience.");
+
     public static EmailContent PaymentReceipt(string patient, string number, string amount, string method) => new(
         "Payment received, thank you",
         $"Hello {patient}, we received your payment.{Nl}{Nl}Invoice number: {number}{Nl}Amount paid: {amount}{Nl}Method: {method}{Nl}{Nl}Keep this email as your receipt.");

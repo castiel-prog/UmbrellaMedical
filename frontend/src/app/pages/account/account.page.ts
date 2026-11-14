@@ -5,16 +5,37 @@ import { AccountApi } from '../../core/account.api';
 import { AuthService } from '../../core/auth.service';
 import { AccountInfo } from '../../core/model';
 import { apiErrorMessage } from '../../core/api-error';
+import { ProfileService } from '../../core/profile.service';
+import { PhotoUploader } from '../../shared/photo-uploader';
+import { DoctorProfileEditor } from '../../shared/doctor-profile-editor';
 
 type Section = 'password' | 'email' | null;
 
 @Component({
   selector: 'app-account',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, PhotoUploader, DoctorProfileEditor],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <section class="auth-card wide">
-      <h1>My account</h1>
+    <section class="card profile-card">
+      <h1>My profile</h1>
+      <div class="profile-identity">
+        <app-photo-uploader />
+        <div>
+          <p class="profile-name">{{ profile.me()?.displayName ?? info()?.email }}</p>
+          <p class="muted">{{ info()?.role }}</p>
+        </div>
+      </div>
+    </section>
+
+    @if (info()?.role === 'Doctor') {
+      <section class="card profile-card">
+        <h2 class="no-rule">Public profile</h2>
+        <app-doctor-profile-editor />
+      </section>
+    }
+
+    <section class="card profile-card">
+      <h2 class="no-rule">Account</h2>
 
       @if (message()) {
         <p class="alert success" role="status">{{ message() }}</p>
@@ -121,6 +142,7 @@ export class AccountPage {
   private readonly api = inject(AccountApi);
   private readonly auth = inject(AuthService);
   private readonly fb = inject(FormBuilder);
+  protected readonly profile = inject(ProfileService);
 
   protected readonly info = signal<AccountInfo | null>(null);
   protected readonly loading = signal(true);
@@ -234,6 +256,7 @@ export class AccountPage {
       const info = account as AccountInfo;
       this.info.set(info);
       this.auth.updateEmail(info.email);
+      this.profile.set(info);
       this.emailCode.reset('');
       this.emailForm.reset();
       this.emailCodeSent.set(false);

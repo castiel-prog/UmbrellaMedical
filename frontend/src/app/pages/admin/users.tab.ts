@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminApi } from '../../core/admin.api';
@@ -51,7 +51,7 @@ import { Pager } from '../../shared/pager';
                 <td><span class="badge" [class.ok]="u.isActive" [class.muted-badge]="!u.isActive">{{ u.isActive ? 'Active' : 'Deactivated' }}</span></td>
                 <td class="right">
                   @if (u.isActive) {
-                    <button class="btn small danger" type="button" (click)="openId.set(u.id); reason = ''">Deactivate</button>
+                    <button class="btn small danger" type="button" (click)="startDeactivate(u)">Deactivate</button>
                   } @else {
                     <button class="btn small" type="button" (click)="setStatus(u, true)" [disabled]="busy()">Activate</button>
                   }
@@ -61,13 +61,33 @@ import { Pager } from '../../shared/pager';
                 <tr>
                   <td colspan="6">
                     <div class="inline-panel">
-                      <div class="field">
-                        <label [for]="'deact-' + u.id">Reason (optional, logged)</label>
-                        <input [id]="'deact-' + u.id" maxlength="500" [(ngModel)]="reason" />
+                      <p><strong>Deactivate {{ u.fullName ?? u.email }}</strong> ({{ u.role }})</p>
+                      <p class="muted small">
+                        They will be logged out and can no longer sign in. They receive an email with the reason below,
+                        asking them to visit or contact the clinic for a review. Their records are kept.
+                      </p>
+                      <div class="form-grid">
+                        <div class="field">
+                          <label [for]="'cause-' + u.id">Probable cause</label>
+                          <select [id]="'cause-' + u.id" [(ngModel)]="cause">
+                            <option value="" disabled>Choose a reason</option>
+                            @for (c of causes; track c) { <option [value]="c">{{ c }}</option> }
+                          </select>
+                        </div>
+                        <div class="field">
+                          <label [for]="'details-' + u.id">Details (sent to the account holder)</label>
+                          <textarea [id]="'details-' + u.id" rows="2" maxlength="400" [(ngModel)]="details"
+                            placeholder="For example: three missed appointments in October without cancelling."></textarea>
+                        </div>
                       </div>
+                      @if (fullReason(); as r) {
+                        <p class="muted small">Email will say: <em>Reason: {{ r }}</em></p>
+                      }
                       <div class="card-actions">
-                        <button class="btn small danger" type="button" (click)="setStatus(u, false)" [disabled]="busy()">Deactivate {{ u.email }}</button>
-                        <button class="btn small" type="button" (click)="openId.set(null)">Back</button>
+                        <button class="btn small danger" type="button" (click)="setStatus(u, false)" [disabled]="busy() || !canDeactivate()">
+                          Deactivate and send email
+                        </button>
+                        <button class="btn small" type="button" (click)="openId.set(null)">Cancel</button>
                       </div>
                     </div>
                   </td>
@@ -97,7 +117,37 @@ export class AdminUsersTab {
   protected search = '';
   protected role: Role | null = null;
   protected isActive: boolean | null = null;
-  protected reason = '';
+
+  protected readonly causes = [
+    'Suspected false or fraudulent registration details',
+    'Abusive or threatening behaviour towards staff or patients',
+    'Repeated missed appointments without cancelling',
+    'Misuse of online booking or payments',
+    'Duplicate account',
+    'Requested by the account holder',
+    'Other'
+  ];
+  private readonly causeSignal = signal('');
+  private readonly detailsSignal = signal('');
+
+  // Two-way bindings for the form, kept as signals so the preview updates as the admin types.
+  protected get cause(): string { return this.causeSignal(); }
+  protected set cause(value: string) { this.causeSignal.set(value); }
+  protected get details(): string { return this.detailsSignal(); }
+  protected set details(value: string) { this.detailsSignal.set(value); }
+
+  protected readonly fullReason = computed(() => {
+    const cause = this.causeSignal();
+    const details = this.detailsSignal().trim();
+    if (!cause) return null;
+    if (cause === 'Other') return details || null;
+    return details ? `${cause}. ${details}` : cause;
+  });
+
+  protected readonly canDeactivate = computed(() => {
+    const reason = this.fullReason();
+    return !!reason && reason.length >= 10 && this.detailsSignal().trim().length >= 5;
+  });
 
   constructor() {
     this.load();
@@ -108,15 +158,35 @@ export class AdminUsersTab {
     this.load();
   }
 
+  protected startDeactivate(u: UserListItem): void {
+    this.cause = '';
+    this.details = '';
+    this.error.set(null);
+    this.message.set(null);
+    this.openId.set(u.id);
+  }
+
   protected setStatus(u: UserListItem, isActive: boolean): void {
+    const reason = isActive ? null : orNull(this.fullReason());
+    if (!isActive && !this.canDeactivate()) {
+      this.error.set('Choose a probable cause and describe it in a few words.');
+      return;
+    }
+
     this.busy.set(true);
     this.error.set(null);
     this.message.set(null);
-    this.api.setUserStatus(u.id, isActive, isActive ? null : orNull(this.reason)).subscribe({
-      next: () => {
+    this.api.setUserStatus(u.id, isActive, reason).subscribe({
+      next: result => {
         this.busy.set(false);
         this.openId.set(null);
-        this.message.set(`${u.email} was ${isActive ? 'activated' : 'deactivated'}.`);
+        const who = u.fullName ?? u.email;
+        const parts = [`${who} was ${isActive ? 'reactivated' : 'deactivated'}.`];
+        if (result.emailSent === true) parts.push(`An email was sent to ${u.email}.`);
+        if (result.emailSent === false) parts.push(`The email to ${u.email} could not be sent; please contact them another way.`);
+        if (!isActive && result.futureAppointments > 0)
+          parts.push(`They still have ${result.futureAppointments} upcoming visit(s); review them on the Appointments page.`);
+        this.message.set(parts.join(' '));
         this.load();
       },
       error: err => {

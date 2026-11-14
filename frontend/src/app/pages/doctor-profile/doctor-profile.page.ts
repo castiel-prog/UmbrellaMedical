@@ -2,13 +2,15 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DoctorsApi } from '../../core/doctors.api';
+import { AuthService } from '../../core/auth.service';
 import { DoctorDetails, Review, ReviewSummary } from '../../core/model';
 import { apiErrorMessage } from '../../core/api-error';
 import { StarRating } from '../../core/star-rating';
+import { Certificate } from '../../shared/certificate';
 
 @Component({
   selector: 'app-doctor-profile',
-  imports: [RouterLink, DatePipe, CurrencyPipe, StarRating],
+  imports: [RouterLink, DatePipe, CurrencyPipe, StarRating, Certificate],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <a class="back" routerLink="/doctors">← All doctors</a>
@@ -34,13 +36,36 @@ import { StarRating } from '../../core/star-rating';
             <span class="muted">No reviews yet</span>
           }
         </div>
-        <a class="btn primary" [routerLink]="['/book', d.id]">Book a visit</a>
+        <div class="profile-actions">
+          <a class="btn primary" [routerLink]="['/book', d.id]">Book a visit</a>
+          @if (isPatient()) {
+            <a class="btn" routerLink="/health" [queryParams]="{ tab: 'prescriptions', request: 1, doctorId: d.id }">Request a prescription</a>
+          }
+        </div>
       </section>
 
       @if (d.bio) {
         <h2>About</h2>
         <p class="pre-line">{{ d.bio }}</p>
       }
+
+      <ul class="highlights">
+        <li><strong>{{ d.yearsOfExperience }}+</strong><span>years caring for patients</span></li>
+        <li><strong>✓</strong><span>Licensed &amp; credentials verified</span></li>
+        <li><strong>{{ d.services.length }}</strong><span>service{{ d.services.length === 1 ? '' : 's' }} offered</span></li>
+        @if (d.reviewCount > 0) {
+          <li><strong>{{ d.averageRating.toFixed(1) }} ★</strong><span>from {{ d.reviewCount }} patient review{{ d.reviewCount === 1 ? '' : 's' }}</span></li>
+        }
+      </ul>
+
+      <h2>Credentials</h2>
+      <p class="muted">Every Umbrella doctor's degree and licence is checked by our Credentialing Office.</p>
+      <div class="certificates">
+        <app-certificate kind="excellence" [doctor]="d" />
+        @for (e of d.educations; track $index) {
+          <app-certificate kind="degree" [doctor]="d" [education]="e" />
+        }
+      </div>
 
       <h2>Services and prices</h2>
       @if (d.services.length === 0) {
@@ -156,7 +181,10 @@ import { StarRating } from '../../core/star-rating';
 })
 export class DoctorProfilePage {
   private readonly api = inject(DoctorsApi);
+  private readonly auth = inject(AuthService);
   private readonly id = Number(inject(ActivatedRoute).snapshot.paramMap.get('id'));
+
+  protected readonly isPatient = computed(() => this.auth.hasRole('Patient'));
 
   protected readonly doctor = signal<DoctorDetails | null>(null);
   protected readonly summary = signal<ReviewSummary | null>(null);

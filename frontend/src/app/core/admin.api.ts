@@ -7,6 +7,14 @@ import {
 } from './model';
 import { queryParams } from './util';
 
+export interface UserStatusResult {
+  user: UserListItem;
+  /** Scheduled visits still in the future for this patient or doctor. */
+  futureAppointments: number;
+  /** Whether the account holder was emailed (null when the status did not change). */
+  emailSent: boolean | null;
+}
+
 export interface DepartmentRequest { name: string; description: string | null; }
 export interface RoomRequest { number: string; floor: number; type: RoomType; isActive: boolean; departmentId: number; }
 export interface ServiceRequest {
@@ -57,8 +65,8 @@ export class AdminApi {
   users(query: { role?: Role | null; isActive?: boolean | null; search?: string | null; page?: number; pageSize?: number }): Observable<PagedResult<UserListItem>> {
     return this.http.get<PagedResult<UserListItem>>('/api/admin/users', { params: queryParams({ ...query }) });
   }
-  setUserStatus(id: number, isActive: boolean, reason: string | null): Observable<void> {
-    return this.http.put<void>(`/api/admin/users/${id}/status`, { isActive, reason });
+  setUserStatus(id: number, isActive: boolean, reason: string | null): Observable<UserStatusResult> {
+    return this.http.put<UserStatusResult>(`/api/admin/users/${id}/status`, { isActive, reason });
   }
 
   // Reviews

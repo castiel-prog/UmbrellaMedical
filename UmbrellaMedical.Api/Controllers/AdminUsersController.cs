@@ -19,13 +19,19 @@ public class AdminUsersController : ControllerBase
     private readonly ICurrentUser _current;
     private readonly IAuditService _audit;
     private readonly IClinicClock _clock;
+    private readonly IEmailSender _email;
+    private readonly ILogger<AdminUsersController> _logger;
 
-    public AdminUsersController(UmbrellaDbContext db, ICurrentUser current, IAuditService audit, IClinicClock clock)
+    public AdminUsersController(
+        UmbrellaDbContext db, ICurrentUser current, IAuditService audit, IClinicClock clock,
+        IEmailSender email, ILogger<AdminUsersController> logger)
     {
         _db = db;
         _current = current;
         _audit = audit;
         _clock = clock;
+        _email = email;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -76,13 +82,16 @@ public class AdminUsersController : ControllerBase
                 statusCode: StatusCodes.Status409Conflict,
                 title: "Not allowed");
 
+        bool? emailSent = null;
+
         if (request.IsActive != user.IsActive)
         {
             if (!request.IsActive)
             {
-                if (string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Trim().Length < 3)
+                if (string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Trim().Length < 10)
                 {
-                    ModelState.AddModelError(nameof(request.Reason), "A reason is required when deactivating an account.");
+                    ModelState.AddModelError(nameof(request.Reason),
+                        "Give the reason for deactivating this account (at least 10 characters). It is sent to the account holder.");
                     return ValidationProblem(ModelState);
                 }
 
@@ -102,6 +111,16 @@ public class AdminUsersController : ControllerBase
                 request.IsActive ? "ActivatedUser" : "DeactivatedUser",
                 "User", id,
                 request.IsActive ? null : request.Reason!.Trim());
+
+            // Tell the account holder. A failed email never undoes the status change; the admin is told instead.
+            var name = await FirstNameAsync(id) ?? "there";
+            var mail = request.IsActive
+                ? EmailTemplates.AccountReactivated(name)
+                : EmailTemplates.AccountDeactivated(
+                    name,
+                    string.Join(' ', request.Reason!.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)).Trim(),
+                    _clock.Now.ToString("d MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture));
+            emailSent = await TrySendAsync(user.Id, user.Email, mail);
         }
 
         var now = _clock.Now;
@@ -126,7 +145,26 @@ public class AdminUsersController : ControllerBase
 
         var item = await Project(_db.Users.AsNoTracking().Where(u => u.Id == id)).FirstAsync();
 
-        return Ok(new { user = item, futureAppointments = future });
+        return Ok(new { user = item, futureAppointments = future, emailSent });
+    }
+
+    private async Task<string?> FirstNameAsync(int userId) =>
+        await _db.Patients.Where(p => p.UserId == userId).Select(p => p.FirstName).FirstOrDefaultAsync()
+        ?? await _db.Doctors.Where(d => d.UserId == userId).Select(d => "Dr. " + d.LastName).FirstOrDefaultAsync()
+        ?? await _db.Receptionists.Where(r => r.UserId == userId).Select(r => r.FirstName).FirstOrDefaultAsync();
+
+    private async Task<bool> TrySendAsync(int userId, string to, EmailContent mail)
+    {
+        try
+        {
+            await _email.SendAsync(to, mail.Subject, mail.Body, HttpContext.RequestAborted);
+            return true;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Could not send the account status email to user {UserId}.", userId);
+            return false;
+        }
     }
 
     private IQueryable<UserListItemDto> Project(IQueryable<DomainUser> query) =>

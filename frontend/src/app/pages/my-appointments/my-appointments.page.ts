@@ -68,6 +68,12 @@ type Mode = 'cancel' | 'reschedule' | 'review';
                 {{ a.startDateTime | date: 'EEEE, d MMMM y' }}, {{ a.startDateTime | date: 'HH:mm' }}–{{ a.endDateTime | date: 'HH:mm' }}
                 · {{ a.price | currency: 'GEL' : 'symbol-narrow' }}
               </p>
+              @if (a.amountPaid > 0 && a.status !== 'Cancelled') {
+                <p>
+                  <span class="badge ok">✓ Paid {{ a.amountPaid | currency: 'GEL' : 'symbol-narrow' }}</span>
+                  @if (a.invoiceId) { · <a [routerLink]="['/invoices', a.invoiceId]">Receipt</a> }
+                </p>
+              }
               @if (a.reason) {
                 <p><span class="muted">Reason:</span> {{ a.reason }}</p>
               }
@@ -81,9 +87,13 @@ type Mode = 'cancel' | 'reschedule' | 'review';
                   <button class="btn small danger" type="button" (click)="open(a.id, 'cancel')">Cancel</button>
                 </div>
               }
-              @if (a.status === 'Completed' && !isOpen(a.id) && !reviewed().has(a.id)) {
+              @if (a.status === 'Completed' && !isOpen(a.id)) {
                 <div class="card-actions">
-                  <button class="btn small primary" type="button" (click)="open(a.id, 'review')">Rate this visit</button>
+                  @if (!reviewed().has(a.id)) {
+                    <button class="btn small primary" type="button" (click)="open(a.id, 'review')">Rate this visit</button>
+                  }
+                  <a class="btn small" routerLink="/health"
+                    [queryParams]="{ tab: 'prescriptions', request: 1, doctorId: a.doctorId, appointmentId: a.id }">Request a prescription</a>
                 </div>
               }
               @if (reviewed().has(a.id)) {
@@ -92,6 +102,9 @@ type Mode = 'cancel' | 'reschedule' | 'review';
 
               @if (isOpen(a.id, 'cancel')) {
                 <div class="inline-panel">
+                  @if (a.amountPaid > 0) {
+                    <p>Your payment of <strong>{{ a.amountPaid | currency: 'GEL' : 'symbol-narrow' }}</strong> will be refunded to your card.</p>
+                  }
                   <div class="field">
                     <label [for]="'cancel-' + a.id">Why are you cancelling? (optional)</label>
                     <textarea [id]="'cancel-' + a.id" rows="2" maxlength="500" [(ngModel)]="cancelReason"></textarea>
@@ -219,7 +232,9 @@ export class MyAppointmentsPage {
   }
 
   protected cancel(a: Appointment): void {
-    this.run(this.api.cancel(a.id, this.cancelReason.trim() || null), 'The visit was cancelled.');
+    this.run(
+      this.api.cancel(a.id, this.cancelReason.trim() || null),
+      a.amountPaid > 0 ? 'The visit was cancelled and your payment was refunded to your card.' : 'The visit was cancelled.');
   }
 
   protected reschedule(a: Appointment): void {

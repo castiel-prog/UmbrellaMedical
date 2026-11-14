@@ -7,6 +7,7 @@ const LINKS = [
   { path: 'users', label: 'Users' },
   { path: 'staff', label: 'Staff' },
   { path: 'services', label: 'Services' },
+  { path: 'store', label: 'Store products' },
   { path: 'departments', label: 'Departments & rooms' },
   { path: 'insurers', label: 'Insurers' },
   { path: 'reviews', label: 'Reviews' }

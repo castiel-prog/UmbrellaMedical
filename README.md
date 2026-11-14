@@ -70,16 +70,40 @@ The dependency direction is Api -> Infrastructure -> Domain.
 
 The admin account is `admin@umbrella.local` with the password from `Seed:AdminPassword`. In Development, emails are printed to the console instead of being sent.
 
+### Demo staff
+In Development the API creates demo staff on start: two doctors per specialization (each offering every service of their department, working Mon–Fri 09:00–13:00 and 14:00–18:00, some also Saturday 10:00–14:00) and three receptionists. Existing people are skipped.
+
+**All staff accounts (admin, doctors, receptionists with an `@umbrella.local` email) share the password `Umbrella123` in Development** — set `Seed:DemoStaffPassword` to use a different one. Logins use `firstname.lastname@umbrella.local` plus the person's first and last name, for example `nino.beridze@umbrella.local` / Nino / Beridze / Umbrella123. The admin is `admin@umbrella.local` (any name). Outside Development nothing is defaulted: demo staff are only created when `Seed:DemoStaffPassword` is set.
+
+### Online payment (test mode)
+Patients pay for a visit by card when they book online (their share after insurance). The visit, a paid invoice and the payment are created together; cancelling it (or the clinic cancelling it) refunds the card automatically. Visits booked by staff are paid at the desk as before.
+
+Payments currently go through `TestPaymentGateway`, which moves no money. Test cards: `4242 4242 4242 4242` succeeds, `4000 0000 0000 0002` is declined, `4000 0000 0000 9995` has insufficient funds; any future expiry and any CVC. To take real payments, implement `IPaymentGateway` for your provider (Stripe, Bank of Georgia, TBC, ...) and register it in `Program.cs` instead.
+
+### Help chat
+The "Ask us" chat answers questions about doctors, services, prices, booking, payments and using the site. It never gives diagnoses or medicine advice, points emergencies to 112, and only uses public clinic facts from the database (never patient data).
+
+- **Without any key (default):** the built-in assistant (`RuleBasedChatAssistant`) recognises common questions by keywords, maps everyday symptoms to the right specialty, finds doctors by name and services by name, and answers from the live database. Free, instant, works offline. Labelled "AUTO".
+- **With a Claude API key (optional):** the chat switches to Claude (`claude-opus-5-5`) for free-form questions in any language, and falls back to the built-in assistant if a request fails. Labelled "AI". Add the key to User Secrets:
+  ```json
+  { "Anthropic": { "ApiKey": "sk-ant-..." } }
+  ```
+
+To teach the built-in assistant new words, edit the keyword lists at the top of `UmbrellaMedical.Api/Services/RuleBasedChatAssistant.cs`.
+
 ## Configuration
 | Setting | Purpose |
 |---|---|
 | `ConnectionStrings:DefaultConnection` | SQL Server connection |
 | `Jwt:Key`, `Jwt:Issuer`, `Jwt:Audience`, `Jwt:ExpiryMinutes` | Token signing (the key is a secret) |
 | `Seed:AdminPassword` | Password of the first admin account |
+| `Seed:DemoStaffPassword` | Shared password for demo staff. Defaults to `Umbrella123` in Development only; leave unset in production unless you want demo staff there |
 | `Email:Host`, `Email:Port`, `Email:Username`, `Email:Password`, `Email:FromAddress` | SMTP (for Gmail use an app password) |
 | `Clinic:TimeZone` | Clinic time zone, default `Asia/Tbilisi` |
 | `Reminders:Enabled`, `Reminders:HoursBefore`, `Reminders:CheckIntervalMinutes` | Appointment reminders |
 | `Cors:AllowedOrigins` | Origins allowed to call the API from a browser |
+| `Anthropic:ApiKey` | Optional. Claude API key for the AI help chat (or set `ANTHROPIC_API_KEY`). Without it the chat shows "not available". A secret: keep it in User Secrets or environment variables |
+| `RateLimiting:ChatPerMinute` | AI chat messages allowed per IP per minute (default 12) |
 | `RateLimiting:GlobalPerMinute`, `RateLimiting:AuthPerMinute` | Rate limits per IP |
 | `Storage:RootPath` | Folder for uploaded files, default `App_Data/uploads` |
 

@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using UmbrellaMedical.Domain.Entities;
+using UmbrellaMedical.Domain.Enums;
 
 namespace UmbrellaMedical.Infrastructure.Data;
 
@@ -74,6 +75,8 @@ public static class DbSeeder
             await db.SaveChangesAsync();
         }
 
+        await EnsureCatalogAsync(db);
+
         if (!await db.Diagnoses.AnyAsync())
         {
             db.Diagnoses.AddRange(
@@ -117,5 +120,164 @@ public static class DbSeeder
                 new InsuranceCompany { Name = "HealthShield" });
             await db.SaveChangesAsync();
         }
+
+        await EnsureMedicationsAsync(db);
+        await EnsureStoreAsync(db);
+        await EnsurePrescriptionCodesAsync(db);
+    }
+
+    /// <summary>Prescription-only medicines added with the store.</summary>
+    private static readonly (string Name, string Generic, string Form, string Strength)[] ExtraMedications =
+    {
+        ("Azithromycin", "Azithromycin", "Tablet", "500 mg"),
+        ("Metformin", "Metformin", "Tablet", "850 mg"),
+        ("Atorvastatin", "Atorvastatin", "Tablet", "20 mg"),
+        ("Sertraline", "Sertraline", "Tablet", "50 mg"),
+        ("Levothyroxine", "Levothyroxine", "Tablet", "50 mcg"),
+        ("Amlodipine", "Amlodipine", "Tablet", "5 mg")
+    };
+
+    private static async Task EnsureMedicationsAsync(UmbrellaDbContext db)
+    {
+        var existing = (await db.Medications.Select(m => m.Name).ToListAsync()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var m in ExtraMedications.Where(m => !existing.Contains(m.Name)))
+            db.Medications.Add(new Medication { Name = m.Name, GenericName = m.Generic, Form = m.Form, Strength = m.Strength });
+        if (db.ChangeTracker.HasChanges()) await db.SaveChangesAsync();
+    }
+
+    private sealed record SeedProduct(
+        string Name, ProductCategory Category, decimal Price, int Stock, string Unit, string Description, string? RxMedication = null);
+
+    private static readonly SeedProduct[] StoreProducts =
+    {
+        // Over-the-counter medicines
+        new("Paracetamol 500 mg", ProductCategory.Medicines, 3.50m, 120, "20 tablets", "For pain and fever. Follow the dose on the pack."),
+        new("Ibuprofen 400 mg", ProductCategory.Medicines, 5.90m, 90, "20 tablets", "Anti-inflammatory pain relief. Take with food."),
+        new("Cetirizine 10 mg", ProductCategory.Medicines, 6.40m, 60, "10 tablets", "Antihistamine for hay fever and allergy symptoms."),
+        new("Omeprazole 20 mg", ProductCategory.Medicines, 8.20m, 50, "14 capsules", "Short-term relief of heartburn."),
+        new("Throat lozenges", ProductCategory.Medicines, 4.80m, 80, "24 lozenges", "Honey and lemon lozenges for a sore throat."),
+        new("Saline nasal spray", ProductCategory.Medicines, 7.50m, 40, "20 ml", "Gentle saline spray to clear a blocked nose."),
+
+        // Prescription-only medicines
+        new("Amoxicillin 500 mg", ProductCategory.Medicines, 9.80m, 40, "21 capsules", "Antibiotic. Prescription required.", "Amoxicillin"),
+        new("Azithromycin 500 mg", ProductCategory.Medicines, 14.50m, 30, "3 tablets", "Antibiotic. Prescription required.", "Azithromycin"),
+        new("Metformin 850 mg", ProductCategory.Medicines, 7.90m, 50, "60 tablets", "For type 2 diabetes. Prescription required.", "Metformin"),
+        new("Atorvastatin 20 mg", ProductCategory.Medicines, 12.30m, 40, "30 tablets", "Lowers cholesterol. Prescription required.", "Atorvastatin"),
+        new("Sertraline 50 mg", ProductCategory.Medicines, 16.90m, 25, "28 tablets", "Antidepressant. Prescription required.", "Sertraline"),
+        new("Levothyroxine 50 mcg", ProductCategory.Medicines, 8.60m, 35, "50 tablets", "Thyroid hormone. Prescription required.", "Levothyroxine"),
+        new("Amlodipine 5 mg", ProductCategory.Medicines, 6.90m, 40, "30 tablets", "For high blood pressure. Prescription required.", "Amlodipine"),
+
+        // Vitamins
+        new("Vitamin C 1000 mg", ProductCategory.Vitamins, 11.90m, 70, "20 effervescent tablets", "Orange-flavoured vitamin C."),
+        new("Vitamin D3 2000 IU", ProductCategory.Vitamins, 13.50m, 60, "60 capsules", "Supports bones and the immune system."),
+        new("Magnesium + B6", ProductCategory.Vitamins, 12.80m, 50, "30 tablets", "Helps reduce tiredness."),
+
+        // Personal care
+        new("Unscented deodorant", ProductCategory.PersonalCare, 8.90m, 45, "50 ml roll-on", "Gentle 48-hour roll-on for sensitive skin."),
+        new("Sensitive toothpaste", ProductCategory.PersonalCare, 6.50m, 60, "75 ml", "For sensitive teeth, with fluoride."),
+        new("SPF 50 sunscreen", ProductCategory.PersonalCare, 24.90m, 30, "50 ml", "High protection for face and body."),
+        new("Moisturising hand cream", ProductCategory.PersonalCare, 7.20m, 40, "75 ml", "For dry and cracked hands."),
+
+        // Hygiene
+        new("Cotton pads", ProductCategory.Hygiene, 3.20m, 150, "100 pads", "Soft round cotton pads."),
+        new("Cotton swabs", ProductCategory.Hygiene, 2.80m, 120, "200 swabs", "Paper-stem cotton buds."),
+        new("Hand sanitiser gel", ProductCategory.Hygiene, 5.50m, 100, "100 ml", "70% alcohol, kills 99.9% of germs."),
+        new("Wet wipes", ProductCategory.Hygiene, 3.90m, 90, "72 wipes", "Fragrance-free, for sensitive skin."),
+        new("Face masks", ProductCategory.Hygiene, 6.00m, 200, "10 masks", "3-ply disposable face masks."),
+
+        // First aid
+        new("Plasters assortment", ProductCategory.FirstAid, 4.50m, 100, "40 plasters", "Assorted sizes, water-resistant."),
+        new("Elastic bandage", ProductCategory.FirstAid, 5.80m, 50, "8 cm x 4 m", "Support for sprains and strains."),
+        new("Antiseptic solution", ProductCategory.FirstAid, 4.20m, 70, "100 ml", "For cleaning small cuts and grazes."),
+        new("Sterile gauze pads", ProductCategory.FirstAid, 3.60m, 80, "10 pads", "Individually wrapped, 10 x 10 cm."),
+
+        // Devices
+        new("Digital thermometer", ProductCategory.Devices, 14.90m, 30, "1 piece", "Fast 10-second reading with fever alarm."),
+        new("Upper-arm blood pressure monitor", ProductCategory.Devices, 89.00m, 12, "1 piece", "Automatic monitor with memory for two users."),
+        new("Pulse oximeter", ProductCategory.Devices, 39.90m, 15, "1 piece", "Measures oxygen saturation and pulse at the fingertip.")
+    };
+
+    /// <summary>Adds any missing store product by name. Existing products (and their prices or stock) are left alone.</summary>
+    private static async Task EnsureStoreAsync(UmbrellaDbContext db)
+    {
+        var existing = (await db.Products.Select(p => p.Name).ToListAsync()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var medications = await db.Medications.ToDictionaryAsync(m => m.Name, m => m.Id, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var p in StoreProducts.Where(p => !existing.Contains(p.Name)))
+        {
+            db.Products.Add(new Product
+            {
+                Name = p.Name,
+                Category = p.Category,
+                Price = p.Price,
+                Stock = p.Stock,
+                Unit = p.Unit,
+                Description = p.Description,
+                RequiresPrescription = p.RxMedication is not null,
+                MedicationId = p.RxMedication is not null && medications.TryGetValue(p.RxMedication, out var medId) ? medId : null
+            });
+        }
+
+        if (db.ChangeTracker.HasChanges()) await db.SaveChangesAsync();
+    }
+
+    /// <summary>Gives a store code to prescriptions written before codes existed.</summary>
+    private static async Task EnsurePrescriptionCodesAsync(UmbrellaDbContext db)
+    {
+        var missing = await db.Prescriptions.Where(p => p.Code == null).ToListAsync();
+        foreach (var p in missing) p.Code = PrescriptionCodes.For(p.Id);
+        if (missing.Count > 0) await db.SaveChangesAsync();
+    }
+
+    private sealed record CatalogEntry(
+        string Specialization, string SpecializationDescription, string Department,
+        (string Name, decimal Price, int Minutes)[] Services);
+
+    /// <summary>Specializations added after the first release, each with its department and services.</summary>
+    private static readonly CatalogEntry[] ExtraCatalog =
+    {
+        new("Neurologist", "Brain, nerves, headaches and sleep problems", "Neurology",
+            new[] { ("Neurology consultation", 90m, 30), ("EEG", 110m, 45) }),
+        new("Orthopedist", "Bones, joints, back and sports injuries", "Orthopedics",
+            new[] { ("Orthopedic consultation", 85m, 30), ("Joint injection", 120m, 30) }),
+        new("Ophthalmologist", "Eyes and vision", "Ophthalmology",
+            new[] { ("Eye examination", 70m, 30), ("Vision test", 40m, 20) }),
+        new("Otolaryngologist (ENT)", "Ear, nose and throat", "ENT",
+            new[] { ("ENT consultation", 70m, 30), ("Hearing test", 60m, 30) }),
+        new("Gynecologist", "Women's health and pregnancy care", "Gynecology",
+            new[] { ("Gynecological consultation", 80m, 30), ("Pelvic ultrasound", 90m, 30) }),
+        new("Psychiatrist", "Mental health: anxiety, depression, sleep and stress", "Psychiatry",
+            new[] { ("Psychiatric consultation", 100m, 50), ("Follow-up therapy session", 90m, 50) }),
+        new("Endocrinologist", "Hormones, diabetes and thyroid", "Endocrinology",
+            new[] { ("Endocrinology consultation", 85m, 30), ("Thyroid ultrasound", 80m, 30) }),
+        new("Urologist", "Kidneys, bladder and men's health", "Urology",
+            new[] { ("Urology consultation", 80m, 30), ("Urinary tract ultrasound", 85m, 30) })
+    };
+
+    /// <summary>Adds any missing specialization, department or service by name. Existing rows are left alone.</summary>
+    private static async Task EnsureCatalogAsync(UmbrellaDbContext db)
+    {
+        var specializations = await db.Specializations.Select(s => s.Name).ToListAsync();
+        var departments = await db.Departments.ToDictionaryAsync(d => d.Name, d => d);
+        var services = (await db.Services.Select(s => s.Name).ToListAsync()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var entry in ExtraCatalog)
+        {
+            if (!specializations.Contains(entry.Specialization, StringComparer.OrdinalIgnoreCase))
+                db.Specializations.Add(new Specialization { Name = entry.Specialization, Description = entry.SpecializationDescription });
+
+            if (!departments.TryGetValue(entry.Department, out var department))
+            {
+                department = new Department { Name = entry.Department };
+                db.Departments.Add(department);
+                departments[entry.Department] = department;
+            }
+
+            foreach (var (name, price, minutes) in entry.Services)
+                if (services.Add(name))
+                    db.Services.Add(new Service { Name = name, Price = price, DurationMinutes = minutes, Department = department });
+        }
+
+        if (db.ChangeTracker.HasChanges()) await db.SaveChangesAsync();
     }
 }

@@ -27,10 +27,14 @@ namespace UmbrellaMedical.Api.Controllers
         private readonly IClinicClock _clock;
         private readonly IAppointmentSlotService _slots;
         private readonly INotificationService _notifications;
+        private readonly IPrepaidBookingService _prepaid;
+        private readonly IPaymentGateway _gateway;
+        private readonly ILogger<AppointmentsController> _logger;
 
         public AppointmentsController(
             UmbrellaDbContext db, ICurrentUser current, IAuditService audit,
-            IClinicClock clock, IAppointmentSlotService slots, INotificationService notifications)
+            IClinicClock clock, IAppointmentSlotService slots, INotificationService notifications,
+            IPrepaidBookingService prepaid, IPaymentGateway gateway, ILogger<AppointmentsController> logger)
         {
             _db = db;
             _current = current;
@@ -38,9 +42,13 @@ namespace UmbrellaMedical.Api.Controllers
             _clock = clock;
             _slots = slots;
             _notifications = notifications;
+            _prepaid = prepaid;
+            _gateway = gateway;
+            _logger = logger;
         }
 
-        private static readonly Expression<Func<Appointment, AppointmentDto>> Projection = a => new AppointmentDto
+        // Instance (not static) so the query can look up the visit's invoice in the same SQL statement.
+        private Expression<Func<Appointment, AppointmentDto>> Projection => a => new AppointmentDto
         {
             Id = a.Id,
             StartDateTime = a.StartDateTime,
@@ -57,8 +65,52 @@ namespace UmbrellaMedical.Api.Controllers
             ServiceId = a.ServiceId,
             ServiceName = a.Service.Name,
             Price = a.Service.Price,
-            DurationMinutes = a.Service.DurationMinutes
+            DurationMinutes = a.Service.DurationMinutes,
+            InvoiceId = _db.Invoices
+                .Where(i => i.AppointmentId == a.Id && i.Status != InvoiceStatus.Cancelled)
+                .Select(i => (int?)i.Id)
+                .FirstOrDefault(),
+            AmountPaid = _db.Payments
+                .Where(p => p.Invoice.AppointmentId == a.Id
+                            && p.Invoice.Status != InvoiceStatus.Cancelled
+                            && p.Status == PaymentStatus.Completed)
+                .Sum(p => (decimal?)p.Amount) ?? 0m
         };
+
+        /// <summary>What the patient will pay up front for this service at this time (after insurance).</summary>
+        [HttpGet("quote")]
+        [Authorize(Roles = "Admin,Receptionist,Patient")]
+        public async Task<ActionResult<BookingQuoteDto>> Quote(
+            [FromQuery] int serviceId, [FromQuery] DateTime startDateTime, [FromQuery] int? patientId)
+        {
+            int resolvedPatientId;
+            if (_current.Role == "Patient")
+            {
+                var own = await _current.GetPatientIdAsync();
+                if (own is null) return Forbid();
+                resolvedPatientId = own.Value;
+            }
+            else
+            {
+                if (patientId is null) return Invalid(nameof(patientId), "Patient is required.");
+                resolvedPatientId = patientId.Value;
+            }
+
+            var service = await _db.Services.AsNoTracking().FirstOrDefaultAsync(s => s.Id == serviceId && s.IsActive);
+            if (service is null) return Invalid(nameof(serviceId), "This service does not exist or is not active.");
+
+            var quote = await _prepaid.QuoteAsync(resolvedPatientId, service, _clock.ToClinicTime(startDateTime));
+            return Ok(new BookingQuoteDto
+            {
+                Price = quote.Price,
+                InsuranceCoverage = quote.InsuranceCoverage,
+                AmountDue = quote.AmountDue,
+                InsuranceCompany = quote.InsuranceCompany,
+                CoveragePercent = quote.CoveragePercent,
+                PaymentRequired = _current.Role == "Patient" && quote.AmountDue > 0,
+                TestMode = _gateway.IsTestMode
+            });
+        }
 
         [HttpGet("~/api/doctors/{doctorId:int}/slots")]
         public async Task<ActionResult<SlotsResponse>> GetSlots(
@@ -119,6 +171,10 @@ namespace UmbrellaMedical.Api.Controllers
                 if (patientId is not null) query = query.Where(a => a.PatientId == patientId);
             }
 
+            // Cancelled visits are gone for doctors and reception; only admins (and the patient, in their own history) see them.
+            if (!CanSeeCancelled())
+                query = query.Where(a => a.Status != AppointmentStatus.Cancelled);
+
             if (status is not null) query = query.Where(a => a.Status == status);
             if (from is not null)
             {
@@ -155,6 +211,7 @@ namespace UmbrellaMedical.Api.Controllers
         {
             var appointment = await _db.Appointments.AsNoTracking().FirstOrDefaultAsync(a => a.Id == id);
             if (appointment is null) return NotFound();
+            if (appointment.Status == AppointmentStatus.Cancelled && !CanSeeCancelled()) return NotFound();
             if (!await CanAccessAsync(appointment)) return Forbid();
 
             return Ok(await LoadDtoAsync(id));
@@ -197,7 +254,16 @@ namespace UmbrellaMedical.Api.Controllers
             if (windowError is not null) return windowError;
 
             var end = start.AddMinutes(service.DurationMinutes);
+
+            // Patients booking online pay up front (their share after insurance). Staff bookings are paid at the desk.
+            var prepaid = _current.Role == "Patient";
+            var quote = prepaid ? await _prepaid.QuoteAsync(patientId, service, start) : null;
+            if (quote is { AmountDue: > 0 } && request.Card is null)
+                return Invalid("card", "Please pay for the visit to complete the booking.");
+
             int newId;
+            string? chargeReference = null;
+            var committed = false;
 
             try
             {
@@ -212,6 +278,25 @@ namespace UmbrellaMedical.Api.Controllers
                         detail: "This patient already has an appointment at this time.",
                         statusCode: StatusCodes.Status409Conflict,
                         title: "Overlapping appointment");
+
+                // Charge only once the time is confirmed free, so a taken slot never costs the patient anything.
+                if (quote is { AmountDue: > 0 })
+                {
+                    var card = request.Card!;
+                    var charge = await _gateway.ChargeAsync(
+                        quote.AmountDue,
+                        new CardDetails(card.Number, card.ExpiryMonth, card.ExpiryYear, card.Cvc, card.HolderName),
+                        $"{service.Name} on {NotificationText.When(start)}",
+                        HttpContext.RequestAborted);
+
+                    if (!charge.Success)
+                        return Problem(
+                            detail: charge.Error,
+                            statusCode: StatusCodes.Status402PaymentRequired,
+                            title: "Payment failed");
+
+                    chargeReference = charge.Reference;
+                }
 
                 var appointment = new Appointment
                 {
@@ -229,12 +314,38 @@ namespace UmbrellaMedical.Api.Controllers
 
                 _db.Appointments.Add(appointment);
                 await _db.SaveChangesAsync();
+
+                if (quote is not null)
+                    await _prepaid.CreatePaidInvoiceAsync(appointment, service, quote, chargeReference);
+
+                // Tell the doctor about the new visit (saved in the same transaction).
+                var patientName = await PatientNameAsync(patientId);
+                var what = _current.Role == "Patient"
+                    ? $"{patientName} booked {service.Name} with you"
+                    : $"The clinic booked {service.Name} for {patientName} with you";
+                var reasonText = string.IsNullOrWhiteSpace(appointment.Reason) ? "" : $" Reason: {appointment.Reason}";
+                if (await QueueForDoctorAsync(appointment.DoctorId, "New appointment booked",
+                        $"{what} on {NotificationText.When(start)}.{reasonText}",
+                        appointment.Id))
+                    await _db.SaveChangesAsync();
+
                 await tx.CommitAsync();
+                committed = true;
                 newId = appointment.Id;
             }
             catch (SqlException ex) when (ex.Number == 1205)
             {
                 return SlotTaken();
+            }
+            finally
+            {
+                // The card was charged but the booking did not go through: give the money back.
+                if (!committed && chargeReference is not null && quote is not null)
+                {
+                    var refunded = await _gateway.RefundAsync(chargeReference, quote.AmountDue, CancellationToken.None);
+                    if (!refunded)
+                        _logger.LogError("Booking failed after charging {Reference}, and the automatic refund failed.", chargeReference);
+                }
             }
 
             await _audit.LogAsync("CreatedAppointment", nameof(Appointment), newId);
@@ -279,12 +390,17 @@ namespace UmbrellaMedical.Api.Controllers
                         statusCode: StatusCodes.Status409Conflict,
                         title: "Overlapping appointment");
 
+                var previousStart = appointment.StartDateTime;
                 appointment.StartDateTime = start;
                 appointment.EndDateTime = end;
                 appointment.ReminderSent = false;
 
                 if (_current.Role != "Patient")
                     await QueueForPatientAsync(appointment.PatientId, "Appointment rescheduled", $"Your appointment was moved to {NotificationText.When(start)}.", appointment.Id);
+
+                await QueueForDoctorAsync(appointment.DoctorId, "Appointment rescheduled",
+                    $"{await PatientNameAsync(appointment.PatientId)}'s {appointment.Service.Name} visit moved from {NotificationText.When(previousStart)} to {NotificationText.When(start)}.",
+                    appointment.Id);
 
                 await _db.SaveChangesAsync();
                 await tx.CommitAsync();
@@ -323,8 +439,19 @@ namespace UmbrellaMedical.Api.Controllers
                 ? $"Cancelled by {_current.Role}"
                 : reason.Trim();
 
-            if (_current.Role != "Patient")
-                await QueueForPatientAsync(appointment.PatientId, "Appointment cancelled", $"Your appointment on {NotificationText.When(appointment.StartDateTime)} was cancelled. Reason: {appointment.CancellationReason}", appointment.Id);
+            // A visit paid online is refunded in full when it is cancelled.
+            var refunded = await _prepaid.RefundForCancelledVisitAsync(appointment.Id, HttpContext.RequestAborted);
+            var refundText = refunded > 0 ? $" Your payment of {CardValidation.Money(refunded)} GEL was refunded to your card." : "";
+
+            await QueueForPatientAsync(appointment.PatientId, "Appointment cancelled",
+                _current.Role == "Patient"
+                    ? $"You cancelled your appointment on {NotificationText.When(appointment.StartDateTime)}.{refundText}"
+                    : $"Your appointment on {NotificationText.When(appointment.StartDateTime)} was cancelled. Reason: {appointment.CancellationReason}.{refundText}",
+                appointment.Id);
+
+            await QueueForDoctorAsync(appointment.DoctorId, "Appointment cancelled",
+                $"{await PatientNameAsync(appointment.PatientId)}'s visit on {NotificationText.When(appointment.StartDateTime)} was cancelled. Reason: {appointment.CancellationReason}",
+                appointment.Id);
 
             await _db.SaveChangesAsync();
             await _audit.LogAsync("CancelledAppointment", nameof(Appointment), id);
@@ -424,6 +551,9 @@ namespace UmbrellaMedical.Api.Controllers
             return null;
         }
 
+        /// <summary>Admins see every visit; patients see their own history. Doctors and reception never see cancelled visits.</summary>
+        private bool CanSeeCancelled() => _current.Role is "Admin" or "Patient";
+
         private Task<bool> PatientHasOverlapAsync(int patientId, DateTime start, DateTime end, int? excludeId) =>
             _db.Appointments.AnyAsync(a => a.PatientId == patientId
                                            && a.Status != AppointmentStatus.Cancelled
@@ -457,6 +587,29 @@ namespace UmbrellaMedical.Api.Controllers
             if (userId is not null)
                 _notifications.Queue(userId.Value, title, message, appointmentId);
         }
+
+        /// <summary>
+        /// Queues a notification for the doctor's account, unless the doctor made the change themselves.
+        /// Returns true when a notification was queued.
+        /// </summary>
+        private async Task<bool> QueueForDoctorAsync(int doctorId, string title, string message, int? appointmentId)
+        {
+            var userId = await _db.Doctors
+                .Where(d => d.Id == doctorId)
+                .Select(d => (int?)d.UserId)
+                .FirstOrDefaultAsync();
+
+            if (userId is null || userId == _current.UserId) return false;
+
+            _notifications.Queue(userId.Value, title, message, appointmentId);
+            return true;
+        }
+
+        private async Task<string> PatientNameAsync(int patientId) =>
+            await _db.Patients
+                .Where(p => p.Id == patientId)
+                .Select(p => p.FirstName + " " + p.LastName)
+                .FirstOrDefaultAsync() ?? "A patient";
 
         private Task<AppointmentDto?> LoadDtoAsync(int id) =>
             _db.Appointments.AsNoTracking().Where(a => a.Id == id).Select(Projection).FirstOrDefaultAsync();

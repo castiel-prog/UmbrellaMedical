@@ -54,6 +54,12 @@ namespace UmbrellaMedical.Infrastructure.Data
         public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
         public DbSet<DoctorReview> DoctorReviews => Set<DoctorReview>();
 
+        // Store and prescription requests
+        public DbSet<Product> Products => Set<Product>();
+        public DbSet<StoreOrder> StoreOrders => Set<StoreOrder>();
+        public DbSet<StoreOrderItem> StoreOrderItems => Set<StoreOrderItem>();
+        public DbSet<PrescriptionRequest> PrescriptionRequests => Set<PrescriptionRequest>();
+
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
            
@@ -74,6 +80,7 @@ namespace UmbrellaMedical.Infrastructure.Data
 
             modelBuilder.Entity<Role>().HasIndex(r => r.Name).IsUnique();
             modelBuilder.Entity<User>().HasIndex(u => u.Email).IsUnique();
+            modelBuilder.Entity<User>().Property(u => u.PhotoKey).HasMaxLength(300);
             modelBuilder.Entity<Patient>().HasIndex(p => p.PersonalNumber).IsUnique();
             modelBuilder.Entity<Doctor>().HasIndex(d => d.LicenseNumber).IsUnique();
             modelBuilder.Entity<Diagnosis>().HasIndex(d => d.Code).IsUnique();
@@ -90,6 +97,25 @@ namespace UmbrellaMedical.Infrastructure.Data
 
            
             modelBuilder.Entity<DoctorReview>().HasIndex(r => r.AppointmentId).IsUnique();
+
+            // Store
+            modelBuilder.Entity<Product>().Property(p => p.Name).HasMaxLength(150);
+            modelBuilder.Entity<Product>().Property(p => p.Description).HasMaxLength(1000);
+            modelBuilder.Entity<Product>().Property(p => p.Unit).HasMaxLength(50);
+            modelBuilder.Entity<Product>().HasIndex(p => p.Name).IsUnique();
+            modelBuilder.Entity<StoreOrder>().Property(o => o.OrderNumber).HasMaxLength(30);
+            modelBuilder.Entity<StoreOrder>().HasIndex(o => o.OrderNumber).IsUnique();
+            modelBuilder.Entity<StoreOrder>().Property(o => o.PaymentReference).HasMaxLength(100);
+            modelBuilder.Entity<StoreOrder>().Property(o => o.ReviewNote).HasMaxLength(500);
+            modelBuilder.Entity<StoreOrderItem>().Property(i => i.ProductName).HasMaxLength(150);
+            modelBuilder.Entity<StoreOrderItem>().HasIndex(i => new { i.PrescriptionId, i.ProductId });
+
+            // Prescriptions
+            modelBuilder.Entity<Prescription>().Property(p => p.Code).HasMaxLength(20);
+            modelBuilder.Entity<Prescription>().HasIndex(p => p.Code).IsUnique().HasFilter("[Code] IS NOT NULL");
+            modelBuilder.Entity<PrescriptionRequest>().Property(r => r.Message).HasMaxLength(1000);
+            modelBuilder.Entity<PrescriptionRequest>().Property(r => r.DecisionNote).HasMaxLength(500);
+            modelBuilder.Entity<PrescriptionRequest>().HasIndex(r => new { r.DoctorId, r.Status });
         }
     }
 }

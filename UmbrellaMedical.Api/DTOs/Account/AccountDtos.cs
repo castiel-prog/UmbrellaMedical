@@ -7,6 +7,8 @@ public class AccountInfoDto
     public string Email { get; set; } = string.Empty;
     public bool EmailConfirmed { get; set; }
     public string Role { get; set; } = string.Empty;
+    public string? DisplayName { get; set; }
+    public string? PhotoUrl { get; set; }
 }
 
 public class VerifyEmailRequest

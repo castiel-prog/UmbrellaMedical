@@ -6,6 +6,7 @@ using UmbrellaMedical.Api.Dtos.Prescriptions;
 using UmbrellaMedical.Api.DTOs.Common;
 using UmbrellaMedical.Api.Services;
 using UmbrellaMedical.Domain.Entities;
+using UmbrellaMedical.Domain.Enums;
 using UmbrellaMedical.Infrastructure.Data;
 
 namespace UmbrellaMedical.Api.Controllers;
@@ -37,13 +38,20 @@ public class PrescriptionsController : ControllerBase
         _clock = clock;
     }
 
-    private static Expression<Func<Prescription, PrescriptionDto>> Projection(DateTime now) => p => new PrescriptionDto
+    private Expression<Func<Prescription, PrescriptionDto>> Projection(DateTime now) => p => new PrescriptionDto
     {
         Id = p.Id,
         IssuedDate = p.IssuedDate,
         ExpiryDate = p.ExpiryDate,
         IsActive = p.ExpiryDate >= now,
         Instructions = p.Instructions,
+        Code = p.Code,
+        UsedFor = _db.StoreOrderItems
+            .Where(i => i.PrescriptionId == p.Id
+                        && i.StoreOrder.Status != StoreOrderStatus.Cancelled
+                        && i.StoreOrder.Status != StoreOrderStatus.Rejected)
+            .Select(i => i.ProductName)
+            .ToList(),
         PatientId = p.PatientId,
         PatientName = p.Patient.FirstName + " " + p.Patient.LastName,
         DoctorId = p.DoctorId,
@@ -63,10 +71,14 @@ public class PrescriptionsController : ControllerBase
             .ToList()
     };
 
+    /// <summary>
+    /// Prescription history. Patients see their own; reception and admins see all; doctors see those they wrote and
+    /// those of their patients (a visit that was not cancelled, or a prescription request sent to them).
+    /// </summary>
     [HttpGet("prescriptions")]
-    [Authorize(Roles = "Admin,Doctor,Patient")]
+    [Authorize(Roles = "Admin,Receptionist,Doctor,Patient")]
     public async Task<ActionResult<PagedResult<PrescriptionDto>>> GetAll(
-        [FromQuery] int? patientId, [FromQuery] bool? activeOnly,
+        [FromQuery] int? patientId, [FromQuery] bool? activeOnly, [FromQuery] string? search,
         [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
         page = Math.Max(page, 1);
@@ -87,10 +99,24 @@ public class PrescriptionsController : ControllerBase
             {
                 var doctorId = await _current.GetDoctorIdAsync();
                 if (doctorId is null) return Forbid();
-                query = query.Where(p => p.DoctorId == doctorId.Value);
+                var did = doctorId.Value;
+                query = query.Where(p => p.DoctorId == did
+                                         || _db.Appointments.Any(a => a.PatientId == p.PatientId && a.DoctorId == did && a.Status != AppointmentStatus.Cancelled)
+                                         || _db.PrescriptionRequests.Any(r => r.PatientId == p.PatientId && r.DoctorId == did));
             }
 
             if (patientId is not null) query = query.Where(p => p.PatientId == patientId);
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = search.Trim();
+                var code = PrescriptionCodes.Normalize(term);
+                query = query.Where(p => (p.Patient.FirstName + " " + p.Patient.LastName).Contains(term)
+                                         || p.Patient.PersonalNumber.Contains(term)
+                                         || (p.Code != null && p.Code.Contains(code)));
+            }
+
+            await _audit.LogAsync("ViewedPrescriptionList", nameof(Prescription), null, search);
         }
 
         if (activeOnly == true) query = query.Where(p => p.ExpiryDate >= now);
@@ -114,7 +140,7 @@ public class PrescriptionsController : ControllerBase
     }
 
     [HttpGet("prescriptions/{id:int}")]
-    [Authorize(Roles = "Admin,Doctor,Patient")]
+    [Authorize(Roles = "Admin,Receptionist,Doctor,Patient")]
     public async Task<ActionResult<PrescriptionDto>> GetById(int id)
     {
         var patientId = await _db.Prescriptions.AsNoTracking()
@@ -123,7 +149,7 @@ public class PrescriptionsController : ControllerBase
             .FirstOrDefaultAsync();
 
         if (patientId is null) return NotFound();
-        if (!await _access.CanAccessAsync(patientId.Value)) return Forbid();
+        if (!await CanViewPrescriptionsAsync(patientId.Value)) return Forbid();
 
         if (_current.Role != "Patient")
             await _audit.LogAsync("ViewedPrescription", nameof(Prescription), id);
@@ -132,13 +158,13 @@ public class PrescriptionsController : ControllerBase
     }
 
     [HttpGet("patients/{patientId:int}/prescriptions")]
-    [Authorize(Roles = "Admin,Doctor,Patient")]
+    [Authorize(Roles = "Admin,Receptionist,Doctor,Patient")]
     public async Task<ActionResult<PagedResult<PrescriptionDto>>> GetForPatient(
         int patientId, [FromQuery] bool? activeOnly,
         [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
         if (!await _db.Patients.AnyAsync(p => p.Id == patientId)) return NotFound();
-        if (!await _access.CanAccessAsync(patientId)) return Forbid();
+        if (!await CanViewPrescriptionsAsync(patientId)) return Forbid();
 
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
@@ -227,9 +253,11 @@ public class PrescriptionsController : ControllerBase
             });
         }
 
-        var warnings = await BuildAllergyWarningsAsync(request.PatientId, medications);
+        var warnings = await BuildAllergyWarningsAsync(_db, request.PatientId, medications);
 
         _db.Prescriptions.Add(prescription);
+        await _db.SaveChangesAsync();
+        prescription.Code = PrescriptionCodes.For(prescription.Id);
         await _db.SaveChangesAsync();
         await _audit.LogAsync("IssuedPrescription", nameof(Prescription), prescription.Id);
 
@@ -239,9 +267,26 @@ public class PrescriptionsController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = prescription.Id }, dto);
     }
 
-    private async Task<List<string>> BuildAllergyWarningsAsync(int patientId, List<Medication> medications)
+    /// <summary>Reception and admins see every patient's prescriptions; doctors their patients and those who asked them; patients their own.</summary>
+    private async Task<bool> CanViewPrescriptionsAsync(int patientId)
     {
-        var allergyNames = await _db.PatientAllergies.AsNoTracking()
+        if (_current.Role == "Receptionist") return true;
+        if (await _access.CanAccessAsync(patientId)) return true;
+
+        if (_current.Role == "Doctor")
+        {
+            var doctorId = await _current.GetDoctorIdAsync();
+            return doctorId is not null
+                   && await _db.PrescriptionRequests.AnyAsync(r => r.PatientId == patientId && r.DoctorId == doctorId.Value);
+        }
+
+        return false;
+    }
+
+    /// <summary>Warnings when a patient's recorded allergies clash with the medicines being prescribed.</summary>
+    public static async Task<List<string>> BuildAllergyWarningsAsync(UmbrellaDbContext db, int patientId, List<Medication> medications)
+    {
+        var allergyNames = await db.PatientAllergies.AsNoTracking()
             .Where(pa => pa.PatientId == patientId)
             .Select(pa => pa.Allergy.Name)
             .ToListAsync();

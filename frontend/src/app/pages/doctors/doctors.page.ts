@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { Subject, catchError, debounceTime, distinctUntilChanged, of, switchMap, tap } from 'rxjs';
 import { DoctorsApi } from '../../core/doctors.api';
 import { DoctorListItem, PagedResult, Specialization } from '../../core/model';
@@ -76,6 +77,10 @@ export class DoctorsPage {
     Math.max(1, Math.ceil((this.result()?.totalCount ?? 0) / this.pageSize)));
 
   constructor() {
+    // Links such as /doctors?specializationId=3 (from the home page) open the list already filtered.
+    const preset = Number(inject(ActivatedRoute).snapshot.queryParamMap.get('specializationId'));
+    if (preset > 0) this.specializationId.setValue(preset, { emitEvent: false });
+
     this.api.specializations().subscribe({
       next: items => this.specializations.set(items),
       error: () => this.specializations.set([])

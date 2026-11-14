@@ -54,6 +54,8 @@ export interface AccountInfo {
   email: string;
   emailConfirmed: boolean;
   role: Role;
+  displayName: string | null;
+  photoUrl: string | null;
 }
 
 export interface MessageResponse {
@@ -86,6 +88,10 @@ export interface DoctorService {
 
 export interface DoctorDetails extends DoctorListItem {
   bio: string | null;
+  licenseNumber: string;
+  memberSince: string;
+  /** Only filled for the doctor's own profile (GET /api/doctors/me). */
+  phone?: string | null;
   educations: Education[];
   experiences: Experience[];
   services: DoctorService[];
@@ -141,6 +147,17 @@ export interface Appointment {
   serviceName: string;
   price: number;
   durationMinutes: number;
+  /** The visit's active invoice, if any (prepaid online or billed at the desk). */
+  invoiceId: number | null;
+  amountPaid: number;
+}
+
+export interface PaymentCard {
+  number: string;
+  expiryMonth: number;
+  expiryYear: number;
+  cvc: string;
+  holderName: string;
 }
 
 export interface CreateAppointmentRequest {
@@ -149,6 +166,24 @@ export interface CreateAppointmentRequest {
   startDateTime: string;
   reason: string | null;
   patientId?: number | null;
+  card?: PaymentCard | null;
+}
+
+export interface BookingQuote {
+  price: number;
+  insuranceCoverage: number;
+  amountDue: number;
+  insuranceCompany: string | null;
+  coveragePercent: number | null;
+  paymentRequired: boolean;
+  testMode: boolean;
+}
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  /** Follow-up questions offered as buttons under an assistant reply. */
+  suggestions?: string[];
 }
 
 // ---------- Patients ----------
@@ -176,7 +211,16 @@ export interface PatientDetails extends PatientListItem {
   address: string | null;
   medicalHistory: string | null;
   createdAt: string;
+  photoUrl: string | null;
   allergies: PatientAllergy[];
+}
+
+export interface UpdateDoctorProfileRequest {
+  bio: string | null;
+  phone: string | null;
+  yearsOfExperience: number;
+  educations: Education[];
+  experiences: Experience[];
 }
 
 export interface PatientRequest {
@@ -283,8 +327,124 @@ export interface Prescription {
   doctorId: number;
   doctorName: string;
   medicalRecordId: number | null;
+  /** Code the patient enters in the store for prescription-only medicines. */
+  code: string | null;
+  /** Store products already bought with this prescription. */
+  usedFor: string[];
   items: PrescriptionItem[];
   warnings: string[];
+}
+
+// ---------- Store ----------
+export type ProductCategory = 'Medicines' | 'Vitamins' | 'PersonalCare' | 'Hygiene' | 'FirstAid' | 'Devices';
+export type StoreOrderStatus = 'AwaitingReview' | 'ReadyForPickup' | 'Completed' | 'Rejected' | 'Cancelled';
+export type PrescriptionRequestStatus = 'Pending' | 'Approved' | 'Declined' | 'Withdrawn';
+
+export interface Product {
+  id: number;
+  name: string;
+  description: string | null;
+  unit: string | null;
+  category: ProductCategory;
+  price: number;
+  stock: number;
+  isActive: boolean;
+  requiresPrescription: boolean;
+  medicationId: number | null;
+  medicationName: string | null;
+}
+
+export interface ProductRequest {
+  name: string;
+  description: string | null;
+  unit: string | null;
+  category: ProductCategory;
+  price: number;
+  stock: number;
+  isActive: boolean;
+  requiresPrescription: boolean;
+  medicationId: number | null;
+}
+
+export interface UsablePrescription {
+  id: number;
+  code: string;
+  doctorName: string;
+  issuedDate: string;
+  expiryDate: string;
+}
+
+export interface StoreOrderItem {
+  productId: number;
+  productName: string;
+  requiresPrescription: boolean;
+  unitPrice: number;
+  quantity: number;
+  lineTotal: number;
+  prescriptionCode: string | null;
+}
+
+export interface StoreOrder {
+  id: number;
+  orderNumber: string;
+  status: StoreOrderStatus;
+  total: number;
+  createdAt: string;
+  paidAt: string | null;
+  paymentReference: string | null;
+  refunded: boolean;
+  patientId: number;
+  patientName: string;
+  patientPersonalNumber: string;
+  prescriptionDocumentId: number | null;
+  prescriptionFileName: string | null;
+  reviewNote: string | null;
+  reviewedAt: string | null;
+  completedAt: string | null;
+  items: StoreOrderItem[];
+}
+
+export interface CreateStoreOrder {
+  items: { productId: number; quantity: number; prescriptionCode: string | null }[];
+  prescriptionDocumentId: number | null;
+  card: PaymentCard;
+}
+
+export interface PrescriptionRequestItem {
+  id: number;
+  status: PrescriptionRequestStatus;
+  message: string;
+  decisionNote: string | null;
+  createdAt: string;
+  reviewedAt: string | null;
+  patientId: number;
+  patientName: string;
+  doctorId: number;
+  doctorName: string;
+  specialization: string;
+  appointmentId: number | null;
+  appointmentDate: string | null;
+  appointmentService: string | null;
+  medicationId: number | null;
+  medicationName: string | null;
+  prescriptionId: number | null;
+  prescriptionCode: string | null;
+}
+
+export interface CreatePrescriptionRequestBody {
+  doctorId: number;
+  appointmentId: number | null;
+  medicationId: number | null;
+  message: string;
+}
+
+export interface ApprovePrescriptionRequestBody {
+  medicationId: number;
+  dosage: string;
+  frequency: string;
+  durationDays: number;
+  validDays: number;
+  instructions: string | null;
 }
 
 export interface CreatePrescriptionRequest {
@@ -296,7 +456,7 @@ export interface CreatePrescriptionRequest {
 }
 
 // ---------- Documents ----------
-export type DocumentType = 'LabResult' | 'XRay' | 'Ultrasound' | 'Other';
+export type DocumentType = 'LabResult' | 'XRay' | 'Ultrasound' | 'Other' | 'Prescription';
 
 export interface MedicalDocument {
   id: number;

@@ -136,6 +136,13 @@ function emptyItem(): ItemForm {
                 <li><strong>{{ i.medicationName }}</strong> {{ i.strength }} {{ i.form }} — {{ i.dosage }}, {{ i.frequency }}, {{ i.durationDays }} days</li>
               }
             </ul>
+            @if (p.code) {
+              <p class="small">
+                Store code: <strong class="code-text">{{ p.code }}</strong>
+                @if (p.usedFor.length > 0) { <span class="muted"> · already used for {{ p.usedFor.join(', ') }}</span> }
+                @else if (p.isActive && !showPatient()) { <span class="muted"> · use it to buy this medicine in the store</span> }
+              </p>
+            }
             @if (p.instructions) { <p class="pre-line"><span class="muted">Instructions:</span> {{ p.instructions }}</p> }
             @for (w of p.warnings; track w) { <p class="alert warn small-alert">{{ w }}</p> }
           </li>

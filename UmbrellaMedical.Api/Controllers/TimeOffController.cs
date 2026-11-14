@@ -23,16 +23,18 @@ public class TimeOffController : ControllerBase
     private readonly IAuditService _audit;
     private readonly IClinicClock _clock;
     private readonly INotificationService _notifications;
+    private readonly IPrepaidBookingService _prepaid;
 
     public TimeOffController(
         UmbrellaDbContext db, ICurrentUser current, IAuditService audit,
-        IClinicClock clock, INotificationService notifications)
+        IClinicClock clock, INotificationService notifications, IPrepaidBookingService prepaid)
     {
         _db = db;
         _current = current;
         _audit = audit;
         _clock = clock;
         _notifications = notifications;
+        _prepaid = prepaid;
     }
 
     private static readonly Expression<Func<TimeOff, TimeOffDto>> Projection = t => new TimeOffDto
@@ -235,11 +237,15 @@ public class TimeOffController : ControllerBase
             appointment.Status = AppointmentStatus.Cancelled;
             appointment.CancellationReason = "The doctor is on leave";
 
+            // Visits paid online are refunded in full.
+            var refunded = await _prepaid.RefundForCancelledVisitAsync(appointment.Id, HttpContext.RequestAborted);
+            var refundText = refunded > 0 ? $" Your payment of {CardValidation.Money(refunded)} GEL was refunded to your card." : "";
+
             if (appointment.Patient.UserId is int patientUserId)
                 _notifications.Queue(
                     patientUserId,
                     "Appointment cancelled",
-                    $"Your appointment on {NotificationText.When(appointment.StartDateTime)} was cancelled because the doctor is on leave. Please book a new time.",
+                    $"Your appointment on {NotificationText.When(appointment.StartDateTime)} was cancelled because the doctor is on leave. Please book a new time.{refundText}",
                     appointment.Id);
         }
 

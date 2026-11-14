@@ -11,12 +11,38 @@ import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { apiErrorMessage } from '../../core/api-error';
 import { Gender } from '../../core/model';
+import { toDateInput } from '../../core/util';
 
-const notInFuture: ValidatorFn = (control: AbstractControl): ValidationErrors | null => {
+const MINIMUM_AGE = 18;
+
+/** Date of birth must be a real past date, and the person at least 18 today (their 18th birthday counts). */
+const adultDateOfBirth: ValidatorFn = (control: AbstractControl): ValidationErrors | null => {
   const value = control.value as string;
   if (!value) return null;
-  return value > new Date().toISOString().slice(0, 10) ? { future: true } : null;
+
+  const [year, month, day] = value.split('-').map(Number);
+  if (!year || !month || !day) return { invalidDate: true };
+
+  const today = new Date();
+  const todayKey = toKey(today.getFullYear(), today.getMonth() + 1, today.getDate());
+  const birthKey = toKey(year, month, day);
+
+  if (birthKey > todayKey) return { future: true };
+  if (year < today.getFullYear() - 120) return { invalidDate: true };
+  // Same rule as the server: someone born on 29 February counts from 28 February in non-leap years.
+  const adultYear = year + MINIMUM_AGE;
+  const adultDay = month === 2 && day === 29 && !isLeapYear(adultYear) ? 28 : day;
+  if (toKey(adultYear, month, adultDay) > todayKey) return { underage: true };
+  return null;
 };
+
+function isLeapYear(year: number): boolean {
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+}
+
+function toKey(year: number, month: number, day: number): number {
+  return year * 10000 + month * 100 + day;
+}
 
 const passwordsMatch: ValidatorFn = (group: AbstractControl): ValidationErrors | null => {
   const password = group.get('password')?.value;
@@ -31,7 +57,10 @@ const passwordsMatch: ValidatorFn = (group: AbstractControl): ValidationErrors |
   template: `
     <section class="auth-card wide">
       <h1>Create your account</h1>
-      <p class="muted">Patients can register themselves. Doctors and staff accounts are created by the clinic.</p>
+      <p class="muted">
+        Patients aged 18 or over can register themselves. Children are registered by a parent or guardian at the reception desk.
+        Doctors and staff accounts are created by the clinic.
+      </p>
 
       @if (error()) {
         <p class="alert error" role="alert">{{ error() }}</p>
@@ -65,9 +94,19 @@ const passwordsMatch: ValidatorFn = (group: AbstractControl): ValidationErrors |
           </div>
           <div class="field">
             <label for="dateOfBirth">Date of birth</label>
-            <input id="dateOfBirth" type="date" formControlName="dateOfBirth" autocomplete="bday" />
+            <input id="dateOfBirth" type="date" formControlName="dateOfBirth" autocomplete="bday" [max]="today"
+              [attr.aria-invalid]="invalid('dateOfBirth')" aria-describedby="dob-error" />
             @if (invalid('dateOfBirth')) {
-              <p class="field-error">Choose a valid date of birth in the past.</p>
+              <p class="field-error" id="dob-error" role="alert">
+                @switch (true) {
+                  @case (dateError('underage')) {
+                    You must be at least 18 years old to create an account. A parent or guardian can register a child at the clinic's reception desk.
+                  }
+                  @case (dateError('future')) { The date of birth cannot be in the future. }
+                  @case (dateError('required')) { Date of birth is required. }
+                  @default { Please check the date of birth. }
+                }
+              </p>
             }
           </div>
         </div>
@@ -141,7 +180,7 @@ export class RegisterPage {
       firstName: ['', [Validators.required, Validators.maxLength(100)]],
       lastName: ['', [Validators.required, Validators.maxLength(100)]],
       personalNumber: ['', [Validators.required, Validators.minLength(5), Validators.maxLength(20)]],
-      dateOfBirth: ['', [Validators.required, notInFuture]],
+      dateOfBirth: ['', [Validators.required, adultDateOfBirth]],
       gender: ['' as Gender | '', Validators.required],
       phone: ['', Validators.maxLength(30)],
       email: ['', [Validators.required, Validators.email, Validators.maxLength(256)]],
@@ -150,6 +189,12 @@ export class RegisterPage {
     },
     { validators: passwordsMatch }
   );
+
+  protected readonly today = toDateInput(new Date());
+
+  protected dateError(code: string): boolean {
+    return this.form.controls.dateOfBirth.hasError(code);
+  }
 
   protected invalid(name: string): boolean {
     const control = this.form.get(name);

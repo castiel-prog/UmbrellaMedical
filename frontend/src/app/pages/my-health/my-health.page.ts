@@ -11,6 +11,7 @@ import { RecordsPanel } from '../../shared/records-panel';
 import { PrescriptionsPanel } from '../../shared/prescriptions-panel';
 import { DocumentsPanel } from '../../shared/documents-panel';
 import { InsurancePanel } from '../../shared/insurance-panel';
+import { PrescriptionRequests } from '../../shared/prescription-requests';
 
 type Tab = 'profile' | 'records' | 'prescriptions' | 'documents' | 'insurance';
 const TABS: { id: Tab; label: string }[] = [
@@ -23,7 +24,7 @@ const TABS: { id: Tab; label: string }[] = [
 
 @Component({
   selector: 'app-my-health',
-  imports: [FormsModule, DatePipe, AllergiesPanel, RecordsPanel, PrescriptionsPanel, DocumentsPanel, InsurancePanel],
+  imports: [FormsModule, DatePipe, AllergiesPanel, RecordsPanel, PrescriptionsPanel, DocumentsPanel, InsurancePanel, PrescriptionRequests],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <h1>My health</h1>
@@ -88,7 +89,11 @@ const TABS: { id: Tab; label: string }[] = [
           }
         }
         @case ('records') { <app-records-panel [patientId]="p.id" /> }
-        @case ('prescriptions') { <app-prescriptions-panel [patientId]="p.id" /> }
+        @case ('prescriptions') {
+          <app-prescription-requests />
+          <h3 class="section-gap">Your prescriptions</h3>
+          <app-prescriptions-panel [patientId]="p.id" />
+        }
         @case ('documents') { <app-documents-panel [patientId]="p.id" [canUpload]="true" /> }
         @case ('insurance') { <app-insurance-panel [patientId]="p.id" /> }
       }

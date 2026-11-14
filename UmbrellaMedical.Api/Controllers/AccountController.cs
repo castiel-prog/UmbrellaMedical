@@ -234,7 +234,12 @@ public class AccountController : ControllerBase
             {
                 Email = u.Email,
                 EmailConfirmed = u.EmailConfirmed,
-                Role = u.Role.Name
+                Role = u.Role.Name,
+                PhotoUrl = u.PhotoKey == null ? null : "/api/photos/" + u.Id,
+                DisplayName =
+                    _db.Doctors.Where(d => d.UserId == u.Id).Select(d => "Dr. " + d.FirstName + " " + d.LastName).FirstOrDefault()
+                    ?? _db.Patients.Where(p => p.UserId == u.Id).Select(p => p.FirstName + " " + p.LastName).FirstOrDefault()
+                    ?? _db.Receptionists.Where(r => r.UserId == u.Id).Select(r => r.FirstName + " " + r.LastName).FirstOrDefault()
             })
             .FirstOrDefaultAsync();
 

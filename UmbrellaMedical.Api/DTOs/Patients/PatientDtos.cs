@@ -35,6 +35,7 @@ namespace UmbrellaMedical.Api.DTOs.Patients
         public string? Address { get; set; }
         public string? MedicalHistory { get; set; }
         public DateTime CreatedAt { get; set; }
+        public string? PhotoUrl { get; set; }
         public List<PatientAllergyDto> Allergies { get; set; } = new();
     }
 

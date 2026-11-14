@@ -55,8 +55,9 @@ public class DocumentsController : ControllerBase
 
         if (_current.Role == "Patient")
         {
-            if (request.Type != DocumentType.LabResult && request.Type != DocumentType.Other)
-                return Invalid(nameof(request.Type), "Patients can upload only lab results or other documents.");
+            // Patients may also upload a paper prescription, e.g. to buy a prescription-only medicine in the store.
+            if (request.Type is not (DocumentType.LabResult or DocumentType.Other or DocumentType.Prescription))
+                return Invalid(nameof(request.Type), "Patients can upload only lab results, prescriptions or other documents.");
 
             if (request.MedicalRecordId is not null)
                 return Invalid(nameof(request.MedicalRecordId), "Patients cannot attach files to a doctor's record.");

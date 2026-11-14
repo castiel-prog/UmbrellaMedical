@@ -15,20 +15,33 @@ namespace UmbrellaMedical.Api.Controllers
         [Route("api/[controller]")]
            public class AuthController : ControllerBase
         {
+            /// <summary>People must be at least this old to create their own account online.</summary>
+            public const int MinimumRegistrationAge = 18;
+
             private readonly UmbrellaDbContext _db;
             private readonly IJwtTokenService _tokenService;
+            private readonly IClinicClock _clock;
 
-            public AuthController(UmbrellaDbContext db, IJwtTokenService tokenService)
+            public AuthController(UmbrellaDbContext db, IJwtTokenService tokenService, IClinicClock clock)
             {
                 _db = db;
                 _tokenService = tokenService;
+                _clock = clock;
             }
 
-           
+
             [HttpPost("register")]
         [EnableRateLimiting("auth")]
         public async Task<ActionResult<AuthResponse>> Register(RegisterRequest request)
             {
+                var today = DateOnly.FromDateTime(_clock.Now);
+                var ageError = CheckAge(request.DateOfBirth, today);
+                if (ageError is not null)
+                {
+                    ModelState.AddModelError(nameof(request.DateOfBirth), ageError);
+                    return ValidationProblem(ModelState);
+                }
+
                 var email = request.Email.Trim().ToLowerInvariant();
 
                 if (await _db.Users.AnyAsync(u => u.Email == email))
@@ -115,6 +128,21 @@ namespace UmbrellaMedical.Api.Controllers
                         r.UserId == user.Id && r.FirstName.ToLower() == first && r.LastName.ToLower() == last),
                     _ => true 
                 };
+            }
+
+            /// <summary>Returns why this date of birth can't register online, or null when it can.</summary>
+            public static string? CheckAge(DateOnly dateOfBirth, DateOnly today)
+            {
+                if (dateOfBirth == default) return "Date of birth is required.";
+                if (dateOfBirth > today) return "The date of birth cannot be in the future.";
+                if (dateOfBirth < today.AddYears(-120)) return "Please check the date of birth.";
+
+                // The 18th birthday counts as 18. (Someone born on 29 February counts from 28 February in non-leap years.)
+                if (dateOfBirth.AddYears(MinimumRegistrationAge) > today)
+                    return $"You must be at least {MinimumRegistrationAge} years old to create an account. " +
+                           "A parent or guardian can register a child as a patient at the clinic's reception desk.";
+
+                return null;
             }
 
             private AuthResponse BuildResponse(User user) => new()

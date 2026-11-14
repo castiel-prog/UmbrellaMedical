@@ -14,6 +14,7 @@ import { Pager } from '../../shared/pager';
 import { SlotPicker } from '../../shared/slot-picker';
 
 type Mode = 'complete' | 'cancel' | 'reschedule' | 'invoice';
+type Preset = 'upcoming' | 'today' | 'tomorrow' | 'week' | 'past';
 interface ExtraItem { description: string; quantity: number; unitPrice: number; }
 
 @Component({
@@ -29,24 +30,24 @@ interface ExtraItem { description: string; quantity: number; unitPrice: number; 
     </div>
 
     <div class="toolbar">
-      <div class="card-actions tight">
-        <button class="btn small" type="button" (click)="preset(0, 0)">Today</button>
-        <button class="btn small" type="button" (click)="preset(1, 1)">Tomorrow</button>
-        <button class="btn small" type="button" (click)="preset(0, 6)">Next 7 days</button>
-        <button class="btn small" type="button" (click)="preset(-7, -1)">Past 7 days</button>
+      <div class="card-actions tight" role="group" aria-label="Quick date ranges">
+        @for (p of presets; track p.id) {
+          <button class="btn small" type="button" [class.primary]="activePreset() === p.id"
+            [attr.aria-pressed]="activePreset() === p.id" (click)="preset(p.id)">{{ p.label }}</button>
+        }
       </div>
     </div>
 
     <div class="filters">
-      <div class="field"><label for="ad-from">From</label><input id="ad-from" type="date" [(ngModel)]="from" (change)="reload()" /></div>
-      <div class="field"><label for="ad-to">To</label><input id="ad-to" type="date" [(ngModel)]="to" (change)="reload()" /></div>
+      <div class="field"><label for="ad-from">From</label><input id="ad-from" type="date" [(ngModel)]="from" (change)="customRange()" /></div>
+      <div class="field"><label for="ad-to">To (empty = no end)</label><input id="ad-to" type="date" [(ngModel)]="to" (change)="customRange()" /></div>
       <div class="field">
         <label for="ad-status">Status</label>
         <select id="ad-status" [(ngModel)]="status" (ngModelChange)="reload()">
           <option [ngValue]="null">All</option>
           <option value="Scheduled">Scheduled</option>
           <option value="Completed">Completed</option>
-          <option value="Cancelled">Cancelled</option>
+          @if (isAdmin()) { <option value="Cancelled">Cancelled</option> }
           <option value="NoShow">Missed</option>
         </select>
       </div>
@@ -67,7 +68,10 @@ interface ExtraItem { description: string; quantity: number; unitPrice: number; 
 
     @if (result(); as data) {
       @if (data.items.length === 0) {
-        <p class="empty card muted">No appointments in this period.</p>
+        <p class="empty card muted">
+          No appointments in this period.
+          @if (activePreset() !== 'upcoming') { <button class="btn small" type="button" (click)="preset('upcoming')">Show all upcoming</button> }
+        </p>
       }
       <ul class="appt-list" [class.dim]="loading()">
         @for (a of data.items; track a.id) {
@@ -89,6 +93,7 @@ interface ExtraItem { description: string; quantity: number; unitPrice: number; 
               <p class="muted">
                 {{ a.startDateTime | date: 'EEE d MMM' }}, {{ a.startDateTime | date: 'HH:mm' }}–{{ a.endDateTime | date: 'HH:mm' }}
                 · {{ a.price | currency: 'GEL' : 'symbol-narrow' }}
+                @if (a.amountPaid > 0 && a.status !== 'Cancelled') { · <span class="badge ok">Paid {{ a.amountPaid | currency: 'GEL' : 'symbol-narrow' }}</span> }
               </p>
               @if (a.reason) { <p><span class="muted">Reason:</span> {{ a.reason }}</p> }
               @if (a.notes) { <p class="pre-line"><span class="muted">Notes:</span> {{ a.notes }}</p> }
@@ -105,7 +110,9 @@ interface ExtraItem { description: string; quantity: number; unitPrice: number; 
                   @if (isDoctor() && a.status !== 'Cancelled') {
                     <a class="btn small" [routerLink]="['/patients', a.patientId]" [queryParams]="{ tab: 'records' }">Medical record</a>
                   }
-                  @if (canBill() && a.status === 'Completed') {
+                  @if (canBill() && a.invoiceId) {
+                    <a class="btn small" [routerLink]="['/invoices', a.invoiceId]">View invoice</a>
+                  } @else if (canBill() && a.status === 'Completed') {
                     <button class="btn small primary" type="button" (click)="open(a, 'invoice')">Create invoice</button>
                   }
                 </div>
@@ -184,6 +191,7 @@ export class AppointmentsDeskPage {
   private readonly router = inject(Router);
 
   protected readonly isDoctor = computed(() => this.auth.hasRole('Doctor'));
+  protected readonly isAdmin = computed(() => this.auth.hasRole('Admin'));
   protected readonly canComplete = computed(() => this.auth.hasRole('Doctor', 'Admin'));
   protected readonly canBook = computed(() => this.auth.hasRole('Receptionist', 'Admin'));
   protected readonly canBill = computed(() => this.auth.hasRole('Receptionist', 'Admin'));
@@ -200,8 +208,18 @@ export class AppointmentsDeskPage {
   protected readonly newStart = signal<string | null>(null);
   protected readonly extras = signal<ExtraItem[]>([]);
 
+  protected readonly presets: { id: Preset; label: string }[] = [
+    { id: 'upcoming', label: 'Upcoming' },
+    { id: 'today', label: 'Today' },
+    { id: 'tomorrow', label: 'Tomorrow' },
+    { id: 'week', label: 'Next 7 days' },
+    { id: 'past', label: 'Past 7 days' }
+  ];
+  protected readonly activePreset = signal<Preset | null>('upcoming');
+
+  // Default: everything from today on, soonest first, so new bookings are never hidden.
   protected from = toDateInput(new Date());
-  protected to = toDateInput(new Date());
+  protected to = '';
   protected status: AppointmentStatus | null = null;
   protected doctorId: number | null = null;
   protected text = '';
@@ -214,9 +232,22 @@ export class AppointmentsDeskPage {
     }
   }
 
-  protected preset(fromOffset: number, toOffset: number): void {
-    this.from = toDateInput(addDays(new Date(), fromOffset));
-    this.to = toDateInput(addDays(new Date(), toOffset));
+  protected preset(id: Preset): void {
+    const day = (offset: number) => toDateInput(addDays(new Date(), offset));
+    const ranges: Record<Preset, [string, string]> = {
+      upcoming: [day(0), ''],
+      today: [day(0), day(0)],
+      tomorrow: [day(1), day(1)],
+      week: [day(0), day(6)],
+      past: [day(-7), day(-1)]
+    };
+    [this.from, this.to] = ranges[id];
+    this.activePreset.set(id);
+    this.reload();
+  }
+
+  protected customRange(): void {
+    this.activePreset.set(null);
     this.reload();
   }
 

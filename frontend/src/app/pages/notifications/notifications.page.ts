@@ -44,8 +44,12 @@ import { Pager } from '../../shared/pager';
               }
             </div>
             <p class="pre-line">{{ n.message }}</p>
-            @if (n.appointmentId && isPatient()) {
-              <a routerLink="/appointments">View my appointments</a>
+            @if (n.appointmentId) {
+              @if (isPatient()) {
+                <a routerLink="/appointments">View my appointments</a>
+              } @else if (isStaff()) {
+                <a routerLink="/desk">{{ isDoctor() ? 'Open my schedule' : 'Open appointments' }}</a>
+              }
             }
           </li>
         }
@@ -72,6 +76,14 @@ export class NotificationsPage {
 
   protected isPatient(): boolean {
     return this.auth.hasRole('Patient');
+  }
+
+  protected isDoctor(): boolean {
+    return this.auth.hasRole('Doctor');
+  }
+
+  protected isStaff(): boolean {
+    return this.auth.hasRole('Doctor', 'Receptionist', 'Admin');
   }
 
   protected filter(unreadOnly: boolean): void {

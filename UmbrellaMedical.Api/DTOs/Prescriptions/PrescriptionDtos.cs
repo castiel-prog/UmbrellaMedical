@@ -20,11 +20,15 @@ public class PrescriptionDto
     public DateTime ExpiryDate { get; set; }
     public bool IsActive { get; set; }
     public string? Instructions { get; set; }
+    /// <summary>Code the patient enters in the store to buy prescription-only medicines.</summary>
+    public string? Code { get; set; }
     public int PatientId { get; set; }
     public string PatientName { get; set; } = string.Empty;
     public int DoctorId { get; set; }
     public string DoctorName { get; set; } = string.Empty;
     public int? MedicalRecordId { get; set; }
+    /// <summary>Names of store products already bought with this prescription.</summary>
+    public List<string> UsedFor { get; set; } = new();
     public List<PrescriptionItemDto> Items { get; set; } = new();
     public List<string> Warnings { get; set; } = new();
 }

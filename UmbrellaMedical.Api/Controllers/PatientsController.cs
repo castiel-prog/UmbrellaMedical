@@ -4,6 +4,7 @@ using UmbrellaMedical.Api.DTOs.Common;
 using UmbrellaMedical.Api.DTOs.Patients;
 using UmbrellaMedical.Api.Services;
 using UmbrellaMedical.Domain.Entities;
+using UmbrellaMedical.Domain.Enums;
 using UmbrellaMedical.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -41,7 +42,8 @@ namespace UmbrellaMedical.Api.Controllers
                 var doctorId = await _current.GetDoctorIdAsync();
                 if (doctorId is null) return Forbid();
                 var did = doctorId.Value;
-                query = query.Where(p => p.Appointments.Any(a => a.DoctorId == did));
+                // A doctor's patients are those with a visit that was not cancelled.
+                query = query.Where(p => p.Appointments.Any(a => a.DoctorId == did && a.Status != AppointmentStatus.Cancelled));
             }
 
             if (!string.IsNullOrWhiteSpace(search))
@@ -212,7 +214,8 @@ namespace UmbrellaMedical.Api.Controllers
                         var doctorId = await _current.GetDoctorIdAsync();
                         if (doctorId is null) return false;
                         var did = doctorId.Value;
-                        return await _db.Appointments.AnyAsync(a => a.PatientId == patientId && a.DoctorId == did);
+                        return await _db.Appointments.AnyAsync(a => a.PatientId == patientId && a.DoctorId == did
+                                                                    && a.Status != AppointmentStatus.Cancelled);
                     }
 
                 case "Patient":
@@ -246,6 +249,7 @@ namespace UmbrellaMedical.Api.Controllers
                     Address = p.Address,
                     MedicalHistory = p.MedicalHistory,
                     CreatedAt = p.CreatedAt,
+                    PhotoUrl = p.User != null && p.User.PhotoKey != null ? "/api/photos/" + p.UserId : null,
                     Allergies = p.PatientAllergies
                         .Select(pa => new PatientAllergyDto
                         {

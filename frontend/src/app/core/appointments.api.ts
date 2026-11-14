@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { Appointment, AppointmentStatus, CreateAppointmentRequest, PagedResult, Review } from './model';
+import { Appointment, AppointmentStatus, BookingQuote, CreateAppointmentRequest, PagedResult, Review } from './model';
 
 export interface AppointmentQuery {
   status?: AppointmentStatus | null;
@@ -33,6 +33,12 @@ export class AppointmentsApi {
 
   get(id: number): Observable<Appointment> {
     return this.http.get<Appointment>(`/api/appointments/${id}`);
+  }
+
+  quote(serviceId: number, startDateTime: string, patientId: number | null = null): Observable<BookingQuote> {
+    let params = new HttpParams().set('serviceId', serviceId).set('startDateTime', startDateTime);
+    if (patientId) params = params.set('patientId', patientId);
+    return this.http.get<BookingQuote>('/api/appointments/quote', { params });
   }
 
   book(request: CreateAppointmentRequest): Observable<Appointment> {

@@ -43,9 +43,50 @@ namespace UmbrellaMedical.Api.DTOs.Doctors
     public class DoctorDetailsDto : DoctorListItemDto
     {
         public string? Bio { get; set; }
+        public string LicenseNumber { get; set; } = string.Empty;
+        public string? Phone { get; set; }
+        public DateTime MemberSince { get; set; }
         public List<EducationDto> Educations { get; set; } = new();
         public List<ExperienceDto> Experiences { get; set; } = new();
         public List<DoctorServiceDto> Services { get; set; } = new();
+    }
+
+    public class EducationInput
+    {
+        [Required(ErrorMessage = "Institution is required."), StringLength(200)]
+        public string Institution { get; set; } = string.Empty;
+        [Required(ErrorMessage = "Degree is required."), StringLength(200)]
+        public string Degree { get; set; } = string.Empty;
+        [Range(1950, 2100)]
+        public int StartYear { get; set; }
+        [Range(1950, 2100)]
+        public int GraduationYear { get; set; }
+    }
+
+    public class ExperienceInput
+    {
+        [Required(ErrorMessage = "Workplace is required."), StringLength(200)]
+        public string Workplace { get; set; } = string.Empty;
+        [Required(ErrorMessage = "Position is required."), StringLength(200)]
+        public string Position { get; set; } = string.Empty;
+        public DateOnly StartDate { get; set; }
+        public DateOnly? EndDate { get; set; }
+        [StringLength(1000)]
+        public string? Description { get; set; }
+    }
+
+    public class UpdateDoctorProfileRequest
+    {
+        [StringLength(2000)]
+        public string? Bio { get; set; }
+        [Phone, StringLength(30)]
+        public string? Phone { get; set; }
+        [Range(0, 60)]
+        public int YearsOfExperience { get; set; }
+        [MaxLength(20)]
+        public List<EducationInput> Educations { get; set; } = new();
+        [MaxLength(30)]
+        public List<ExperienceInput> Experiences { get; set; } = new();
     }
 
     public class CreateDoctorRequest

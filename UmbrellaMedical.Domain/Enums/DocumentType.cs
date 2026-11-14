@@ -9,6 +9,7 @@ namespace UmbrellaMedical.Domain.Enums
         LabResult = 1,
          XRay = 2,
          Ultrasound = 3,
-          Other = 4
+          Other = 4,
+        Prescription = 5
     }
 }

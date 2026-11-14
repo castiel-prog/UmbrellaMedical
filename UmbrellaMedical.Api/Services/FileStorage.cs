@@ -4,6 +4,7 @@ public interface IFileStorage
 {
     Task<string> SaveAsync(Stream content, string extension, CancellationToken cancellationToken);
     Task<Stream?> OpenReadAsync(string key);
+    Task DeleteAsync(string key);
 }
 
 public class LocalFileStorage : IFileStorage
@@ -33,13 +34,26 @@ public class LocalFileStorage : IFileStorage
 
     public Task<Stream?> OpenReadAsync(string key)
     {
-        var rootWithSeparator = _root.EndsWith(Path.DirectorySeparatorChar) ? _root : _root + Path.DirectorySeparatorChar;
-        var fullPath = Path.GetFullPath(Path.Combine(_root, key.Replace('/', Path.DirectorySeparatorChar)));
-
-        if (!fullPath.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase) || !File.Exists(fullPath))
+        var fullPath = ResolveInsideRoot(key);
+        if (fullPath is null || !File.Exists(fullPath))
             return Task.FromResult<Stream?>(null);
 
         Stream stream = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true);
         return Task.FromResult<Stream?>(stream);
+    }
+
+    public Task DeleteAsync(string key)
+    {
+        var fullPath = ResolveInsideRoot(key);
+        if (fullPath is not null && File.Exists(fullPath)) File.Delete(fullPath);
+        return Task.CompletedTask;
+    }
+
+    // Returns the absolute path for a key, or null if the key would escape the storage root.
+    private string? ResolveInsideRoot(string key)
+    {
+        var rootWithSeparator = _root.EndsWith(Path.DirectorySeparatorChar) ? _root : _root + Path.DirectorySeparatorChar;
+        var fullPath = Path.GetFullPath(Path.Combine(_root, key.Replace('/', Path.DirectorySeparatorChar)));
+        return fullPath.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase) ? fullPath : null;
     }
 }
