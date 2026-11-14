@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { DoctorListItem, PagedResult, Specialization } from './model';
+import { DoctorDetails, DoctorListItem, DoctorReviews, PagedResult, SlotsResponse, Specialization } from './model';
 
 export interface DoctorQuery {
   search?: string;
@@ -23,6 +23,20 @@ export class DoctorsApi {
     if (query.specializationId) params = params.set('specializationId', query.specializationId);
 
     return this.http.get<PagedResult<DoctorListItem>>('/api/doctors', { params });
+  }
+
+  get(id: number): Observable<DoctorDetails> {
+    return this.http.get<DoctorDetails>(`/api/doctors/${id}`);
+  }
+
+  reviews(id: number, page = 1, pageSize = 5): Observable<DoctorReviews> {
+    const params = new HttpParams().set('page', page).set('pageSize', pageSize);
+    return this.http.get<DoctorReviews>(`/api/doctors/${id}/reviews`, { params });
+  }
+
+  slots(doctorId: number, date: string, serviceId: number): Observable<SlotsResponse> {
+    const params = new HttpParams().set('date', date).set('serviceId', serviceId);
+    return this.http.get<SlotsResponse>(`/api/doctors/${doctorId}/slots`, { params });
   }
 
   specializations(): Observable<Specialization[]> {

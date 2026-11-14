@@ -8,5 +8,6 @@ export interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { label: 'Doctors', path: '/doctors' },
+  { label: 'My appointments', path: '/appointments', roles: ['Patient'] },
   { label: 'My account', path: '/account', roles: ['Admin', 'Doctor', 'Receptionist', 'Patient'] }
 ];

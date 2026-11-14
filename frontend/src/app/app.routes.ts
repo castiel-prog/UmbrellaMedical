@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard, guestGuard } from './core/guards';
+import { authGuard, guestGuard, roleGuard } from './core/guards';
 
 export const routes: Routes = [
   {
@@ -12,6 +12,23 @@ export const routes: Routes = [
     path: 'doctors',
     title: 'Doctors | Umbrella Medical Center',
     loadComponent: () => import('./pages/doctors/doctors.page').then(m => m.DoctorsPage)
+  },
+  {
+    path: 'doctors/:id',
+    title: 'Doctor | Umbrella Medical Center',
+    loadComponent: () => import('./pages/doctor-profile/doctor-profile.page').then(m => m.DoctorProfilePage)
+  },
+  {
+    path: 'book/:doctorId',
+    title: 'Book a visit | Umbrella Medical Center',
+    canActivate: [roleGuard('Patient', 'Receptionist', 'Admin')],
+    loadComponent: () => import('./pages/book/book.page').then(m => m.BookPage)
+  },
+  {
+    path: 'appointments',
+    title: 'My appointments | Umbrella Medical Center',
+    canActivate: [roleGuard('Patient')],
+    loadComponent: () => import('./pages/my-appointments/my-appointments.page').then(m => m.MyAppointmentsPage)
   },
   {
     path: 'login',
