@@ -1,6 +1,8 @@
 import { Routes } from '@angular/router';
 import { authGuard, guestGuard, roleGuard } from './core/guards';
 
+const title = (page: string) => `${page} | Umbrella Medical Center`;
+
 export const routes: Routes = [
   {
     path: '',
@@ -10,43 +12,140 @@ export const routes: Routes = [
   },
   {
     path: 'doctors',
-    title: 'Doctors | Umbrella Medical Center',
+    title: title('Doctors'),
     loadComponent: () => import('./pages/doctors/doctors.page').then(m => m.DoctorsPage)
   },
   {
     path: 'doctors/:id',
-    title: 'Doctor | Umbrella Medical Center',
+    title: title('Doctor'),
     loadComponent: () => import('./pages/doctor-profile/doctor-profile.page').then(m => m.DoctorProfilePage)
   },
   {
     path: 'book/:doctorId',
-    title: 'Book a visit | Umbrella Medical Center',
+    title: title('Book a visit'),
     canActivate: [roleGuard('Patient', 'Receptionist', 'Admin')],
     loadComponent: () => import('./pages/book/book.page').then(m => m.BookPage)
   },
+
+  // Patient
   {
     path: 'appointments',
-    title: 'My appointments | Umbrella Medical Center',
+    title: title('My appointments'),
     canActivate: [roleGuard('Patient')],
     loadComponent: () => import('./pages/my-appointments/my-appointments.page').then(m => m.MyAppointmentsPage)
   },
   {
+    path: 'health',
+    title: title('My health'),
+    canActivate: [roleGuard('Patient')],
+    loadComponent: () => import('./pages/my-health/my-health.page').then(m => m.MyHealthPage)
+  },
+
+  // Billing
+  {
+    path: 'invoices',
+    title: title('Invoices'),
+    canActivate: [roleGuard('Patient', 'Receptionist', 'Admin')],
+    loadComponent: () => import('./pages/invoices/invoices.page').then(m => m.InvoicesPage)
+  },
+  {
+    path: 'invoices/:id',
+    title: title('Invoice'),
+    canActivate: [roleGuard('Patient', 'Receptionist', 'Admin')],
+    loadComponent: () => import('./pages/invoices/invoice-detail.page').then(m => m.InvoiceDetailPage)
+  },
+
+  // Staff
+  {
+    path: 'desk',
+    title: title('Appointments'),
+    canActivate: [roleGuard('Doctor', 'Receptionist', 'Admin')],
+    loadComponent: () => import('./pages/appointments-desk/appointments-desk.page').then(m => m.AppointmentsDeskPage)
+  },
+  {
+    path: 'patients',
+    title: title('Patients'),
+    canActivate: [roleGuard('Doctor', 'Receptionist', 'Admin')],
+    loadComponent: () => import('./pages/patients/patients.page').then(m => m.PatientsPage)
+  },
+  {
+    path: 'patients/:id',
+    title: title('Patient'),
+    canActivate: [roleGuard('Doctor', 'Receptionist', 'Admin')],
+    loadComponent: () => import('./pages/patients/patient-chart.page').then(m => m.PatientChartPage)
+  },
+  {
+    path: 'working-hours',
+    title: title('Working hours'),
+    canActivate: [roleGuard('Doctor', 'Admin')],
+    loadComponent: () => import('./pages/working-hours/working-hours.page').then(m => m.WorkingHoursPage)
+  },
+  {
+    path: 'time-off',
+    title: title('Time off'),
+    canActivate: [roleGuard('Doctor', 'Admin')],
+    loadComponent: () => import('./pages/time-off/time-off.page').then(m => m.TimeOffPage)
+  },
+  {
+    path: 'staff-schedule',
+    title: title('Staff schedule'),
+    canActivate: [roleGuard('Receptionist', 'Admin')],
+    loadComponent: () => import('./pages/staff-schedule/staff-schedule.page').then(m => m.StaffSchedulePage)
+  },
+
+  // Admin
+  {
+    path: 'admin',
+    title: title('Administration'),
+    canActivate: [roleGuard('Admin')],
+    loadComponent: () => import('./pages/admin/admin.page').then(m => m.AdminPage),
+    children: [
+      { path: '', pathMatch: 'full', redirectTo: 'users' },
+      { path: 'users', loadComponent: () => import('./pages/admin/users.tab').then(m => m.AdminUsersTab) },
+      { path: 'staff', loadComponent: () => import('./pages/admin/staff.tab').then(m => m.AdminStaffTab) },
+      { path: 'services', loadComponent: () => import('./pages/admin/services.tab').then(m => m.AdminServicesTab) },
+      { path: 'departments', loadComponent: () => import('./pages/admin/departments.tab').then(m => m.AdminDepartmentsTab) },
+      { path: 'insurers', loadComponent: () => import('./pages/admin/insurers.tab').then(m => m.AdminInsurersTab) },
+      { path: 'reviews', loadComponent: () => import('./pages/admin/reviews.tab').then(m => m.AdminReviewsTab) }
+    ]
+  },
+  {
+    path: 'reports',
+    title: title('Reports'),
+    canActivate: [roleGuard('Admin')],
+    loadComponent: () => import('./pages/reports/reports.page').then(m => m.ReportsPage)
+  },
+
+  // Account
+  {
     path: 'login',
-    title: 'Log in | Umbrella Medical Center',
+    title: title('Log in'),
     canActivate: [guestGuard],
     loadComponent: () => import('./pages/login/login.page').then(m => m.LoginPage)
   },
   {
     path: 'register',
-    title: 'Register | Umbrella Medical Center',
+    title: title('Register'),
     canActivate: [guestGuard],
     loadComponent: () => import('./pages/register/register.page').then(m => m.RegisterPage)
   },
   {
+    path: 'forgot-password',
+    title: title('Reset password'),
+    canActivate: [guestGuard],
+    loadComponent: () => import('./pages/forgot-password/forgot-password.page').then(m => m.ForgotPasswordPage)
+  },
+  {
     path: 'account',
-    title: 'My account | Umbrella Medical Center',
+    title: title('My account'),
     canActivate: [authGuard],
     loadComponent: () => import('./pages/account/account.page').then(m => m.AccountPage)
+  },
+  {
+    path: 'notifications',
+    title: title('Notifications'),
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/notifications/notifications.page').then(m => m.NotificationsPage)
   },
   { path: '**', redirectTo: '' }
 ];

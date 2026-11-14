@@ -35,6 +35,12 @@ export class AuthService {
     if (redirect) void this.router.navigate(['/login']);
   }
 
+  /** Keeps the shown email in sync after the user changes it. */
+  updateEmail(email: string): void {
+    const current = this.session();
+    if (current) this.start({ ...current, email });
+  }
+
   hasRole(...roles: Role[]): boolean {
     const current = this.role();
     return current !== null && roles.includes(current);

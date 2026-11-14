@@ -76,7 +76,17 @@ namespace UmbrellaMedical.Api.Controllers
             });
         }
 
-        
+        [HttpGet("me")]
+        [Authorize(Roles = "Doctor")]
+        public async Task<ActionResult<DoctorDetailsDto>> GetMe()
+        {
+            var doctorId = await _current.GetDoctorIdAsync();
+            if (doctorId is null) return NotFound();
+
+            var dto = await BuildDetailsAsync(doctorId.Value);
+            return dto is null ? NotFound() : Ok(dto);
+        }
+
         [HttpGet("{id:int}")]
         [AllowAnonymous]
         public async Task<ActionResult<DoctorDetailsDto>> GetById(int id)

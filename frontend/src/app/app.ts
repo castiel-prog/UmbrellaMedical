@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from './core/auth.service';
 import { NAV_ITEMS } from './core/nav';
+import { NotificationsService } from './core/notifications.service';
 import { ThemeService } from './core/theme.service';
 import { Logo } from './shared/logo';
 
@@ -32,6 +33,13 @@ import { Logo } from './shared/logo';
         }
 
         @if (auth.isLoggedIn()) {
+          <a class="bell" routerLink="/notifications" routerLinkActive="active"
+            [attr.aria-label]="notifications.unread() > 0 ? notifications.unread() + ' unread notifications' : 'Notifications'">
+            <span aria-hidden="true">🔔</span>
+            @if (notifications.unread() > 0) {
+              <span class="nav-badge" aria-hidden="true">{{ notifications.unread() > 99 ? '99+' : notifications.unread() }}</span>
+            }
+          </a>
           <span class="who">{{ auth.email() }} · {{ auth.role() }}</span>
           <button class="btn small" type="button" (click)="logout()">Log out</button>
         } @else {
@@ -57,6 +65,7 @@ import { Logo } from './shared/logo';
 export class App {
   protected readonly auth = inject(AuthService);
   protected readonly theme = inject(ThemeService);
+  protected readonly notifications = inject(NotificationsService);
   protected readonly menuOpen = signal(false);
   protected readonly year = new Date().getFullYear();
 

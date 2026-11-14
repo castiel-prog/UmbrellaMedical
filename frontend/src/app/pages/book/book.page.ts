@@ -5,13 +5,15 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { DoctorsApi } from '../../core/doctors.api';
 import { AppointmentsApi } from '../../core/appointments.api';
-import { Appointment, DoctorDetails } from '../../core/model';
+import { PatientsApi } from '../../core/patients.api';
+import { Appointment, DoctorDetails, PatientListItem } from '../../core/model';
 import { apiErrorMessage } from '../../core/api-error';
 import { SlotPicker } from '../../shared/slot-picker';
+import { PatientPicker } from '../../shared/patient-picker';
 
 @Component({
   selector: 'app-book',
-  imports: [ReactiveFormsModule, RouterLink, DatePipe, CurrencyPipe, SlotPicker],
+  imports: [ReactiveFormsModule, RouterLink, DatePipe, CurrencyPipe, SlotPicker, PatientPicker],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (booked(); as a) {
@@ -25,8 +27,13 @@ import { SlotPicker } from '../../shared/slot-picker';
         </dl>
         <p class="muted">You will get a reminder before the visit.</p>
         <div class="card-actions">
-          <a class="btn primary" routerLink="/appointments">My appointments</a>
-          <a class="btn" routerLink="/doctors">Back to doctors</a>
+          @if (isStaff()) {
+            <a class="btn primary" [routerLink]="['/patients', a.patientId]">Patient chart</a>
+            <a class="btn" routerLink="/desk">Appointments</a>
+          } @else {
+            <a class="btn primary" routerLink="/appointments">My appointments</a>
+            <a class="btn" routerLink="/doctors">Back to doctors</a>
+          }
         </div>
       </section>
     } @else {
@@ -66,11 +73,7 @@ import { SlotPicker } from '../../shared/slot-picker';
           <li class="card">
             <h3>3. Confirm</h3>
             @if (isStaff()) {
-              <div class="field">
-                <label for="patientId">Patient ID</label>
-                <input id="patientId" type="number" min="1" [formControl]="patientId" />
-                <small class="muted">The patient this visit is for.</small>
-              </div>
+              <app-patient-picker label="Patient this visit is for" [(selected)]="patient" />
             }
             <div class="field">
               <label for="reason">Reason for the visit (optional)</label>
@@ -100,6 +103,7 @@ export class BookPage {
   private readonly doctorsApi = inject(DoctorsApi);
   private readonly appointmentsApi = inject(AppointmentsApi);
   private readonly auth = inject(AuthService);
+  private readonly patientsApi = inject(PatientsApi);
 
   protected readonly doctorId = Number(this.route.snapshot.paramMap.get('doctorId'));
 
@@ -111,7 +115,7 @@ export class BookPage {
   protected readonly booked = signal<Appointment | null>(null);
 
   protected readonly reason = new FormControl('', { nonNullable: true, validators: [Validators.maxLength(500)] });
-  protected readonly patientId = new FormControl<number | null>(null);
+  protected readonly patient = signal<PatientListItem | null>(null);
 
   protected readonly isStaff = computed(() => this.auth.hasRole('Admin', 'Receptionist'));
   protected readonly selectedService = computed(() =>
@@ -128,6 +132,12 @@ export class BookPage {
       },
       error: err => this.error.set(apiErrorMessage(err))
     });
+
+    // Coming from a patient chart: preselect that patient.
+    const patientId = Number(this.route.snapshot.queryParamMap.get('patientId'));
+    if (this.isStaff() && patientId > 0) {
+      this.patientsApi.get(patientId).subscribe({ next: p => this.patient.set(p) });
+    }
   }
 
   protected book(): void {
@@ -135,8 +145,8 @@ export class BookPage {
     const start = this.start();
     if (serviceId === null || start === null) return;
 
-    if (this.isStaff() && !this.patientId.value) {
-      this.error.set('Enter the patient ID.');
+    if (this.isStaff() && !this.patient()) {
+      this.error.set('Choose the patient this visit is for.');
       return;
     }
 
@@ -149,7 +159,7 @@ export class BookPage {
         serviceId,
         startDateTime: start,
         reason: this.reason.value.trim() || null,
-        patientId: this.isStaff() ? this.patientId.value : null
+        patientId: this.isStaff() ? this.patient()?.id ?? null : null
       })
       .subscribe({
         next: appointment => {

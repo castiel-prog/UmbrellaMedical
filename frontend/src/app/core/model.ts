@@ -150,3 +150,425 @@ export interface CreateAppointmentRequest {
   reason: string | null;
   patientId?: number | null;
 }
+
+// ---------- Patients ----------
+export type AllergySeverity = 'Mild' | 'Moderate' | 'Severe';
+
+export interface PatientListItem {
+  id: number;
+  firstName: string;
+  lastName: string;
+  personalNumber: string;
+  dateOfBirth: string;
+  gender: Gender;
+  phone: string | null;
+}
+
+export interface PatientAllergy {
+  allergyId: number;
+  name: string;
+  severity: AllergySeverity;
+  notes: string | null;
+}
+
+export interface PatientDetails extends PatientListItem {
+  email: string | null;
+  address: string | null;
+  medicalHistory: string | null;
+  createdAt: string;
+  allergies: PatientAllergy[];
+}
+
+export interface PatientRequest {
+  firstName: string;
+  lastName: string;
+  personalNumber?: string;
+  dateOfBirth: string;
+  gender: Gender;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  medicalHistory: string | null;
+}
+
+export interface PatientContactRequest {
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+}
+
+export interface PatientAllergyInput {
+  allergyId: number;
+  severity: AllergySeverity;
+  notes: string | null;
+}
+
+// ---------- Catalog ----------
+export interface Diagnosis { id: number; code: string; name: string; }
+export interface Medication { id: number; name: string; genericName: string | null; form: string | null; strength: string | null; }
+export interface Allergy { id: number; name: string; }
+
+// ---------- Medical records ----------
+export type ToothCondition = 'Healthy' | 'Cavity' | 'Filled' | 'Crown' | 'RootCanal' | 'Implant' | 'Missing';
+
+export interface VitalSigns {
+  heightCm: number | null;
+  weightKg: number | null;
+  systolicBp: number | null;
+  diastolicBp: number | null;
+  heartRate: number | null;
+  temperatureC: number | null;
+}
+
+export interface ToothRecord {
+  toothNumber: number;
+  condition: ToothCondition;
+  treatment: string | null;
+  notes: string | null;
+}
+
+export interface MedicalRecord {
+  id: number;
+  recordDate: string;
+  patientId: number;
+  patientName: string;
+  doctorId: number;
+  doctorName: string;
+  specialization: string;
+  appointmentId: number | null;
+  diagnosisCode: string | null;
+  diagnosisName: string | null;
+  complaints: string | null;
+  diagnosisDetails: string | null;
+  treatment: string | null;
+  recommendations: string | null;
+  notes: string | null;
+  vitalSigns: VitalSigns | null;
+  toothRecords: ToothRecord[];
+  prescriptionIds: number[];
+  documentIds: number[];
+}
+
+export interface MedicalRecordRequest {
+  appointmentId?: number | null;
+  diagnosisId: number | null;
+  complaints: string | null;
+  diagnosisDetails: string | null;
+  treatment: string | null;
+  recommendations: string | null;
+  notes: string | null;
+  vitalSigns: VitalSigns | null;
+  toothRecords: ToothRecord[] | null;
+}
+
+// ---------- Prescriptions ----------
+export interface PrescriptionItem {
+  medicationId: number;
+  medicationName: string;
+  strength: string | null;
+  form: string | null;
+  dosage: string;
+  frequency: string;
+  durationDays: number;
+}
+
+export interface Prescription {
+  id: number;
+  issuedDate: string;
+  expiryDate: string;
+  isActive: boolean;
+  instructions: string | null;
+  patientId: number;
+  patientName: string;
+  doctorId: number;
+  doctorName: string;
+  medicalRecordId: number | null;
+  items: PrescriptionItem[];
+  warnings: string[];
+}
+
+export interface CreatePrescriptionRequest {
+  patientId: number;
+  medicalRecordId: number | null;
+  expiryDate: string | null;
+  instructions: string | null;
+  items: { medicationId: number; dosage: string; frequency: string; durationDays: number }[];
+}
+
+// ---------- Documents ----------
+export type DocumentType = 'LabResult' | 'XRay' | 'Ultrasound' | 'Other';
+
+export interface MedicalDocument {
+  id: number;
+  type: DocumentType;
+  fileName: string;
+  contentType: string;
+  description: string | null;
+  patientId: number;
+  medicalRecordId: number | null;
+  uploadedByUserId: number;
+  uploadedAt: string;
+}
+
+// ---------- Billing ----------
+export type InvoiceStatus = 'Draft' | 'Issued' | 'PartiallyPaid' | 'Paid' | 'Cancelled';
+export type PaymentMethod = 'Cash' | 'Card' | 'BankTransfer';
+export type PaymentStatus = 'Pending' | 'Completed' | 'Failed' | 'Refunded';
+
+export interface InvoiceItem {
+  id: number;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+  serviceId: number | null;
+}
+
+export interface Payment {
+  id: number;
+  invoiceId: number;
+  invoiceNumber: string;
+  patientId: number;
+  patientName: string;
+  amount: number;
+  method: PaymentMethod;
+  status: PaymentStatus;
+  paidAt: string | null;
+  transactionReference: string | null;
+  createdAt: string;
+}
+
+export interface InvoiceListItem {
+  id: number;
+  invoiceNumber: string;
+  issueDate: string;
+  dueDate: string | null;
+  status: InvoiceStatus;
+  patientId: number;
+  patientName: string;
+  appointmentId: number | null;
+  subtotal: number;
+  insuranceCoverage: number;
+  totalAmount: number;
+  paidAmount: number;
+  balance: number;
+}
+
+export interface Invoice extends InvoiceListItem {
+  insuranceCompany: string | null;
+  policyNumber: string | null;
+  coveragePercent: number | null;
+  items: InvoiceItem[];
+  payments: Payment[];
+}
+
+export interface CreateInvoiceRequest {
+  appointmentId: number;
+  useInsurance: boolean;
+  patientInsuranceId: number | null;
+  extraItems: { description: string; quantity: number; unitPrice: number }[] | null;
+}
+
+export interface Receipt {
+  receiptNumber: string;
+  clinicName: string;
+  paidAt: string | null;
+  patientName: string;
+  invoiceNumber: string;
+  amount: number;
+  method: PaymentMethod;
+  transactionReference: string | null;
+}
+
+export interface InsuranceCompany {
+  id: number;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  isActive: boolean;
+}
+
+export interface PatientInsurance {
+  id: number;
+  patientId: number;
+  insuranceCompanyId: number;
+  insuranceCompany: string;
+  policyNumber: string;
+  coveragePercent: number;
+  validFrom: string;
+  validTo: string;
+  isCurrent: boolean;
+}
+
+// ---------- Notifications ----------
+export interface AppNotification {
+  id: number;
+  title: string;
+  message: string;
+  createdAt: string;
+  isRead: boolean;
+  appointmentId: number | null;
+}
+
+// ---------- Doctors: schedule & time off ----------
+export type DayOfWeekName = 'Sunday' | 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday';
+export type TimeOffType = 'Vacation' | 'SickLeave' | 'DayOff' | 'Conference';
+export type TimeOffStatus = 'Pending' | 'Approved' | 'Declined';
+
+export interface ScheduleItem {
+  dayOfWeek: DayOfWeekName;
+  startTime: string;
+  endTime: string;
+  isActive: boolean;
+}
+
+export interface TimeOff {
+  id: number;
+  doctorId: number;
+  doctorName: string;
+  specialization: string;
+  type: TimeOffType;
+  startDateTime: string;
+  endDateTime: string;
+  reason: string | null;
+  status: TimeOffStatus;
+  declineReason: string | null;
+  reviewedAt: string | null;
+  conflictingAppointments: number;
+}
+
+export interface ConflictingAppointment {
+  id: number;
+  startDateTime: string;
+  endDateTime: string;
+  patientName: string;
+  serviceName: string;
+}
+
+export interface CreateDoctorRequest {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  licenseNumber: string;
+  specializationId: number;
+  phone: string | null;
+  bio: string | null;
+  yearsOfExperience: number;
+}
+
+export interface StaffScheduleDay {
+  date: string;
+  dayOfWeek: DayOfWeekName;
+  shifts: string[];
+  onLeave: boolean;
+  scheduledAppointments: number;
+}
+
+export interface DoctorScheduleOverview {
+  doctorId: number;
+  doctorName: string;
+  specialization: string;
+  weeklyHours: ScheduleItem[];
+  timeOff: { id: number; type: TimeOffType; startDateTime: string; endDateTime: string }[];
+  days: StaffScheduleDay[];
+}
+
+// ---------- Admin ----------
+export type RoomType = 'Consultation' | 'Surgery' | 'Radiology' | 'DentalChair' | 'Laboratory';
+
+export interface Department { id: number; name: string; description: string | null; roomCount: number; serviceCount: number; }
+
+export interface Room {
+  id: number;
+  number: string;
+  floor: number;
+  type: RoomType;
+  isActive: boolean;
+  departmentId: number;
+  department: string;
+}
+
+export interface AdminService {
+  id: number;
+  name: string;
+  description: string | null;
+  price: number;
+  durationMinutes: number;
+  isActive: boolean;
+  departmentId: number;
+  department: string;
+  doctorCount: number;
+}
+
+export interface UserListItem {
+  id: number;
+  email: string;
+  role: Role;
+  fullName: string | null;
+  isActive: boolean;
+  emailConfirmed: boolean;
+  createdAt: string;
+}
+
+export interface Receptionist {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string | null;
+  isActive: boolean;
+}
+
+export interface AdminReview {
+  id: number;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+  isApproved: boolean;
+  doctorId: number;
+  doctorName: string;
+  patientId: number;
+  patientName: string;
+}
+
+// ---------- Reports ----------
+export interface ReportSummary {
+  from: string;
+  to: string;
+  appointments: { total: number; scheduled: number; completed: number; cancelled: number; noShow: number };
+  newPatients: number;
+  activeDoctors: number;
+  averageDoctorRating: number;
+  billed: number;
+  insuranceShare: number;
+  patientShare: number;
+  collected: number;
+  refunded: number;
+  outstandingBalance: number;
+}
+
+export interface DoctorReportRow {
+  doctorId: number;
+  doctorName: string;
+  specialization: string;
+  total: number;
+  scheduled: number;
+  completed: number;
+  cancelled: number;
+  noShow: number;
+  billed: number;
+}
+
+export interface ServiceReportRow { serviceId: number; serviceName: string; department: string; appointments: number; billed: number; }
+
+export interface RevenueRow { period: string; invoices: number; billed: number; insuranceShare: number; patientShare: number; collected: number; }
+
+export interface RevenueReport {
+  from: string;
+  to: string;
+  groupBy: 'day' | 'month';
+  rows: RevenueRow[];
+  totals: RevenueRow;
+  byMethod: { method: PaymentMethod; payments: number; amount: number }[];
+}

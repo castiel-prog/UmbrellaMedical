@@ -59,6 +59,7 @@ type LoginField = 'email' | 'firstName' | 'lastName' | 'password';
         </button>
       </form>
 
+      <p class="switch"><a routerLink="/forgot-password">Forgot your password?</a></p>
       <p class="switch">New here? <a routerLink="/register">Create an account</a></p>
     </section>
   `
