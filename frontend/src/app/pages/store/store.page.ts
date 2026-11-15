@@ -7,12 +7,13 @@ import { CartService, MAX_PER_PRODUCT } from '../../core/cart.service';
 import { AuthService } from '../../core/auth.service';
 import { Product, ProductCategory } from '../../core/model';
 import { apiErrorMessage } from '../../core/api-error';
+import { ProductImage } from '../../shared/product-image';
 
 const CATEGORIES = Object.keys(CATEGORY_INFO) as ProductCategory[];
 
 @Component({
   selector: 'app-store',
-  imports: [FormsModule, RouterLink, CurrencyPipe],
+  imports: [FormsModule, RouterLink, CurrencyPipe, ProductImage],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page-head">
@@ -48,7 +49,8 @@ const CATEGORIES = Object.keys(CATEGORY_INFO) as ProductCategory[];
         <div class="product-grid">
           @for (p of visible(); track p.id) {
             <article class="product-card card">
-              <div class="product-icon" [attr.data-cat]="p.category" aria-hidden="true">{{ info[p.category].icon }}</div>
+              <app-product-image class="product-pic" [attr.data-cat]="p.category"
+                [name]="p.name" [category]="p.category" [imageUrl]="p.imageUrl" [rx]="p.requiresPrescription" />
               <div class="product-body">
                 <h3>{{ p.name }}</h3>
                 <p class="muted small">{{ p.unit }}</p>
@@ -85,7 +87,9 @@ const CATEGORIES = Object.keys(CATEGORY_INFO) as ProductCategory[];
           <ul class="cart-lines">
             @for (l of cart.lines(); track l.product.id) {
               <li>
-                <div>
+                <app-product-image class="cart-thumb" [attr.data-cat]="l.product.category"
+                  [name]="l.product.name" [category]="l.product.category" [imageUrl]="l.product.imageUrl" />
+                <div class="grow">
                   <strong>{{ l.product.name }}</strong>
                   @if (l.product.requiresPrescription) { <span class="rx-mini" title="Prescription needed">℞</span> }
                   <div class="muted small">{{ l.quantity }} × {{ l.product.price | currency: 'GEL' : 'symbol-narrow' }}</div>

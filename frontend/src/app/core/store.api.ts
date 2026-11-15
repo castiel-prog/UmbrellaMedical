@@ -23,6 +23,14 @@ export class StoreApi {
   updateProduct(id: number, r: ProductRequest): Observable<Product> {
     return this.http.put<Product>(`/api/store/products/${id}`, r);
   }
+  uploadProductImage(id: number, file: File): Observable<Product> {
+    const form = new FormData();
+    form.append('file', file);
+    return this.http.post<Product>(`/api/store/products/${id}/image`, form);
+  }
+  deleteProductImage(id: number): Observable<Product> {
+    return this.http.delete<Product>(`/api/store/products/${id}/image`);
+  }
   myPrescriptionsFor(productId: number): Observable<UsablePrescription[]> {
     return this.http.get<UsablePrescription[]>(`/api/store/products/${productId}/my-prescriptions`);
   }

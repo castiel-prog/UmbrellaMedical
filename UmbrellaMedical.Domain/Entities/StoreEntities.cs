@@ -21,6 +21,11 @@ namespace UmbrellaMedical.Domain.Entities
         /// <summary>The medication a prescription must contain for this product (prescription-only products).</summary>
         public int? MedicationId { get; set; }
         public Medication? Medication { get; set; }
+
+        /// <summary>Storage key of the product photo uploaded by an admin; null = show the built-in illustration.</summary>
+        public string? ImageKey { get; set; }
+        /// <summary>Changes on every new photo so browsers fetch the new one.</summary>
+        public int ImageVersion { get; set; }
     }
 
     public class StoreOrder : BaseEntity

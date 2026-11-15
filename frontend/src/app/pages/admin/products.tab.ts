@@ -1,6 +1,8 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
 import { CurrencyPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Observable } from 'rxjs';
+import { ProductImage } from '../../shared/product-image';
 import { CATEGORY_INFO, StoreApi } from '../../core/store.api';
 import { MedicalApi } from '../../core/medical.api';
 import { Medication, Product, ProductCategory, ProductRequest } from '../../core/model';
@@ -9,7 +11,7 @@ import { orNull } from '../../core/util';
 
 @Component({
   selector: 'app-admin-products',
-  imports: [FormsModule, CurrencyPipe],
+  imports: [FormsModule, CurrencyPipe, ProductImage],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="toolbar">
@@ -38,6 +40,31 @@ import { orNull } from '../../core/util';
         </div>
         <div class="field"><label for="pf-desc">Description</label><textarea id="pf-desc" name="desc" rows="2" maxlength="1000" [(ngModel)]="f.description"></textarea></div>
 
+        @if (editing(); as p) {
+          <fieldset class="fieldset">
+            <legend>Picture</legend>
+            <div class="product-photo-row">
+              <app-product-image class="admin-pic" [attr.data-cat]="f.category"
+                [name]="f.name || p.name" [category]="f.category" [imageUrl]="p.imageUrl" />
+              <div>
+                <p class="muted small">
+                  {{ p.imageUrl ? 'Showing the uploaded photo.' : 'Showing the built-in illustration. Upload a photo to replace it.' }}
+                  PNG, JPG or WebP, up to 3 MB. A square photo on a plain background looks best.
+                </p>
+                <input #photoInput class="sr-only" id="pf-photo" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" (change)="uploadPhoto(p, $event)" />
+                <div class="card-actions tight">
+                  <label class="btn small" for="pf-photo">{{ p.imageUrl ? 'Replace photo' : 'Upload photo' }}</label>
+                  @if (p.imageUrl) {
+                    <button class="btn small danger" type="button" (click)="removePhoto(p)" [disabled]="busy()">Use illustration</button>
+                  }
+                </div>
+              </div>
+            </div>
+          </fieldset>
+        } @else {
+          <p class="muted small">You can add a photo after saving the product.</p>
+        }
+
         <label class="check"><input type="checkbox" name="rx" [(ngModel)]="f.requiresPrescription" /> ℞ Prescription only</label>
         @if (f.requiresPrescription) {
           <div class="field section-gap">
@@ -59,11 +86,12 @@ import { orNull } from '../../core/util';
 
     <div class="table-wrap">
       <table class="table">
-        <thead><tr><th>Product</th><th>Category</th><th class="right">Price</th><th class="right">Stock</th><th>℞</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th></th><th>Product</th><th>Category</th><th class="right">Price</th><th class="right">Stock</th><th>℞</th><th>Status</th><th></th></tr></thead>
         <tbody>
           @for (p of visible(); track p.id) {
             <tr>
-              <td>{{ p.name }} <span class="muted small">{{ p.unit }}</span></td>
+              <td><app-product-image class="table-thumb" [attr.data-cat]="p.category" [name]="p.name" [category]="p.category" [imageUrl]="p.imageUrl" /></td>
+              <td>{{ p.name }} <span class="muted small">{{ p.unit }}</span>@if (p.imageUrl) { <span class="muted small"> · 📷</span> }</td>
               <td>{{ info[p.category].icon }} {{ info[p.category].label }}</td>
               <td class="right">{{ p.price | currency: 'GEL' : 'symbol-narrow' }}</td>
               <td class="right" [class.warn-text]="p.stock <= 5">{{ p.stock }}</td>
@@ -72,7 +100,7 @@ import { orNull } from '../../core/util';
               <td class="right"><button class="btn small" type="button" (click)="edit(p)">Edit</button></td>
             </tr>
           } @empty {
-            <tr><td colspan="7" class="muted">No products.</td></tr>
+            <tr><td colspan="8" class="muted">No products.</td></tr>
           }
         </tbody>
       </table>
@@ -93,6 +121,43 @@ export class AdminProductsTab {
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly message = signal<string | null>(null);
+
+  /** The saved product being edited (photos can only be added once the product exists). */
+  protected readonly editing = computed(() => this.products().find(p => p.id === this.editingId()) ?? null);
+  private readonly photoInput = viewChild<ElementRef<HTMLInputElement>>('photoInput');
+
+  protected uploadPhoto(p: Product, event: Event): void {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    if (file.size > 3 * 1024 * 1024) {
+      this.error.set('The picture must be 3 MB or smaller.');
+      return;
+    }
+    this.photoRequest(this.api.uploadProductImage(p.id, file), 'The photo was saved.');
+  }
+
+  protected removePhoto(p: Product): void {
+    this.photoRequest(this.api.deleteProductImage(p.id), 'The photo was removed; the illustration is shown again.');
+  }
+
+  private photoRequest(request: Observable<Product>, success: string): void {
+    this.busy.set(true);
+    this.error.set(null);
+    this.message.set(null);
+    request.subscribe({
+      next: updated => {
+        this.busy.set(false);
+        this.products.set(this.products().map(x => x.id === updated.id ? updated : x));
+        this.message.set(success);
+        const input = this.photoInput()?.nativeElement;
+        if (input) input.value = '';
+      },
+      error: err => {
+        this.busy.set(false);
+        this.error.set(apiErrorMessage(err));
+      }
+    });
+  }
 
   protected readonly visible = computed(() => {
     const term = this.search().trim().toLowerCase();

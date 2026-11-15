@@ -103,6 +103,7 @@ namespace UmbrellaMedical.Infrastructure.Data
             modelBuilder.Entity<Product>().Property(p => p.Description).HasMaxLength(1000);
             modelBuilder.Entity<Product>().Property(p => p.Unit).HasMaxLength(50);
             modelBuilder.Entity<Product>().HasIndex(p => p.Name).IsUnique();
+            modelBuilder.Entity<Product>().Property(p => p.ImageKey).HasMaxLength(300);
             modelBuilder.Entity<StoreOrder>().Property(o => o.OrderNumber).HasMaxLength(30);
             modelBuilder.Entity<StoreOrder>().HasIndex(o => o.OrderNumber).IsUnique();
             modelBuilder.Entity<StoreOrder>().Property(o => o.PaymentReference).HasMaxLength(100);

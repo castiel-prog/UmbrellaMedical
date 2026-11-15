@@ -352,6 +352,8 @@ export interface Product {
   requiresPrescription: boolean;
   medicationId: number | null;
   medicationName: string | null;
+  /** Uploaded product photo; null means the built-in illustration is shown. */
+  imageUrl: string | null;
 }
 
 export interface ProductRequest {

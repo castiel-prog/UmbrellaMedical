@@ -10,6 +10,7 @@ import { PatientsApi } from '../../core/patients.api';
 import { CreateStoreOrder, MedicalDocument, StoreOrder, UsablePrescription } from '../../core/model';
 import { apiErrorMessage } from '../../core/api-error';
 import { CardFields, emptyCard, readCard } from '../../shared/card-fields';
+import { ProductImage } from '../../shared/product-image';
 
 type RxMethod = 'code' | 'upload';
 interface RxChoice { method: RxMethod; selected: string; typed: string; options: UsablePrescription[]; loading: boolean; }
@@ -18,7 +19,7 @@ const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
 @Component({
   selector: 'app-checkout',
-  imports: [FormsModule, RouterLink, CurrencyPipe, DatePipe, CardFields],
+  imports: [FormsModule, RouterLink, CurrencyPipe, DatePipe, CardFields, ProductImage],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (placed(); as o) {
@@ -50,7 +51,9 @@ const MAX_FILE_BYTES = 10 * 1024 * 1024;
               <ul class="cart-lines">
                 @for (l of cart.lines(); track l.product.id) {
                   <li>
-                    <div><strong>{{ l.product.name }}</strong> <span class="muted">× {{ l.quantity }}</span></div>
+                    <app-product-image class="cart-thumb" [attr.data-cat]="l.product.category"
+                      [name]="l.product.name" [category]="l.product.category" [imageUrl]="l.product.imageUrl" />
+                    <div class="grow"><strong>{{ l.product.name }}</strong> <span class="muted">× {{ l.quantity }}</span></div>
                     <span>{{ l.product.price * l.quantity | currency: 'GEL' : 'symbol-narrow' }}</span>
                   </li>
                 }

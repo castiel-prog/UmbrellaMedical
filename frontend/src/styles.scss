@@ -717,12 +717,22 @@ h2.no-rule { margin-top: 0; }
   display: flex; align-items: center; justify-content: center; height: 88px; border-radius: 10px; font-size: 2.6rem;
   background: var(--bg);
 }
-.product-icon[data-cat='Medicines'] { background: color-mix(in srgb, var(--primary) 12%, var(--surface)); }
-.product-icon[data-cat='Vitamins'] { background: color-mix(in srgb, #f59f00 16%, var(--surface)); }
-.product-icon[data-cat='PersonalCare'] { background: color-mix(in srgb, #4dabf7 16%, var(--surface)); }
-.product-icon[data-cat='Hygiene'] { background: color-mix(in srgb, #20c997 14%, var(--surface)); }
-.product-icon[data-cat='FirstAid'] { background: color-mix(in srgb, #ff6b6b 14%, var(--surface)); }
-.product-icon[data-cat='Devices'] { background: color-mix(in srgb, #845ef7 14%, var(--surface)); }
+/* Product pictures sit on a soft tint of their category colour. */
+app-product-image { background: var(--bg); border-radius: 10px; }
+app-product-image[data-cat='Medicines'], .product-icon[data-cat='Medicines'] { background: color-mix(in srgb, var(--primary) 12%, var(--surface)); }
+app-product-image[data-cat='Vitamins'], .product-icon[data-cat='Vitamins'] { background: color-mix(in srgb, #f59f00 16%, var(--surface)); }
+app-product-image[data-cat='PersonalCare'], .product-icon[data-cat='PersonalCare'] { background: color-mix(in srgb, #4dabf7 16%, var(--surface)); }
+app-product-image[data-cat='Hygiene'], .product-icon[data-cat='Hygiene'] { background: color-mix(in srgb, #20c997 14%, var(--surface)); }
+app-product-image[data-cat='FirstAid'], .product-icon[data-cat='FirstAid'] { background: color-mix(in srgb, #ff6b6b 14%, var(--surface)); }
+app-product-image[data-cat='Devices'], .product-icon[data-cat='Devices'] { background: color-mix(in srgb, #845ef7 14%, var(--surface)); }
+.product-pic { height: 140px; padding: 0.4rem; }
+.cart-thumb { flex: 0 0 auto; width: 48px; height: 40px; border-radius: 6px; }
+.table-thumb { width: 52px; height: 42px; border-radius: 6px; }
+.admin-pic { flex: 0 0 auto; width: 160px; height: 120px; }
+.product-photo-row { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+.product-photo-row p { margin: 0 0 0.5rem; }
+.product-photo-row label.btn { cursor: pointer; }
+.cart-lines li { align-items: center; }
 .product-body { flex: 1; }
 .product-body h3 { font-size: 1rem; }
 .product-body p { margin: 0.15rem 0; }

@@ -19,6 +19,8 @@ public class ProductDto
     public bool RequiresPrescription { get; set; }
     public int? MedicationId { get; set; }
     public string? MedicationName { get; set; }
+    /// <summary>Product photo, or null when the site should draw the built-in illustration.</summary>
+    public string? ImageUrl { get; set; }
 }
 
 public class UpsertProductRequest

@@ -58,8 +58,11 @@ public class StoreController : ControllerBase
         IsActive = p.IsActive,
         RequiresPrescription = p.RequiresPrescription,
         MedicationId = p.MedicationId,
-        MedicationName = p.Medication != null ? p.Medication.Name + " " + p.Medication.Strength : null
+        MedicationName = p.Medication != null ? p.Medication.Name + " " + p.Medication.Strength : null,
+        ImageUrl = p.ImageKey == null ? null : "/api/store/products/" + p.Id + "/image?v=" + p.ImageVersion
     };
+
+    private const long MaxImageBytes = 3 * 1024 * 1024;
 
     private static readonly Expression<Func<StoreOrder, StoreOrderDto>> OrderProjection = o => new StoreOrderDto
     {
@@ -147,6 +150,69 @@ public class StoreController : ControllerBase
         Apply(product, request);
         await _db.SaveChangesAsync();
         await _audit.LogAsync("UpdatedProduct", nameof(Product), id);
+        return Ok(await _db.Products.AsNoTracking().Where(p => p.Id == id).Select(ProductProjection).FirstAsync());
+    }
+
+    /// <summary>The product photo. Public, so it can be shown to visitors and cached by browsers.</summary>
+    [HttpGet("products/{id:int}/image")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ProductImage(int id)
+    {
+        var key = await _db.Products.AsNoTracking().Where(p => p.Id == id).Select(p => p.ImageKey).FirstOrDefaultAsync();
+        if (key is null) return NotFound();
+
+        var stream = await _storage.OpenReadAsync(key);
+        if (stream is null) return NotFound();
+
+        // The URL carries a version number, so a long cache is safe: a new photo gets a new URL.
+        Response.Headers.CacheControl = "public, max-age=604800";
+        return File(stream, ImageContentType(key));
+    }
+
+    [HttpPost("products/{id:int}/image")]
+    [Authorize(Roles = "Admin")]
+    [RequestSizeLimit(MaxImageBytes + 64 * 1024)]
+    public async Task<ActionResult<ProductDto>> UploadProductImage(int id, IFormFile? file, CancellationToken cancellationToken)
+    {
+        var product = await _db.Products.FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+        if (product is null) return NotFound();
+
+        if (file is null || file.Length == 0) return Invalid("file", "Choose a picture.");
+        if (file.Length > MaxImageBytes) return Invalid("file", "The picture must be 3 MB or smaller.");
+
+        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (extension == ".jpeg") extension = ".jpg";
+        if (extension is not (".png" or ".jpg" or ".webp")) return Invalid("file", "Use a PNG, JPG or WebP picture.");
+        if (!await ImageSignatureMatchesAsync(file, extension, cancellationToken))
+            return Invalid("file", "The file is not a valid PNG, JPG or WebP picture.");
+
+        string key;
+        await using (var stream = file.OpenReadStream())
+            key = await _storage.SaveAsync(stream, extension, cancellationToken);
+
+        var oldKey = product.ImageKey;
+        product.ImageKey = key;
+        product.ImageVersion++;
+        await _db.SaveChangesAsync(cancellationToken);
+
+        if (oldKey is not null) await _storage.DeleteAsync(oldKey);
+        await _audit.LogAsync("UpdatedProductImage", nameof(Product), id);
+        return Ok(await _db.Products.AsNoTracking().Where(p => p.Id == id).Select(ProductProjection).FirstAsync(cancellationToken));
+    }
+
+    [HttpDelete("products/{id:int}/image")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<ProductDto>> DeleteProductImage(int id)
+    {
+        var product = await _db.Products.FirstOrDefaultAsync(p => p.Id == id);
+        if (product is null) return NotFound();
+
+        var oldKey = product.ImageKey;
+        product.ImageKey = null;
+        product.ImageVersion++;
+        await _db.SaveChangesAsync();
+
+        if (oldKey is not null) await _storage.DeleteAsync(oldKey);
         return Ok(await _db.Products.AsNoTracking().Where(p => p.Id == id).Select(ProductProjection).FirstAsync());
     }
 
@@ -556,6 +622,31 @@ public class StoreController : ControllerBase
     {
         ModelState.AddModelError(field, message);
         return ValidationProblem(ModelState);
+    }
+
+    private static string ImageContentType(string key) => Path.GetExtension(key).ToLowerInvariant() switch
+    {
+        ".png" => "image/png",
+        ".webp" => "image/webp",
+        _ => "image/jpeg"
+    };
+
+    /// <summary>Checks the file really is the picture type its name claims, by its first bytes.</summary>
+    private static async Task<bool> ImageSignatureMatchesAsync(IFormFile file, string extension, CancellationToken cancellationToken)
+    {
+        var header = new byte[12];
+        await using var stream = file.OpenReadStream();
+        var read = await stream.ReadAtLeastAsync(header.AsMemory(), header.Length, false, cancellationToken);
+
+        return extension switch
+        {
+            ".png" => read >= 8 && header[0] == 0x89 && header[1] == 0x50 && header[2] == 0x4E && header[3] == 0x47
+                      && header[4] == 0x0D && header[5] == 0x0A && header[6] == 0x1A && header[7] == 0x0A,
+            ".jpg" => read >= 3 && header[0] == 0xFF && header[1] == 0xD8 && header[2] == 0xFF,
+            ".webp" => read >= 12 && header[0] == 'R' && header[1] == 'I' && header[2] == 'F' && header[3] == 'F'
+                       && header[8] == 'W' && header[9] == 'E' && header[10] == 'B' && header[11] == 'P',
+            _ => false
+        };
     }
 
     private static string Money(decimal amount) => amount.ToString("0.00", CultureInfo.InvariantCulture) + " GEL";
