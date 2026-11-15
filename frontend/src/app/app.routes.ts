@@ -21,6 +21,16 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/doctor-profile/doctor-profile.page').then(m => m.DoctorProfilePage)
   },
   {
+    path: 'contact',
+    title: title('Contact'),
+    loadComponent: () => import('./pages/contact/contact.page').then(m => m.ContactPage)
+  },
+  {
+    path: 'services',
+    title: title('Services and prices'),
+    loadComponent: () => import('./pages/services/services.page').then(m => m.ServicesPage)
+  },
+  {
     path: 'book/:doctorId',
     title: title('Book a visit'),
     canActivate: [roleGuard('Patient', 'Receptionist', 'Admin')],
@@ -134,6 +144,7 @@ export const routes: Routes = [
       { path: '', pathMatch: 'full', redirectTo: 'users' },
       { path: 'users', loadComponent: () => import('./pages/admin/users.tab').then(m => m.AdminUsersTab) },
       { path: 'staff', loadComponent: () => import('./pages/admin/staff.tab').then(m => m.AdminStaffTab) },
+      { path: 'messages', loadComponent: () => import('./pages/admin/messages.tab').then(m => m.AdminMessagesTab) },
       { path: 'services', loadComponent: () => import('./pages/admin/services.tab').then(m => m.AdminServicesTab) },
       { path: 'store', loadComponent: () => import('./pages/admin/products.tab').then(m => m.AdminProductsTab) },
       { path: 'departments', loadComponent: () => import('./pages/admin/departments.tab').then(m => m.AdminDepartmentsTab) },

@@ -49,11 +49,11 @@ public class AdminUsersController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var term = search.Trim();
-            query = query.Where(u => u.Email.Contains(term)
-                                     || _db.Doctors.Any(d => d.UserId == u.Id && (d.FirstName.Contains(term) || d.LastName.Contains(term)))
-                                     || _db.Receptionists.Any(r => r.UserId == u.Id && (r.FirstName.Contains(term) || r.LastName.Contains(term)))
-                                     || _db.Patients.Any(p => p.UserId == u.Id && (p.FirstName.Contains(term) || p.LastName.Contains(term))));
+            var term = search.Trim().ToLower();
+            query = query.Where(u => u.Email.ToLower().Contains(term)
+                                     || _db.Doctors.Any(d => d.UserId == u.Id && (d.FirstName.ToLower().Contains(term) || d.LastName.ToLower().Contains(term)))
+                                     || _db.Receptionists.Any(r => r.UserId == u.Id && (r.FirstName.ToLower().Contains(term) || r.LastName.ToLower().Contains(term)))
+                                     || _db.Patients.Any(p => p.UserId == u.Id && (p.FirstName.ToLower().Contains(term) || p.LastName.ToLower().Contains(term))));
         }
 
         var total = await query.CountAsync();

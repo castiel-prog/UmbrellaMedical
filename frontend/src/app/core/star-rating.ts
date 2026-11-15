@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
+import { I18n } from './i18n';
 
 @Component({
   selector: 'app-star-rating',
@@ -35,5 +36,6 @@ export class StarRating {
       rounded >= index + 1 ? 'full' : rounded >= index + 0.5 ? 'half' : 'empty');
   });
 
-  protected readonly label = computed(() => `${this.value().toFixed(1)} out of 5 stars`);
+  private readonly i18n = inject(I18n);
+  protected readonly label = computed(() => this.i18n.t('{n} out of 5 stars', { n: this.value().toFixed(1) }));
 }

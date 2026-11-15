@@ -3,7 +3,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { PatientsApi } from '../core/patients.api';
 import { Gender, PatientDetails, PatientRequest } from '../core/model';
 import { apiErrorMessage } from '../core/api-error';
-import { orNull } from '../core/util';
+import { orNull, PHONE_PATTERN } from '../core/util';
 
 /** Create or edit a patient (reception and admin). */
 @Component({
@@ -30,7 +30,7 @@ import { orNull } from '../core/util';
             <option value="Other">Other</option>
           </select>
         </div>
-        <div class="field"><label for="pf-phone">Phone</label><input id="pf-phone" type="tel" formControlName="phone" maxlength="30" /></div>
+        <div class="field"><label for="pf-phone">Phone</label><input id="pf-phone" type="tel" formControlName="phone" maxlength="30" autocomplete="tel" placeholder="+995 5XX XX XX XX" required /></div>
         <div class="field"><label for="pf-email">Email</label><input id="pf-email" type="email" formControlName="email" maxlength="256" /></div>
         <div class="field"><label for="pf-address">Address</label><input id="pf-address" formControlName="address" maxlength="300" /></div>
       </div>
@@ -62,7 +62,7 @@ export class PatientForm implements OnInit {
     personalNumber: ['', [Validators.minLength(5)]],
     dateOfBirth: ['', Validators.required],
     gender: ['Male' as Gender, Validators.required],
-    phone: [''],
+    phone: ['', [Validators.required, Validators.pattern(PHONE_PATTERN)]],
     email: ['', Validators.email],
     address: [''],
     medicalHistory: ['']
@@ -84,7 +84,7 @@ export class PatientForm implements OnInit {
   protected save(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
-      this.error.set('Fill in the name, personal number (new patients), date of birth and a valid email if given.');
+      this.error.set('Fill in the name, personal number (new patients), date of birth, a valid phone number and a valid email if given.');
       return;
     }
     const v = this.form.getRawValue();
@@ -93,7 +93,7 @@ export class PatientForm implements OnInit {
       lastName: v.lastName.trim(),
       dateOfBirth: v.dateOfBirth,
       gender: v.gender,
-      phone: orNull(v.phone),
+      phone: v.phone.trim(),
       email: orNull(v.email),
       address: orNull(v.address),
       medicalHistory: orNull(v.medicalHistory)

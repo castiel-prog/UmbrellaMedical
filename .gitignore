@@ -363,3 +363,7 @@ MigrationBackup/
 FodyWeavers.xsd
 
 App_Data/
+
+# Server secrets for deploy/docker-compose.yml
+deploy/.env
+

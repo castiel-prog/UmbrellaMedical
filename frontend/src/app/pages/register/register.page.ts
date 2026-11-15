@@ -11,7 +11,9 @@ import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { apiErrorMessage } from '../../core/api-error';
 import { Gender } from '../../core/model';
-import { toDateInput } from '../../core/util';
+import { PHONE_PATTERN, toDateInput } from '../../core/util';
+import { DatePicker } from '../../shared/date-picker';
+import { TranslatePipe } from '../../core/i18n';
 
 const MINIMUM_AGE = 18;
 
@@ -52,59 +54,59 @@ const passwordsMatch: ValidatorFn = (group: AbstractControl): ValidationErrors |
 
 @Component({
   selector: 'app-register',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [TranslatePipe, ReactiveFormsModule, RouterLink, DatePicker],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="auth-card wide">
-      <h1>Create your account</h1>
+      <h1>{{ 'Create your account' | t }}</h1>
       <p class="muted">
-        Patients aged 18 or over can register themselves. Children are registered by a parent or guardian at the reception desk.
-        Doctors and staff accounts are created by the clinic.
+        {{ 'Patients aged 18 or over can register themselves. Children are registered by a parent or guardian at the reception desk. Doctors and staff accounts are created by the clinic.' | t }}
       </p>
 
       @if (error()) {
-        <p class="alert error" role="alert">{{ error() }}</p>
+        <p class="alert error" role="alert">{{ error() | t }}</p>
       }
 
       <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
         <div class="form-grid">
           <div class="field">
-            <label for="firstName">First name</label>
+            <label for="firstName">{{ 'First name' | t }}</label>
             <input id="firstName" type="text" formControlName="firstName" autocomplete="given-name" />
             @if (invalid('firstName')) {
-              <p class="field-error">First name is required.</p>
+              <p class="field-error">{{ 'First name is required.' | t }}</p>
             }
           </div>
           <div class="field">
-            <label for="lastName">Last name</label>
+            <label for="lastName">{{ 'Last name' | t }}</label>
             <input id="lastName" type="text" formControlName="lastName" autocomplete="family-name" />
             @if (invalid('lastName')) {
-              <p class="field-error">Last name is required.</p>
+              <p class="field-error">{{ 'Last name is required.' | t }}</p>
             }
           </div>
         </div>
 
         <div class="form-grid">
           <div class="field">
-            <label for="personalNumber">Personal number</label>
+            <label for="personalNumber">{{ 'Personal number' | t }}</label>
             <input id="personalNumber" type="text" formControlName="personalNumber" autocomplete="off" />
             @if (invalid('personalNumber')) {
-              <p class="field-error">Enter 5 to 20 characters.</p>
+              <p class="field-error">{{ 'Enter 5 to 20 characters.' | t }}</p>
             }
           </div>
           <div class="field">
-            <label for="dateOfBirth">Date of birth</label>
-            <input id="dateOfBirth" type="date" formControlName="dateOfBirth" autocomplete="bday" [max]="today"
-              [attr.aria-invalid]="invalid('dateOfBirth')" aria-describedby="dob-error" />
+            <label for="dateOfBirth">{{ 'Date of birth' | t }}</label>
+            <app-date-picker inputId="dateOfBirth" formControlName="dateOfBirth" placeholder="Select your date of birth"
+              [max]="today" [min]="oldest" startAt="1995-06-15" startView="years" [showAge]="true"
+              [invalid]="invalid('dateOfBirth')" describedBy="dob-error" />
             @if (invalid('dateOfBirth')) {
               <p class="field-error" id="dob-error" role="alert">
                 @switch (true) {
                   @case (dateError('underage')) {
-                    You must be at least 18 years old to create an account. A parent or guardian can register a child at the clinic's reception desk.
+                    {{ 'You must be at least 18 years old to create an account. A parent or guardian can register a child at the clinic\\'s reception desk.' | t }}
                   }
-                  @case (dateError('future')) { The date of birth cannot be in the future. }
-                  @case (dateError('required')) { Date of birth is required. }
-                  @default { Please check the date of birth. }
+                  @case (dateError('future')) { {{ 'The date of birth cannot be in the future.' | t }} }
+                  @case (dateError('required')) { {{ 'Date of birth is required.' | t }} }
+                  @default { {{ 'Please check the date of birth.' | t }} }
                 }
               </p>
             }
@@ -113,57 +115,57 @@ const passwordsMatch: ValidatorFn = (group: AbstractControl): ValidationErrors |
 
         <div class="form-grid">
           <div class="field">
-            <label for="gender">Gender</label>
+            <label for="gender">{{ 'Gender' | t }}</label>
             <select id="gender" formControlName="gender">
-              <option value="">Choose...</option>
-              <option value="Female">Female</option>
-              <option value="Male">Male</option>
-              <option value="Other">Other</option>
+              <option value="">{{ 'Choose...' | t }}</option>
+              <option value="Female">{{ 'Female' | t }}</option>
+              <option value="Male">{{ 'Male' | t }}</option>
+              <option value="Other">{{ 'Other' | t }}</option>
             </select>
             @if (invalid('gender')) {
-              <p class="field-error">Please choose one.</p>
+              <p class="field-error">{{ 'Please choose one.' | t }}</p>
             }
           </div>
           <div class="field">
-            <label for="phone">Phone (optional)</label>
-            <input id="phone" type="tel" formControlName="phone" autocomplete="tel" />
+            <label for="phone">{{ 'Phone' | t }}</label>
+            <input id="phone" type="tel" formControlName="phone" autocomplete="tel" placeholder="+995 5XX XX XX XX" />
             @if (invalid('phone')) {
-              <p class="field-error">The phone number is too long.</p>
+              <p class="field-error">{{ 'Enter a valid phone number, for example +995 555 12 34 56.' | t }}</p>
             }
           </div>
         </div>
 
         <div class="field">
-          <label for="email">Email</label>
+          <label for="email">{{ 'Email' | t }}</label>
           <input id="email" type="email" formControlName="email" autocomplete="email" />
           @if (invalid('email')) {
-            <p class="field-error">Enter a valid email address.</p>
+            <p class="field-error">{{ 'Enter a valid email address.' | t }}</p>
           }
         </div>
 
         <div class="form-grid">
           <div class="field">
-            <label for="password">Password</label>
+            <label for="password">{{ 'Password' | t }}</label>
             <input id="password" type="password" formControlName="password" autocomplete="new-password" />
             @if (invalid('password')) {
-              <p class="field-error">Use at least 8 characters.</p>
+              <p class="field-error">{{ 'Use at least 8 characters.' | t }}</p>
             }
           </div>
           <div class="field">
-            <label for="confirmPassword">Repeat password</label>
+            <label for="confirmPassword">{{ 'Repeat password' | t }}</label>
             <input id="confirmPassword" type="password" formControlName="confirmPassword" autocomplete="new-password" />
             @if (form.controls.confirmPassword.touched && form.errors?.['mismatch']) {
-              <p class="field-error">The passwords do not match.</p>
+              <p class="field-error">{{ 'The passwords do not match.' | t }}</p>
             }
           </div>
         </div>
 
         <button class="btn primary block" type="submit" [disabled]="submitting()">
-          {{ submitting() ? 'Creating account...' : 'Create account' }}
+          {{ (submitting() ? 'Creating account...' : 'Create account') | t }}
         </button>
       </form>
 
-      <p class="switch">Already registered? <a routerLink="/login">Log in</a></p>
+      <p class="switch">{{ 'Already registered?' | t }} <a routerLink="/login">{{ 'Log in' | t }}</a></p>
     </section>
   `
 })
@@ -182,7 +184,7 @@ export class RegisterPage {
       personalNumber: ['', [Validators.required, Validators.minLength(5), Validators.maxLength(20)]],
       dateOfBirth: ['', [Validators.required, adultDateOfBirth]],
       gender: ['' as Gender | '', Validators.required],
-      phone: ['', Validators.maxLength(30)],
+      phone: ['', [Validators.required, Validators.pattern(PHONE_PATTERN)]],
       email: ['', [Validators.required, Validators.email, Validators.maxLength(256)]],
       password: ['', [Validators.required, Validators.minLength(8), Validators.maxLength(100)]],
       confirmPassword: ['', Validators.required]
@@ -191,6 +193,7 @@ export class RegisterPage {
   );
 
   protected readonly today = toDateInput(new Date());
+  protected readonly oldest = `${new Date().getFullYear() - 120}-01-01`;
 
   protected dateError(code: string): boolean {
     return this.form.controls.dateOfBirth.hasError(code);
@@ -219,7 +222,7 @@ export class RegisterPage {
         personalNumber: value.personalNumber.trim(),
         dateOfBirth: value.dateOfBirth,
         gender: value.gender as Gender,
-        phone: value.phone.trim() === '' ? null : value.phone.trim(),
+        phone: value.phone.trim(),
         email: value.email.trim(),
         password: value.password
       })

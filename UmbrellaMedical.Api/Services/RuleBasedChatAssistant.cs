@@ -396,7 +396,7 @@ public partial class RuleBasedChatAssistant : IChatAssistant
     {
         var shifts = clinic.Doctors.SelectMany(d => d.Hours).ToList();
         if (shifts.Count == 0)
-            return ChatAnswer.Of("Working hours are set by each doctor; please check the doctor's profile (/doctors).");
+            return ChatAnswer.Of("Umbrella Medical Center is open 24 hours a day, 7 days a week, including weekends and holidays. Each doctor's visit hours are on their profile (/doctors).");
 
         string Range(IEnumerable<DirectoryShift> s) =>
             $"{s.Min(x => x.Start):HH\\:mm}-{s.Max(x => x.End):HH\\:mm}";
@@ -405,14 +405,14 @@ public partial class RuleBasedChatAssistant : IChatAssistant
         var saturday = shifts.Where(s => s.Day == DayOfWeek.Saturday).ToList();
         var sunday = shifts.Where(s => s.Day == DayOfWeek.Sunday).ToList();
 
-        var sb = new StringBuilder("Our doctors see patients ");
+        var sb = new StringBuilder("Umbrella Medical Center is open 24 hours a day, 7 days a week, including weekends and holidays. For booked visits, our doctors see patients ");
         sb.Append(weekdays.Count > 0 ? $"Monday to Friday, {Range(weekdays)}" : "on set days");
         if (saturday.Count > 0)
         {
             var count = clinic.Doctors.Count(d => d.Hours.Any(h => h.Day == DayOfWeek.Saturday));
             sb.Append($", and some ({count}) also on Saturday, {Range(saturday)}");
         }
-        sb.Append(sunday.Count > 0 ? $", and on Sunday, {Range(sunday)}." : ". We're closed on Sundays.");
+        sb.Append(sunday.Count > 0 ? $", and on Sunday, {Range(sunday)}." : ". On Sundays the clinic is open, but booked doctor visits are not offered yet.");
         sb.Append(" Each doctor has their own hours (many take a lunch break 13:00-14:00), shown on their profile (/doctors), and the booking page only offers free times.");
         return ChatAnswer.Of(sb.ToString(), "How do I book a visit?", "Which doctors work on Saturday?");
     }
@@ -421,7 +421,7 @@ public partial class RuleBasedChatAssistant : IChatAssistant
     {
         var docs = clinic.Doctors.Where(d => d.Hours.Any(h => h.Day == DayOfWeek.Saturday)).ToList();
         if (docs.Count == 0)
-            return ChatAnswer.Of("None of our doctors work on weekends at the moment. We're open Monday to Friday; see each doctor's hours on their profile (/doctors).");
+            return ChatAnswer.Of("The clinic is open 24/7, including weekends, but no doctor offers booked visits on weekends at the moment. See each doctor's hours on their profile (/doctors).");
 
         var sb = new StringBuilder("These doctors also see patients on Saturday:\n");
         foreach (var d in docs)
@@ -429,7 +429,7 @@ public partial class RuleBasedChatAssistant : IChatAssistant
             var shifts = d.Hours.Where(h => h.Day == DayOfWeek.Saturday).OrderBy(h => h.Start);
             sb.AppendLine($"- {d.FullName}, {d.Specialization}: {string.Join(", ", shifts.Select(h => $"{h.Start:HH\\:mm}-{h.End:HH\\:mm}"))} (/doctors/{d.Id})");
         }
-        sb.Append("We're closed on Sundays.");
+        sb.Append("The clinic itself is open 24/7, including Sundays.");
         return ChatAnswer.Of(sb.ToString(), "How do I book a visit?");
     }
 

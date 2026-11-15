@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { CurrencyPipe, DatePipe } from '@angular/common';
+import { CurrencyPipe } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DoctorsApi } from '../../core/doctors.api';
 import { AuthService } from '../../core/auth.service';
@@ -7,16 +7,17 @@ import { DoctorDetails, Review, ReviewSummary } from '../../core/model';
 import { apiErrorMessage } from '../../core/api-error';
 import { StarRating } from '../../core/star-rating';
 import { Certificate } from '../../shared/certificate';
+import { LocalDatePipe, TranslatePipe } from '../../core/i18n';
 
 @Component({
   selector: 'app-doctor-profile',
-  imports: [RouterLink, DatePipe, CurrencyPipe, StarRating, Certificate],
+  imports: [TranslatePipe, LocalDatePipe, RouterLink, CurrencyPipe, StarRating, Certificate],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <a class="back" routerLink="/doctors">← All doctors</a>
+    <a class="back" routerLink="/doctors">← {{ 'All doctors' | t }}</a>
 
     @if (error()) {
-      <p class="alert error" role="alert">{{ error() }}</p>
+      <p class="alert error" role="alert">{{ error() | t }}</p>
     }
 
     @if (doctor(); as d) {
@@ -27,39 +28,39 @@ import { Certificate } from '../../shared/certificate';
           <div class="avatar big" aria-hidden="true">{{ initials() }}</div>
         }
         <div class="profile-main">
-          <h1>Dr. {{ d.firstName }} {{ d.lastName }}</h1>
-          <p class="spec">{{ d.specialization }}</p>
-          <p class="muted">{{ d.yearsOfExperience }} years of experience</p>
+          <h1>{{ 'Dr. {name}' | t: { name: d.firstName + ' ' + d.lastName } }}</h1>
+          <p class="spec">{{ d.specialization | t }}</p>
+          <p class="muted">{{ '{n} years of experience' | t: { n: d.yearsOfExperience } }}</p>
           @if (d.reviewCount > 0) {
             <app-star-rating [value]="d.averageRating" [count]="d.reviewCount" />
           } @else {
-            <span class="muted">No reviews yet</span>
+            <span class="muted">{{ 'No reviews yet' | t }}</span>
           }
         </div>
         <div class="profile-actions">
-          <a class="btn primary" [routerLink]="['/book', d.id]">Book a visit</a>
+          <a class="btn primary" [routerLink]="['/book', d.id]">{{ 'Book a visit' | t }}</a>
           @if (isPatient()) {
-            <a class="btn" routerLink="/health" [queryParams]="{ tab: 'prescriptions', request: 1, doctorId: d.id }">Request a prescription</a>
+            <a class="btn" routerLink="/health" [queryParams]="{ tab: 'prescriptions', request: 1, doctorId: d.id }">{{ 'Request a prescription' | t }}</a>
           }
         </div>
       </section>
 
       @if (d.bio) {
-        <h2>About</h2>
+        <h2>{{ 'About' | t }}</h2>
         <p class="pre-line">{{ d.bio }}</p>
       }
 
       <ul class="highlights">
-        <li><strong>{{ d.yearsOfExperience }}+</strong><span>years caring for patients</span></li>
-        <li><strong>✓</strong><span>Licensed &amp; credentials verified</span></li>
-        <li><strong>{{ d.services.length }}</strong><span>service{{ d.services.length === 1 ? '' : 's' }} offered</span></li>
+        <li><strong>{{ d.yearsOfExperience }}+</strong><span>{{ 'years caring for patients' | t }}</span></li>
+        <li><strong>✓</strong><span>{{ 'Licensed and credentials verified' | t }}</span></li>
+        <li><strong>{{ d.services.length }}</strong><span>{{ (d.services.length === 1 ? 'service offered' : 'services offered') | t }}</span></li>
         @if (d.reviewCount > 0) {
-          <li><strong>{{ d.averageRating.toFixed(1) }} ★</strong><span>from {{ d.reviewCount }} patient review{{ d.reviewCount === 1 ? '' : 's' }}</span></li>
+          <li><strong>{{ d.averageRating.toFixed(1) }} ★</strong><span>{{ (d.reviewCount === 1 ? 'from 1 patient review' : 'from {n} patient reviews') | t: { n: d.reviewCount } }}</span></li>
         }
       </ul>
 
-      <h2>Credentials</h2>
-      <p class="muted">Every Umbrella doctor's degree and licence is checked by our Credentialing Office.</p>
+      <h2>{{ 'Credentials' | t }}</h2>
+      <p class="muted">{{ 'Every Umbrella doctor\\'s degree and licence is checked by our Credentialing Office.' | t }}</p>
       <div class="certificates">
         <app-certificate kind="excellence" [doctor]="d" />
         @for (e of d.educations; track $index) {
@@ -67,23 +68,23 @@ import { Certificate } from '../../shared/certificate';
         }
       </div>
 
-      <h2>Services and prices</h2>
+      <h2>{{ 'Services and prices' | t }}</h2>
       @if (d.services.length === 0) {
-        <p class="muted">This doctor has no services yet.</p>
+        <p class="muted">{{ 'This doctor has no services yet.' | t }}</p>
       } @else {
         <div class="table-wrap">
-          <table class="table">
+          <table class="table services-table">
             <thead>
-              <tr><th>Service</th><th>Duration</th><th>Price</th><th></th></tr>
+              <tr><th>{{ 'Service' | t }}</th><th>{{ 'Duration' | t }}</th><th>{{ 'Price' | t }}</th><th></th></tr>
             </thead>
             <tbody>
               @for (s of d.services; track s.serviceId) {
                 <tr>
-                  <td>{{ s.name }}</td>
-                  <td>{{ s.durationMinutes }} min</td>
+                  <td>{{ s.name }}<span class="muted small only-phone"> · {{ '{n} min' | t: { n: s.durationMinutes } }}</span></td>
+                  <td>{{ '{n} min' | t: { n: s.durationMinutes } }}</td>
                   <td>{{ s.price | currency: 'GEL' : 'symbol-narrow' }}</td>
                   <td class="right">
-                    <a class="btn small" [routerLink]="['/book', d.id]" [queryParams]="{ serviceId: s.serviceId }">Book</a>
+                    <a class="btn small" [routerLink]="['/book', d.id]" [queryParams]="{ serviceId: s.serviceId }">{{ 'Book' | t }}</a>
                   </td>
                 </tr>
               }
@@ -94,9 +95,9 @@ import { Certificate } from '../../shared/certificate';
 
       <div class="two-col">
         <div>
-          <h2>Education</h2>
+          <h2>{{ 'Education' | t }}</h2>
           @if (d.educations.length === 0) {
-            <p class="muted">Not added yet.</p>
+            <p class="muted">{{ 'Not added yet.' | t }}</p>
           } @else {
             <ul class="timeline">
               @for (e of d.educations; track $index) {
@@ -110,16 +111,16 @@ import { Certificate } from '../../shared/certificate';
           }
         </div>
         <div>
-          <h2>Experience</h2>
+          <h2>{{ 'Experience' | t }}</h2>
           @if (d.experiences.length === 0) {
-            <p class="muted">Not added yet.</p>
+            <p class="muted">{{ 'Not added yet.' | t }}</p>
           } @else {
             <ul class="timeline">
               @for (x of d.experiences; track $index) {
                 <li>
                   <strong>{{ x.position }}</strong>
                   <span>{{ x.workplace }}</span>
-                  <small class="muted">{{ x.startDate | date: 'MMM y' }} – {{ x.endDate ? (x.endDate | date: 'MMM y') : 'now' }}</small>
+                  <small class="muted">{{ x.startDate | ldate: 'monthYear' }} – {{ x.endDate ? (x.endDate | ldate: 'monthYear') : ('now' | t) }}</small>
                   @if (x.description) {
                     <p class="muted">{{ x.description }}</p>
                   }
@@ -130,16 +131,16 @@ import { Certificate } from '../../shared/certificate';
         </div>
       </div>
 
-      <h2>Reviews</h2>
+      <h2>{{ 'Reviews' | t }}</h2>
       @if (summary(); as sum) {
         @if (sum.reviewCount === 0) {
-          <p class="muted">No reviews yet. Patients can review a doctor after a completed visit.</p>
+          <p class="muted">{{ 'No reviews yet. Patients can review a doctor after a completed visit.' | t }}</p>
         } @else {
           <div class="card review-summary">
             <div class="score">
               <strong>{{ sum.averageRating.toFixed(1) }}</strong>
               <app-star-rating [value]="sum.stars" />
-              <span class="muted">{{ sum.reviewCount }} review(s)</span>
+              <span class="muted">{{ (sum.reviewCount === 1 ? '1 review' : '{n} reviews') | t: { n: sum.reviewCount } }}</span>
             </div>
             <div class="bars">
               @for (row of distribution(); track row.rating) {
@@ -162,20 +163,20 @@ import { Certificate } from '../../shared/certificate';
                 @if (r.comment) {
                   <p>{{ r.comment }}</p>
                 }
-                <small class="muted">{{ r.createdAt | date: 'mediumDate' }}</small>
+                <small class="muted">{{ r.createdAt | ldate: 'medium' }}</small>
               </li>
             }
           </ul>
 
           @if (reviews().length < reviewTotal()) {
             <button class="btn" type="button" (click)="loadMoreReviews()" [disabled]="loadingReviews()">
-              {{ loadingReviews() ? 'Loading...' : 'Show more reviews' }}
+              {{ (loadingReviews() ? 'Loading...' : 'Show more reviews') | t }}
             </button>
           }
         }
       }
     } @else if (!error()) {
-      <p class="muted">Loading doctor...</p>
+      <p class="muted">{{ 'Loading doctor...' | t }}</p>
     }
   `
 })

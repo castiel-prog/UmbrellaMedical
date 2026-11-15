@@ -51,3 +51,5 @@ export const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frid
 export function splitWords(value: string): string {
   return value.replace(/([a-z])([A-Z])/g, '$1 $2');
 }
+/** Phone numbers: optional +, then 6-30 digits, spaces, dashes or brackets (e.g. +995 555 12 34 56). */
+export const PHONE_PATTERN = /^\+?[0-9][0-9\s\-()]{5,29}$/;

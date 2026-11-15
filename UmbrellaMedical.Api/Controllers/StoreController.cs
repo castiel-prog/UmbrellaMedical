@@ -3,7 +3,6 @@ using System.Globalization;
 using System.Linq.Expressions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using UmbrellaMedical.Api.DTOs.Common;
 using UmbrellaMedical.Api.DTOs.Store;
@@ -106,8 +105,8 @@ public class StoreController : ControllerBase
         if (category is not null) query = query.Where(p => p.Category == category);
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var term = search.Trim();
-            query = query.Where(p => p.Name.Contains(term) || (p.Description != null && p.Description.Contains(term)));
+            var term = search.Trim().ToLower();
+            query = query.Where(p => p.Name.ToLower().Contains(term) || (p.Description != null && p.Description.ToLower().Contains(term)));
         }
 
         return Ok(await query.OrderBy(p => p.Category).ThenBy(p => p.Name).Select(ProductProjection).ToListAsync());
@@ -373,7 +372,7 @@ public class StoreController : ControllerBase
             committed = true;
             orderId = order.Id;
         }
-        catch (SqlException ex) when (ex.Number == 1205)
+        catch (Exception ex) when (DbConflicts.IsTransientConflict(ex))
         {
             return Problem(detail: "Another order was being placed at the same time. Please try again.", statusCode: StatusCodes.Status409Conflict, title: "Please retry");
         }
@@ -405,10 +404,10 @@ public class StoreController : ControllerBase
         }
         else if (!string.IsNullOrWhiteSpace(search))
         {
-            var term = search.Trim();
-            query = query.Where(o => o.OrderNumber.Contains(term)
-                                     || (o.Patient.FirstName + " " + o.Patient.LastName).Contains(term)
-                                     || o.Patient.PersonalNumber.Contains(term));
+            var term = search.Trim().ToLower();
+            query = query.Where(o => o.OrderNumber.ToLower().Contains(term)
+                                     || (o.Patient.FirstName + " " + o.Patient.LastName).ToLower().Contains(term)
+                                     || o.Patient.PersonalNumber.ToLower().Contains(term));
         }
 
         if (status is not null) query = query.Where(o => o.Status == status);

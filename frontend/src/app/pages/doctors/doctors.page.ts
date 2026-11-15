@@ -7,53 +7,60 @@ import { DoctorsApi } from '../../core/doctors.api';
 import { DoctorListItem, PagedResult, Specialization } from '../../core/model';
 import { apiErrorMessage } from '../../core/api-error';
 import { DoctorCard } from '../../core/doctor-card';
+import { SpecialtySelect } from '../../shared/specialty-select';
+import { Icon } from '../../shared/icon';
+import { TranslatePipe } from '../../core/i18n';
 
 @Component({
   selector: 'app-doctors',
-  imports: [ReactiveFormsModule, DoctorCard],
+  imports: [TranslatePipe, ReactiveFormsModule, DoctorCard, SpecialtySelect, Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <h1>Our doctors</h1>
+    <div class="page-head">
+      <div>
+        <p class="eyebrow">{{ 'Find a doctor' | t }}</p>
+        <h1>{{ 'Our doctors' | t }}</h1>
+      </div>
+    </div>
 
-    <div class="filters">
+    <div class="filter-bar card">
       <div class="field">
-        <label for="search">Search by name</label>
-        <input id="search" type="search" [formControl]="search" placeholder="For example: Kapanadze" />
+        <label for="search">{{ 'Search by name' | t }}</label>
+        <div class="input-icon">
+          <app-icon name="search" [size]="18" />
+          <input id="search" type="search" [formControl]="search" [placeholder]="'For example: Beridze' | t" />
+        </div>
       </div>
       <div class="field">
-        <label for="specialization">Specialization</label>
-        <select id="specialization" [formControl]="specializationId">
-          <option [ngValue]="null">All specializations</option>
-          @for (item of specializations(); track item.id) {
-            <option [ngValue]="item.id">{{ item.name }}</option>
-          }
-        </select>
+        <label for="specialization">{{ 'Specialization' | t }}</label>
+        <app-specialty-select inputId="specialization" [specializations]="specializations()" [counts]="counts()"
+          [value]="specializationId.value" (valueChange)="specializationId.setValue($event)" />
       </div>
     </div>
 
     @if (error()) {
-      <p class="alert error" role="alert">{{ error() }}</p>
+      <p class="alert error" role="alert">{{ error() | t }}</p>
     }
 
     @if (loading() && !result()) {
-      <p class="muted">Loading doctors...</p>
+      <p class="muted">{{ 'Loading doctors...' | t }}</p>
     }
 
     @if (result(); as data) {
       @if (data.items.length === 0) {
-        <p class="muted">No doctors match your search.</p>
+        <p class="muted">{{ 'No doctors match your search.' | t }}</p>
       } @else {
-        <p class="muted">{{ data.totalCount }} doctor(s) found</p>
+        <p class="muted">{{ (data.totalCount === 1 ? '1 doctor found' : '{n} doctors found') | t: { n: data.totalCount } }}</p>
         <div class="grid" [class.dim]="loading()">
           @for (doctor of data.items; track doctor.id) {
             <app-doctor-card [doctor]="doctor" />
           }
         </div>
 
-        <nav class="pager" aria-label="Pages">
-          <button class="btn small" type="button" (click)="goToPage(page() - 1)" [disabled]="page() <= 1 || loading()">Previous</button>
-          <span>Page {{ page() }} of {{ totalPages() }}</span>
-          <button class="btn small" type="button" (click)="goToPage(page() + 1)" [disabled]="page() >= totalPages() || loading()">Next</button>
+        <nav class="pager" [attr.aria-label]="'Pages' | t">
+          <button class="btn small" type="button" (click)="goToPage(page() - 1)" [disabled]="page() <= 1 || loading()">{{ 'Previous' | t }}</button>
+          <span>{{ 'Page {page} of {total}' | t: { page: page(), total: totalPages() } }}</span>
+          <button class="btn small" type="button" (click)="goToPage(page() + 1)" [disabled]="page() >= totalPages() || loading()">{{ 'Next' | t }}</button>
         </nav>
       }
     }
@@ -68,6 +75,7 @@ export class DoctorsPage {
   protected readonly specializationId = new FormControl<number | null>(null);
 
   protected readonly specializations = signal<Specialization[]>([]);
+  protected readonly counts = signal<Record<number, number> | null>(null);
   protected readonly result = signal<PagedResult<DoctorListItem> | null>(null);
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
@@ -78,12 +86,24 @@ export class DoctorsPage {
 
   constructor() {
     // Links such as /doctors?specializationId=3 (from the home page) open the list already filtered.
-    const preset = Number(inject(ActivatedRoute).snapshot.queryParamMap.get('specializationId'));
+    const params = inject(ActivatedRoute).snapshot.queryParamMap;
+    const preset = Number(params.get('specializationId'));
     if (preset > 0) this.specializationId.setValue(preset, { emitEvent: false });
+    const search = params.get('search');
+    if (search) this.search.setValue(search, { emitEvent: false });
 
     this.api.specializations().subscribe({
       next: items => this.specializations.set(items),
       error: () => this.specializations.set([])
+    });
+
+    // How many doctors each specialty has, shown in the specialty picker.
+    this.api.list({ pageSize: 100 }).subscribe({
+      next: r => {
+        const counts: Record<number, number> = {};
+        for (const d of r.items) counts[d.specializationId] = (counts[d.specializationId] ?? 0) + 1;
+        this.counts.set(counts);
+      }
     });
 
     this.reload$

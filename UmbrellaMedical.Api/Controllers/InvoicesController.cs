@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
 using System.Globalization;
@@ -125,10 +124,10 @@ public class InvoicesController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var term = search.Trim();
-            query = query.Where(i => i.InvoiceNumber.Contains(term)
-                                     || i.Patient.FirstName.Contains(term)
-                                     || i.Patient.LastName.Contains(term));
+            var term = search.Trim().ToLower();
+            query = query.Where(i => i.InvoiceNumber.ToLower().Contains(term)
+                                     || i.Patient.FirstName.ToLower().Contains(term)
+                                     || i.Patient.LastName.ToLower().Contains(term));
         }
 
         if (from is not null)
@@ -295,7 +294,7 @@ public class InvoicesController : ControllerBase
             await tx.CommitAsync();
             newId = invoice.Id;
         }
-        catch (SqlException ex) when (ex.Number == 1205)
+        catch (Exception ex) when (DbConflicts.IsTransientConflict(ex))
         {
             return Problem(
                 detail: "Another change was happening at the same time. Please try again.",
@@ -364,7 +363,7 @@ public class InvoicesController : ControllerBase
             await tx.CommitAsync();
             paymentId = payment.Id;
         }
-        catch (SqlException ex) when (ex.Number == 1205)
+        catch (Exception ex) when (DbConflicts.IsTransientConflict(ex))
         {
             return Problem(
                 detail: "Another change was happening at the same time. Please try again.",

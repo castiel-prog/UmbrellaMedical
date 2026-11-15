@@ -34,7 +34,15 @@ namespace UmbrellaMedical.Api
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(c =>
             {
-                c.SwaggerDoc("v1", new OpenApiInfo { Title = "Umbrella Medical API", Version = "v1" });
+                c.SwaggerDoc("v1", new OpenApiInfo
+                {
+                    Title = "Umbrella Medical Center API",
+                    Version = "v1",
+                    Description = "REST API of the Umbrella Medical Center clinic system: doctors, booking, payments, medical records, " +
+                                  "prescriptions, store and administration.\n\n" +
+                                  "**To call protected endpoints:** use POST /api/auth/login, copy the `token` from the response, " +
+                                  "press **Authorize** and paste it."
+                });
 
                 c.DocumentFilter<TagOrderDocumentFilter>();
 
@@ -61,7 +69,7 @@ namespace UmbrellaMedical.Api
             });
 
             builder.Services.AddDbContext<UmbrellaDbContext>(options =>
-                options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+                options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
             builder.Services.AddHttpContextAccessor();
             builder.Services.AddProblemDetails();
@@ -236,6 +244,11 @@ namespace UmbrellaMedical.Api
                             app.Logger.LogInformation("Development: {Count} staff account(s) now use the shared demo password.", changed);
                     }
                 }
+
+                // Demo patients (password "Patient123") with past visits and 2-3 reviews per doctor.
+                // Always in Development; on a server only when Seed:DemoPatients is true (a showcase site).
+                if (isDev || builder.Configuration.GetValue<bool>("Seed:DemoPatients"))
+                    await DemoReviewsSeeder.SeedAsync(db);
             }
 
             app.UseExceptionHandler();
@@ -271,11 +284,17 @@ namespace UmbrellaMedical.Api
                 await next();
             });
 
-            if (app.Environment.IsDevelopment())
+            // API documentation is public (also on the live site): https://<site>/swagger
+            app.UseSwagger();
+            app.UseSwaggerUI(c =>
             {
-                app.UseSwagger();
-                app.UseSwaggerUI(c => c.DocExpansion(DocExpansion.None));
-            }
+                c.DocumentTitle = "Umbrella Medical Center API";
+                c.DocExpansion(DocExpansion.None);
+                c.EnablePersistAuthorization();   // keep the pasted login token while trying endpoints
+                c.EnableTryItOutByDefault();
+                c.DisplayRequestDuration();
+                c.EnableFilter();
+            });
 
             app.UseHttpsRedirection();
 

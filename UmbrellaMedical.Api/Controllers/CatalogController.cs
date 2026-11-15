@@ -28,8 +28,8 @@ public class CatalogController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var term = search.Trim();
-            query = query.Where(d => d.Code.Contains(term) || d.Name.Contains(term));
+            var term = search.Trim().ToLower();
+            query = query.Where(d => d.Code.ToLower().Contains(term) || d.Name.ToLower().Contains(term));
         }
 
         var items = await query
@@ -48,8 +48,8 @@ public class CatalogController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var term = search.Trim();
-            query = query.Where(m => m.Name.Contains(term) || (m.GenericName != null && m.GenericName.Contains(term)));
+            var term = search.Trim().ToLower();
+            query = query.Where(m => m.Name.ToLower().Contains(term) || (m.GenericName != null && m.GenericName.ToLower().Contains(term)));
         }
 
         var items = await query

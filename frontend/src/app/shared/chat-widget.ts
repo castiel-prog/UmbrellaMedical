@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { ChatMessage } from '../core/model';
 import { apiErrorMessage } from '../core/api-error';
 import { Logo } from './logo';
+import { I18n, TranslatePipe } from '../core/i18n';
 
 const STORAGE_KEY = 'umbrella.chat';
 const MAX_LENGTH = 2000;
@@ -20,33 +21,34 @@ type Segment = { text: string; link?: string };
 /** Floating help chat answered by the AI assistant. */
 @Component({
   selector: 'app-chat-widget',
-  imports: [RouterLink, Logo],
+  imports: [TranslatePipe, RouterLink, Logo],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (open()) {
-      <section class="chat-panel" role="dialog" aria-label="Umbrella Assistant chat">
+      <section class="chat-panel" role="dialog" [attr.aria-label]="'Umbrella Assistant chat' | t">
         <header class="chat-head">
           <app-logo [size]="30" />
           <div class="chat-title">
-            <strong>Umbrella Assistant</strong>
-            <span class="ai-badge" [title]="mode() === 'ai' ? 'Answers are written by AI' : 'Automatic answers from our help centre'">{{ mode() === 'ai' ? 'AI' : 'AUTO' }}</span>
+            <strong>{{ 'Umbrella Assistant' | t }}</strong>
+            <span class="ai-badge" [title]="(mode() === 'ai' ? 'Answers are written by AI' : 'Automatic answers from our help centre') | t">{{ mode() === 'ai' ? 'AI' : 'AUTO' }}</span>
           </div>
           @if (messages().length > 0) {
-            <button class="chat-icon-btn" type="button" (click)="reset()" title="Start a new conversation" aria-label="Start a new conversation">⟲</button>
+            <button class="chat-icon-btn" type="button" (click)="reset()" [title]="'Start a new conversation' | t" [attr.aria-label]="'Start a new conversation' | t">⟲</button>
           }
-          <button class="chat-icon-btn" type="button" (click)="open.set(false)" aria-label="Close chat">✕</button>
+          <button class="chat-icon-btn" type="button" (click)="open.set(false)" [attr.aria-label]="'Close chat' | t">✕</button>
         </header>
 
         <div #scroller class="chat-body" aria-live="polite">
           <div class="bubble bot">
-            Hi! I'm the Umbrella Assistant{{ mode() === 'ai' ? ', an AI helper' : ', an automated helper' }}.
-            Ask me about our doctors, services, prices, booking, payments or how to use this site.
+            {{ (mode() === 'ai' ? 'Hi! I am the Umbrella Assistant, an AI helper.' : 'Hi! I am the Umbrella Assistant, an automated helper.') | t }}
+            {{ 'Ask me about our doctors, services, prices, booking, payments or how to use this site.' | t }}
+            @if (i18n.lang() !== 'en') { <em class="chat-lang-note">{{ 'The assistant replies in English.' | t }}</em> }
           </div>
 
           @if (messages().length === 0 && available() !== false) {
             <div class="chips">
               @for (s of suggestions; track s) {
-                <button type="button" class="chip-btn" (click)="send(s)" [disabled]="sending()">{{ s }}</button>
+                <button type="button" class="chip-btn" (click)="send(s)" [disabled]="sending()">{{ s | t }}</button>
               }
             </div>
           }
@@ -71,47 +73,48 @@ type Segment = { text: string; link?: string };
           }
 
           @if (sending()) {
-            <div class="bubble bot typing" aria-label="The assistant is typing"><span></span><span></span><span></span></div>
+            <div class="bubble bot typing" [attr.aria-label]="'The assistant is typing' | t"><span></span><span></span><span></span></div>
           }
 
           @if (available() === false) {
-            <p class="chat-note">The assistant isn't available right now. Please contact the reception desk.</p>
+            <p class="chat-note">{{ 'The assistant isn\\'t available right now. Please contact the reception desk.' | t }}</p>
           }
           @if (error()) {
             <p class="chat-note error" role="alert">
-              {{ error() }}
-              <button type="button" class="link-like" (click)="retry()">Try again</button>
+              {{ error() | t }}
+              <button type="button" class="link-like" (click)="retry()">{{ 'Try again' | t }}</button>
             </p>
           }
         </div>
 
         <form class="chat-input" (submit)="$event.preventDefault(); send(draft())">
-          <label for="chat-text" class="sr-only">Your question</label>
+          <label for="chat-text" class="sr-only">{{ 'Your question' | t }}</label>
           <textarea
             #input
             id="chat-text"
             rows="1"
-            placeholder="Type your question..."
+            [placeholder]="'Type your question...' | t"
             [maxLength]="maxLength"
             [value]="draft()"
             [disabled]="available() === false"
             (input)="draft.set($any($event.target).value)"
             (keydown.enter)="onEnter($any($event))"></textarea>
-          <button class="btn primary small" type="submit" [disabled]="!draft().trim() || sending() || available() === false" aria-label="Send">➤</button>
+          <button class="btn primary small" type="submit" [disabled]="!draft().trim() || sending() || available() === false" [attr.aria-label]="'Send' | t">➤</button>
         </form>
         <p class="chat-disclaimer">
-          {{ mode() === 'ai' ? 'AI answers can be wrong and are not medical advice.' : 'Automatic answers, not medical advice.' }}
-          In an emergency call 112.
+          {{ (mode() === 'ai' ? 'AI answers can be wrong and are not medical advice.' : 'Automatic answers, not medical advice.') | t }}
+          {{ 'In an emergency call 112.' | t }}
         </p>
       </section>
     }
 
-    <button class="chat-launcher" type="button" [class.hidden]="open()" (click)="openChat()" aria-label="Open the help chat">
-      <span aria-hidden="true">💬</span> Ask us
+    <button class="chat-launcher" type="button" [class.hidden]="open()" (click)="openChat()" [attr.aria-label]="'Open the help chat' | t">
+      <span aria-hidden="true">💬</span> {{ 'Ask us' | t }}
     </button>
   `
 })
 export class ChatWidget {
+  protected readonly i18n = inject(I18n);
   private readonly http = inject(HttpClient);
   private readonly scroller = viewChild<ElementRef<HTMLElement>>('scroller');
   private readonly input = viewChild<ElementRef<HTMLTextAreaElement>>('input');

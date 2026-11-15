@@ -35,8 +35,8 @@ public class AdminServicesController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var term = search.Trim();
-            query = query.Where(s => s.Name.Contains(term));
+            var term = search.Trim().ToLower();
+            query = query.Where(s => s.Name.ToLower().Contains(term));
         }
 
         var items = await query

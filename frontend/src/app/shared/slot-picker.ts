@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
-import { DatePipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { LocalDatePipe, TranslatePipe } from '../core/i18n';
+import { DatePicker } from './date-picker';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { catchError, map, of, switchMap, tap } from 'rxjs';
 import { DoctorsApi } from '../core/doctors.api';
@@ -9,45 +11,45 @@ import { addDays, toDateInput } from '../core/util';
 
 @Component({
   selector: 'app-slot-picker',
-  imports: [DatePipe],
+  imports: [FormsModule, LocalDatePipe, TranslatePipe, DatePicker],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="day-strip" role="group" aria-label="Choose a day">
+    <div class="day-strip" role="group" [attr.aria-label]="'Choose a day' | t">
       @for (day of days; track day.value) {
         <button
           type="button"
           class="day"
           [class.selected]="day.value === date()"
           (click)="date.set(day.value)">
-          <small>{{ day.date | date: 'EEE' }}</small>
-          <strong>{{ day.date | date: 'd' }}</strong>
-          <small>{{ day.date | date: 'MMM' }}</small>
+          <small>{{ day.date | ldate: 'weekday' }}</small>
+          <strong>{{ day.date | ldate: 'day' }}</strong>
+          <small>{{ day.date | ldate: 'month' }}</small>
         </button>
       }
     </div>
 
     <div class="field other-date">
-      <label for="slot-date">Or pick another date</label>
-      <input id="slot-date" type="date" [min]="today" [max]="maxDate" [value]="date()" (change)="onDate($event)" />
+      <label for="slot-date">{{ 'Or pick another date' | t }}</label>
+      <app-date-picker inputId="slot-date" [min]="today" [max]="maxDate" [ngModel]="date()" (ngModelChange)="pickDate($event)" />
     </div>
 
     @if (!serviceId()) {
-      <p class="muted">Choose a service first.</p>
+      <p class="muted">{{ 'Choose a service first.' | t }}</p>
     } @else if (loading()) {
-      <p class="muted">Looking for free times...</p>
+      <p class="muted">{{ 'Looking for free times...' | t }}</p>
     } @else if (error()) {
-      <p class="alert error" role="alert">{{ error() }}</p>
+      <p class="alert error" role="alert">{{ error() | t }}</p>
     } @else if (slots().length === 0) {
-      <p class="muted">No free times on this day. Try another day.</p>
+      <p class="muted">{{ 'No free times on this day. Try another day.' | t }}</p>
     } @else {
-      <div class="slots" role="group" aria-label="Free times">
+      <div class="slots" role="group" [attr.aria-label]="'Free times' | t">
         @for (slot of slots(); track slot.start) {
           <button
             type="button"
             class="slot"
             [class.selected]="slot.start === selected()"
             [attr.aria-pressed]="slot.start === selected()"
-            (click)="choose(slot)">{{ slot.start | date: 'HH:mm' }}</button>
+            (click)="choose(slot)">{{ slot.start | ldate: 'time' }}</button>
         }
       </div>
     }
@@ -106,8 +108,7 @@ export class SlotPicker {
       });
   }
 
-  protected onDate(event: Event): void {
-    const value = (event.target as HTMLInputElement).value;
+  protected pickDate(value: string): void {
     if (value) this.date.set(value);
   }
 

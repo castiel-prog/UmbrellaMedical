@@ -232,14 +232,15 @@ public static class DemoStaffSeeder
     public const string DevelopmentPassword = "Umbrella123";
 
     /// <summary>
-    /// Development only: gives every clinic staff account (admin, doctors, receptionists with an
-    /// @umbrella.local email) the same password. Returns how many accounts were changed.
+    /// Development only: gives every demo doctor and receptionist (@umbrella.local email) the same password.
+    /// Not the admin: the database is shared with the live site, whose admin keeps its own password.
+    /// Returns how many accounts were changed.
     /// </summary>
     public static async Task<int> UseSharedStaffPasswordAsync(UmbrellaDbContext db, string password)
     {
         var staff = await db.Users
             .Where(u => u.Email.EndsWith("@umbrella.local")
-                        && (u.Role.Name == "Admin" || u.Role.Name == "Doctor" || u.Role.Name == "Receptionist"))
+                        && (u.Role.Name == "Doctor" || u.Role.Name == "Receptionist"))
             .ToListAsync();
 
         var changed = 0;

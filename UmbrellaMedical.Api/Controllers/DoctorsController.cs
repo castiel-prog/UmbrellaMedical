@@ -43,8 +43,8 @@ namespace UmbrellaMedical.Api.Controllers
 
             if (!string.IsNullOrWhiteSpace(search))
             {
-                var term = search.Trim();
-                query = query.Where(d => d.FirstName.Contains(term) || d.LastName.Contains(term));
+                var term = search.Trim().ToLower();
+                query = query.Where(d => d.FirstName.ToLower().Contains(term) || d.LastName.ToLower().Contains(term));
             }
 
             var total = await query.CountAsync();

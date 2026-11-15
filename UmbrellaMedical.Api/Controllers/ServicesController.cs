@@ -38,7 +38,12 @@ public class ServicesController : ControllerBase
                 Price = s.Price,
                 DurationMinutes = s.DurationMinutes,
                 DepartmentId = s.DepartmentId,
-                Department = s.Department.Name
+                Department = s.Department.Name,
+                Doctors = s.DoctorServices
+                    .Where(ds => ds.Doctor.User.IsActive)
+                    .OrderBy(ds => ds.Doctor.LastName)
+                    .Select(ds => new ServiceDoctorDto { Id = ds.DoctorId, Name = ds.Doctor.FirstName + " " + ds.Doctor.LastName })
+                    .ToList()
             })
             .ToListAsync();
 

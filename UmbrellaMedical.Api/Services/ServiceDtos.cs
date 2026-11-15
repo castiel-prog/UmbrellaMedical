@@ -11,6 +11,14 @@ namespace UmbrellaMedical.Api.Services
         public int DurationMinutes { get; set; }
         public int DepartmentId { get; set; }
         public string Department { get; set; } = string.Empty;
+        /// <summary>Active doctors who offer this service.</summary>
+        public List<ServiceDoctorDto> Doctors { get; set; } = new();
+    }
+
+    public class ServiceDoctorDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
     }
 
     public class AssignServicesRequest

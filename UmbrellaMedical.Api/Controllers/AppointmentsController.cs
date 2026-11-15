@@ -2,7 +2,6 @@
 using System.Linq.Expressions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using UmbrellaMedical.Api.DTOs.Appointments;
 using UmbrellaMedical.Api.DTOs.Common;
@@ -333,7 +332,7 @@ namespace UmbrellaMedical.Api.Controllers
                 committed = true;
                 newId = appointment.Id;
             }
-            catch (SqlException ex) when (ex.Number == 1205)
+            catch (Exception ex) when (DbConflicts.IsTransientConflict(ex))
             {
                 return SlotTaken();
             }
@@ -405,7 +404,7 @@ namespace UmbrellaMedical.Api.Controllers
                 await _db.SaveChangesAsync();
                 await tx.CommitAsync();
             }
-            catch (SqlException ex) when (ex.Number == 1205)
+            catch (Exception ex) when (DbConflicts.IsTransientConflict(ex))
             {
                 return SlotTaken();
             }

@@ -1,0 +1,52 @@
+# Umbrella Medical Center on one Droplet + a DigitalOcean Managed PostgreSQL database.
+#   web  - Caddy: the Angular site + HTTPS, forwards /api to the API   (ports 80/443, the only public ones)
+#   api  - ASP.NET Core API, connects to the managed database          (internal only)
+# Start/update:  docker compose up -d --build      (run in this folder, with a filled-in .env next to it)
+name: umbrella
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      # Trust X-Forwarded-For/Proto from Caddy, so rate limits see each visitor's real IP.
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+      ConnectionStrings__DefaultConnection: ${DB_CONNECTION:?Set DB_CONNECTION in .env}
+      Jwt__Key: ${JWT_KEY:?Set JWT_KEY in .env}
+      Seed__AdminPassword: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}
+      Seed__DemoStaffPassword: ${DEMO_STAFF_PASSWORD:-}
+      Seed__DemoPatients: ${DEMO_PATIENTS:-false}
+      Email__Host: ${EMAIL_HOST:-smtp.gmail.com}
+      Email__Port: ${EMAIL_PORT:-587}
+      Email__Username: ${EMAIL_USERNAME:-}
+      Email__Password: ${EMAIL_PASSWORD:-}
+      Email__FromAddress: ${EMAIL_FROM:-}
+      Anthropic__ApiKey: ${ANTHROPIC_API_KEY:-}
+      # Inbox that receives contact-form messages
+      Clinic__ContactEmail: ${CLINIC_CONTACT_EMAIL:-}
+    volumes:
+      - uploads:/app/App_Data/uploads
+
+  web:
+    build:
+      context: ../frontend
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  uploads:
+  caddy-data:
+  caddy-config:

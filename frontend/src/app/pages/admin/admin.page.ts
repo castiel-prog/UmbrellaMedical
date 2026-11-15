@@ -10,7 +10,8 @@ const LINKS = [
   { path: 'store', label: 'Store products' },
   { path: 'departments', label: 'Departments & rooms' },
   { path: 'insurers', label: 'Insurers' },
-  { path: 'reviews', label: 'Reviews' }
+  { path: 'reviews', label: 'Reviews' },
+  { path: 'messages', label: 'Messages' }
 ];
 
 @Component({

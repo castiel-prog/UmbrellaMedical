@@ -1,75 +1,118 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { CurrencyPipe } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { FormsModule } from '@angular/forms';
+import { Router, RouterLink } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../core/auth.service';
 import { DoctorsApi } from '../../core/doctors.api';
 import { CATEGORY_INFO, StoreApi } from '../../core/store.api';
-import { DoctorListItem, Product, ProductCategory, Specialization } from '../../core/model';
+import { ClinicService, DoctorListItem, Product, ProductCategory, Specialization } from '../../core/model';
 import { DoctorCard } from '../../core/doctor-card';
 import { Logo } from '../../shared/logo';
-
-const SPECIALTY_ICONS: Record<string, string> = {
-  'General Practitioner': '🩺', Dentist: '🦷', Cardiologist: '❤️', Pediatrician: '🧸', Dermatologist: '🧴',
-  Radiologist: '🩻', Neurologist: '🧠', Orthopedist: '🦴', Ophthalmologist: '👁️', 'Otolaryngologist (ENT)': '👂',
-  Gynecologist: '🌸', Psychiatrist: '💬', Endocrinologist: '🦋', Urologist: '💧'
-};
+import { Icon, specialtyIcon } from '../../shared/icon';
+import { ProductImage } from '../../shared/product-image';
+import { I18n, TranslatePipe } from '../../core/i18n';
 
 @Component({
   selector: 'app-home',
-  imports: [RouterLink, CurrencyPipe, DoctorCard, Logo],
+  imports: [FormsModule, RouterLink, CurrencyPipe, DoctorCard, Logo, Icon, ProductImage, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <section class="hero">
+    <!-- Hero -->
+    <section class="hero home-hero">
       <div class="hero-text">
-        <p class="hero-kicker">UMBRELLA MEDICAL CENTER · TBILISI</p>
-        <h1>Care you can book in a minute</h1>
-        <p>Find the right specialist, pick a free time, pay online and keep your visits, prescriptions and bills in one place.</p>
+        <p class="hero-kicker">{{ 'UMBRELLA MEDICAL CENTER · TBILISI' | t }}</p>
+        <h1>{{ 'Care you can book' | t }}<br />{{ 'in a minute' | t }}</h1>
+        <p>{{ 'Find the right specialist, pick a free time and pay online. Your visits, prescriptions and bills stay together in one place.' | t }}</p>
+
+        <form class="hero-search" role="search" (ngSubmit)="searchDoctors()">
+          <app-icon name="search" [size]="20" />
+          <label for="hero-q" class="sr-only">{{ 'Search doctors or specialties' | t }}</label>
+          <input id="hero-q" name="q" type="search" [placeholder]="'Search a doctor or specialty, e.g. dentist' | t" [(ngModel)]="query" autocomplete="off" />
+          <button class="btn primary" type="submit">{{ 'Search' | t }}</button>
+        </form>
+
         <div class="hero-actions">
-          <a class="btn primary" routerLink="/doctors">Find a doctor</a>
-          <a class="btn outline" routerLink="/store">Visit the store</a>
-          @if (!auth.isLoggedIn()) {
-            <a class="btn outline" routerLink="/register">Create an account</a>
-          }
+          <a class="btn outline" routerLink="/doctors">{{ 'Browse all doctors' | t }}</a>
+          <a class="btn outline" routerLink="/store">{{ 'Visit the store' | t }}</a>
+          @if (!auth.isLoggedIn()) { <a class="btn outline" routerLink="/register">{{ 'Create an account' | t }}</a> }
         </div>
+      </div>
+      <div class="hero-visual">
+        <div class="hero-logo-ring"><app-logo [size]="170" /></div>
         <ul class="hero-stats">
-          <li><strong>{{ doctorCount() || '—' }}</strong><span>doctors</span></li>
-          <li><strong>{{ specializations().length || '—' }}</strong><span>specialties</span></li>
-          <li><strong>24/7</strong><span>online booking</span></li>
+          <li><strong>{{ doctorCount() || '—' }}</strong><span>{{ 'doctors' | t }}</span></li>
+          <li><strong>{{ specializations().length || '—' }}</strong><span>{{ 'specialties' | t }}</span></li>
+          <li><strong>24/7</strong><span>{{ 'online booking' | t }}</span></li>
         </ul>
       </div>
-      <app-logo class="hero-logo" [size]="170" />
     </section>
 
-    <section>
+    <!-- Trust strip -->
+    <ul class="trust-strip">
+      <li><span class="trust-icon"><app-icon name="shield" /></span><div><strong>{{ 'Verified doctors' | t }}</strong><span>{{ 'Every degree and licence checked' | t }}</span></div></li>
+      <li><span class="trust-icon"><app-icon name="card" /></span><div><strong>{{ 'Secure online payment' | t }}</strong><span>{{ 'Full refund up to 2 hours before' | t }}</span></div></li>
+      <li><span class="trust-icon"><app-icon name="umbrella" /></span><div><strong>{{ 'Insurance accepted' | t }}</strong><span>{{ 'Your share is taken off automatically' | t }}</span></div></li>
+      <li><span class="trust-icon"><app-icon name="bag" /></span><div><strong>{{ 'Pharmacy on site' | t }}</strong><span>{{ 'Order online, collect at the desk' | t }}</span></div></li>
+    </ul>
+
+    <!-- Specialties -->
+    <section class="home-section">
       <div class="section-head">
-        <h2>Find care by specialty</h2>
-        <a routerLink="/doctors">All doctors →</a>
+        <div>
+          <p class="eyebrow">{{ 'Specialties' | t }}</p>
+          <h2 class="no-rule">{{ 'Find care by specialty' | t }}</h2>
+        </div>
+        <a class="see-all" routerLink="/doctors">{{ 'All doctors' | t }} <app-icon name="arrow" [size]="16" /></a>
       </div>
       <div class="specialty-grid">
         @for (s of specializations(); track s.id) {
           <a class="specialty-tile" routerLink="/doctors" [queryParams]="{ specializationId: s.id }">
-            <span class="specialty-icon" aria-hidden="true">{{ icon(s.name) }}</span>
-            <strong>{{ s.name }}</strong>
-            <span class="muted small">{{ s.description }}</span>
+            <span class="specialty-icon"><app-icon [name]="icon(s.name)" [size]="26" /></span>
+            <span class="specialty-text">
+              <strong>{{ s.name | t }}</strong>
+              <span class="muted small">{{ s.description | t }}</span>
+            </span>
           </a>
         }
       </div>
     </section>
 
-    <section>
-      <h2>How it works</h2>
+    <!-- How it works -->
+    <section class="home-band">
+      <p class="eyebrow center">{{ 'How it works' | t }}</p>
+      <h2 class="no-rule center">{{ 'Three steps to your visit' | t }}</h2>
       <ol class="how-steps">
-        <li><span class="step-no">1</span><div><strong>Choose a doctor</strong><p class="muted">Compare experience, reviews, prices and verified credentials.</p></div></li>
-        <li><span class="step-no">2</span><div><strong>Pick a time and pay</strong><p class="muted">See free times instantly. Your insurance share is taken off automatically.</p></div></li>
-        <li><span class="step-no">3</span><div><strong>Visit and follow up</strong><p class="muted">Get reminders, records and prescriptions online. Cancel up to 2 hours before for a full refund.</p></div></li>
+        <li>
+          <span class="step-no">1</span>
+          <app-icon name="search" [size]="28" />
+          <strong>{{ 'Choose a doctor' | t }}</strong>
+          <p class="muted">{{ 'Compare experience, reviews, prices and verified credentials.' | t }}</p>
+        </li>
+        <li>
+          <span class="step-no">2</span>
+          <app-icon name="calendar" [size]="28" />
+          <strong>{{ 'Pick a time and pay' | t }}</strong>
+          <p class="muted">{{ 'See free times instantly. Your insurance share is taken off automatically.' | t }}</p>
+        </li>
+        <li>
+          <span class="step-no">3</span>
+          <app-icon name="check" [size]="28" />
+          <strong>{{ 'Visit and follow up' | t }}</strong>
+          <p class="muted">{{ 'Reminders, records and prescriptions online. Cancel up to 2 hours before for a full refund.' | t }}</p>
+        </li>
       </ol>
     </section>
 
+    <!-- Doctors -->
     @if (featured().length > 0) {
-      <section>
+      <section class="home-section">
         <div class="section-head">
-          <h2>Meet some of our doctors</h2>
-          <a routerLink="/doctors">See all →</a>
+          <div>
+            <p class="eyebrow">{{ 'Our team' | t }}</p>
+            <h2 class="no-rule">{{ 'Meet some of our doctors' | t }}</h2>
+          </div>
+          <a class="see-all" routerLink="/doctors">{{ 'See all' | t }} <app-icon name="arrow" [size]="16" /></a>
         </div>
         <div class="grid">
           @for (doctor of featured(); track doctor.id) {
@@ -79,37 +122,65 @@ const SPECIALTY_ICONS: Record<string, string> = {
       </section>
     }
 
-    <section class="store-promo">
+    <!-- Services and prices -->
+    @if (popularServices().length > 0) {
+      <section class="home-section">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">{{ 'Transparent pricing' | t }}</p>
+            <h2 class="no-rule">{{ 'Popular services' | t }}</h2>
+          </div>
+          <a class="see-all" routerLink="/services">{{ 'All services and prices' | t }} <app-icon name="arrow" [size]="16" /></a>
+        </div>
+        <ul class="price-list card">
+          @for (s of popularServices(); track s.id) {
+            <li>
+              <div>
+                <strong>{{ s.name }}</strong>
+                <span class="muted small">{{ s.department | t }} · {{ '{n} min' | t: { n: s.durationMinutes } }}</span>
+              </div>
+              <span class="price-tag">{{ s.price | currency: 'GEL' : 'symbol-narrow' : '1.0-2' }}</span>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+
+    <!-- Store -->
+    <section class="store-promo home-section">
       <div class="store-promo-text">
-        <h2>The Umbrella store</h2>
-        <p>Medicines, vitamins, first aid and everyday care. Pay online and collect at our pharmacy desk.
-           Prescription medicines are available with a prescription from your doctor.</p>
-        <a class="btn primary" routerLink="/store">Shop now</a>
+        <p class="eyebrow">{{ 'Umbrella store' | t }}</p>
+        <h2 class="no-rule">{{ 'Your pharmacy, ready when you are' | t }}</h2>
+        <p class="muted">{{ 'Medicines, vitamins, first aid and everyday care. Pay online and collect at our pharmacy desk. Prescription medicines are available with a prescription from your doctor.' | t }}</p>
+        <div class="promo-cats">
+          @for (c of categories; track c) {
+            <a class="promo-cat" routerLink="/store" [queryParams]="{ category: c }">{{ info[c].label | t }}</a>
+          }
+        </div>
+        <a class="btn primary" routerLink="/store">{{ 'Shop now' | t }}</a>
       </div>
-      <div class="promo-cats">
-        @for (c of categories; track c) {
-          <a class="promo-cat" routerLink="/store" [queryParams]="{ category: c }">
-            <span aria-hidden="true">{{ info[c].icon }}</span>{{ info[c].label }}
+      <div class="promo-shelf">
+        @for (p of popularProducts(); track p.id) {
+          <a class="shelf-item" routerLink="/store" [queryParams]="{ category: p.category }">
+            <app-product-image class="shelf-pic" [attr.data-cat]="p.category" [name]="p.name" [category]="p.category" [imageUrl]="p.imageUrl" />
+            <span class="small">{{ p.name }}</span>
+            <strong class="small">{{ p.price | currency: 'GEL' : 'symbol-narrow' }}</strong>
           </a>
         }
       </div>
-      @if (popular().length > 0) {
-        <ul class="promo-products">
-          @for (p of popular(); track p.id) {
-            <li><span aria-hidden="true">{{ info[p.category].icon }}</span> {{ p.name }} <strong>{{ p.price | currency: 'GEL' : 'symbol-narrow' }}</strong></li>
-          }
-        </ul>
-      }
     </section>
 
-    <section class="help-strip">
+    <!-- Closing call to action -->
+    <section class="cta-band">
       <div>
-        <h3>Questions?</h3>
-        <p class="muted">Press <strong>💬 Ask us</strong> at the bottom right. Our assistant knows our doctors, prices, booking and the store.</p>
+        <h2 class="no-rule">{{ 'Ready to book your visit?' | t }}</h2>
+        <p>{{ 'Free times are shown instantly. Questions? Press Ask us at the bottom right.' | t }}</p>
       </div>
-      <div class="emergency-note" role="note">
-        <strong>Emergency?</strong> Call <a href="tel:112">112</a>. Online booking is not for emergencies.
+      <div class="cta-actions">
+        <a class="btn primary" routerLink="/doctors">{{ 'Find a doctor' | t }}</a>
+        @if (!auth.isLoggedIn()) { <a class="btn outline" routerLink="/register">{{ 'Create an account' | t }}</a> }
       </div>
+      <p class="cta-emergency"><app-icon name="phone" [size]="18" /> <span><strong>{{ 'Emergency?' | t }}</strong> {{ 'Call' | t }} <a href="tel:112">112</a>. {{ 'Online booking is not for emergencies.' | t }}</span></p>
     </section>
   `
 })
@@ -117,6 +188,9 @@ export class HomePage {
   protected readonly auth = inject(AuthService);
   private readonly doctorsApi = inject(DoctorsApi);
   private readonly storeApi = inject(StoreApi);
+  private readonly http = inject(HttpClient);
+  private readonly router = inject(Router);
+  private readonly i18n = inject(I18n);
 
   protected readonly info = CATEGORY_INFO;
   protected readonly categories = Object.keys(CATEGORY_INFO) as ProductCategory[];
@@ -124,18 +198,26 @@ export class HomePage {
   protected readonly doctors = signal<DoctorListItem[]>([]);
   protected readonly doctorCount = signal(0);
   protected readonly products = signal<Product[]>([]);
+  protected readonly services = signal<ClinicService[]>([]);
+  protected query = '';
 
-  // Most experienced first, one per specialty, so the selection feels varied.
+  // Best rated, then most experienced, one per specialty so the selection feels varied.
   protected readonly featured = computed(() => {
     const seen = new Set<string>();
     return [...this.doctors()]
       .sort((a, b) => b.averageRating - a.averageRating || b.yearsOfExperience - a.yearsOfExperience)
-      .filter(d => !seen.has(d.specialization) && seen.add(d.specialization))
+      .filter(d => !seen.has(d.specialization) && !!seen.add(d.specialization))
       .slice(0, 3);
   });
 
-  protected readonly popular = computed(() =>
-    this.products().filter(p => !p.requiresPrescription && p.stock > 0).slice(0, 6));
+  // The most widely offered services first.
+  protected readonly popularServices = computed(() =>
+    [...this.services()].sort((a, b) => b.doctors.length - a.doctors.length || a.price - b.price).slice(0, 6));
+
+  protected readonly popularProducts = computed(() =>
+    this.products().filter(p => !p.requiresPrescription && p.stock > 0)
+      .filter((p, i, all) => all.findIndex(x => x.category === p.category) === i)
+      .slice(0, 6));
 
   constructor() {
     this.doctorsApi.specializations().subscribe({ next: list => this.specializations.set(list) });
@@ -146,9 +228,20 @@ export class HomePage {
       }
     });
     this.storeApi.products().subscribe({ next: list => this.products.set(list) });
+    this.http.get<ClinicService[]>('/api/services').subscribe({ next: list => this.services.set(list) });
   }
 
   protected icon(name: string): string {
-    return SPECIALTY_ICONS[name] ?? '🏥';
+    return specialtyIcon(name);
+  }
+
+  /** A specialty name opens that specialty; anything else searches doctors by name. */
+  protected searchDoctors(): void {
+    const q = this.query.trim();
+    const lower = q.toLowerCase();
+    // Specialty names match in English and in the chosen language.
+    const spec = this.specializations().find(s => q.length >= 3 && [s.name, this.i18n.t(s.name)].some(n =>
+      n.toLowerCase().includes(lower) || lower.startsWith(n.toLowerCase().slice(0, 5))));
+    void this.router.navigate(['/doctors'], { queryParams: spec ? { specializationId: spec.id } : q ? { search: q } : {} });
   }
 }

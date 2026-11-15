@@ -4,17 +4,18 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { apiErrorMessage } from '../../core/api-error';
 import { safeReturnUrl } from '../../core/util';
+import { TranslatePipe } from '../../core/i18n';
 
 type LoginField = 'email' | 'firstName' | 'lastName' | 'password';
 
 @Component({
   selector: 'app-login',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [TranslatePipe, ReactiveFormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="auth-card">
-      <h1>Log in</h1>
-      <p class="muted">Enter your email, your name as registered, and your password.</p>
+      <h1>{{ 'Log in' | t }}</h1>
+      <p class="muted">{{ 'Enter your email, your name as registered, and your password.' | t }}</p>
 
       @if (error()) {
         <p class="alert error" role="alert">{{ error() }}</p>
@@ -22,45 +23,45 @@ type LoginField = 'email' | 'firstName' | 'lastName' | 'password';
 
       <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
         <div class="field">
-          <label for="email">Email</label>
+          <label for="email">{{ 'Email' | t }}</label>
           <input id="email" type="email" formControlName="email" autocomplete="username" />
           @if (invalid('email')) {
-            <p class="field-error">Enter a valid email address.</p>
+            <p class="field-error">{{ 'Enter a valid email address.' | t }}</p>
           }
         </div>
 
         <div class="form-grid">
           <div class="field">
-            <label for="firstName">First name</label>
+            <label for="firstName">{{ 'First name' | t }}</label>
             <input id="firstName" type="text" formControlName="firstName" autocomplete="given-name" />
             @if (invalid('firstName')) {
-              <p class="field-error">First name is required.</p>
+              <p class="field-error">{{ 'First name is required.' | t }}</p>
             }
           </div>
           <div class="field">
-            <label for="lastName">Last name</label>
+            <label for="lastName">{{ 'Last name' | t }}</label>
             <input id="lastName" type="text" formControlName="lastName" autocomplete="family-name" />
             @if (invalid('lastName')) {
-              <p class="field-error">Last name is required.</p>
+              <p class="field-error">{{ 'Last name is required.' | t }}</p>
             }
           </div>
         </div>
 
         <div class="field">
-          <label for="password">Password</label>
+          <label for="password">{{ 'Password' | t }}</label>
           <input id="password" type="password" formControlName="password" autocomplete="current-password" />
           @if (invalid('password')) {
-            <p class="field-error">Password is required.</p>
+            <p class="field-error">{{ 'Password is required.' | t }}</p>
           }
         </div>
 
         <button class="btn primary block" type="submit" [disabled]="submitting()">
-          {{ submitting() ? 'Logging in...' : 'Log in' }}
+          {{ (submitting() ? 'Logging in...' : 'Log in') | t }}
         </button>
       </form>
 
-      <p class="switch"><a routerLink="/forgot-password">Forgot your password?</a></p>
-      <p class="switch">New here? <a routerLink="/register">Create an account</a></p>
+      <p class="switch"><a routerLink="/forgot-password">{{ 'Forgot your password?' | t }}</a></p>
+      <p class="switch">{{ 'New here?' | t }} <a routerLink="/register">{{ 'Create an account' | t }}</a></p>
     </section>
   `
 })

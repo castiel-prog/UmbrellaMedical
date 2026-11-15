@@ -1,0 +1,30 @@
+# SITE_ADDRESS is your domain (e.g. umbrella.example.com) -> automatic HTTPS from Let's Encrypt.
+# Use ":80" to serve plain HTTP on the droplet's IP before a domain is set up.
+{$SITE_ADDRESS::80} {
+	encode zstd gzip
+
+	# API: same origin as the site, so no CORS is needed.
+	handle /api/* {
+		reverse_proxy api:8080
+	}
+
+	# Public API documentation (Swagger UI and the OpenAPI file).
+	redir /swagger /swagger/ 308
+	handle /swagger/* {
+		reverse_proxy api:8080
+	}
+
+	# Angular app: files as they are, every other path falls back to index.html.
+	handle {
+		root * /srv
+		header {
+			X-Content-Type-Options nosniff
+			X-Frame-Options DENY
+			Referrer-Policy strict-origin-when-cross-origin
+		}
+		@hashed path_regexp -[0-9A-Z]{8}\.(js|css)$
+		header @hashed Cache-Control "public, max-age=31536000, immutable"
+		try_files {path} /index.html
+		file_server
+	}
+}

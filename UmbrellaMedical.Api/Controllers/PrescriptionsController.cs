@@ -109,10 +109,10 @@ public class PrescriptionsController : ControllerBase
 
             if (!string.IsNullOrWhiteSpace(search))
             {
-                var term = search.Trim();
+                var term = search.Trim().ToLower();
                 var code = PrescriptionCodes.Normalize(term);
-                query = query.Where(p => (p.Patient.FirstName + " " + p.Patient.LastName).Contains(term)
-                                         || p.Patient.PersonalNumber.Contains(term)
+                query = query.Where(p => (p.Patient.FirstName + " " + p.Patient.LastName).ToLower().Contains(term)
+                                         || p.Patient.PersonalNumber.ToLower().Contains(term)
                                          || (p.Code != null && p.Code.Contains(code)));
             }
 

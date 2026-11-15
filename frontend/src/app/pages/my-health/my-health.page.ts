@@ -5,7 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { PatientsApi } from '../../core/patients.api';
 import { PatientDetails } from '../../core/model';
 import { apiErrorMessage } from '../../core/api-error';
-import { orNull } from '../../core/util';
+import { orNull, PHONE_PATTERN } from '../../core/util';
 import { AllergiesPanel } from '../../shared/allergies-panel';
 import { RecordsPanel } from '../../shared/records-panel';
 import { PrescriptionsPanel } from '../../shared/prescriptions-panel';
@@ -64,7 +64,7 @@ const TABS: { id: Tab; label: string }[] = [
                 <button class="btn small" type="button" (click)="startEdit(p)">Edit contact details</button>
               } @else {
                 <form (ngSubmit)="saveContact()">
-                  <div class="field"><label for="c-phone">Phone</label><input id="c-phone" name="phone" type="tel" maxlength="30" [(ngModel)]="contact.phone" /></div>
+                  <div class="field"><label for="c-phone">Phone</label><input id="c-phone" name="phone" type="tel" maxlength="30" autocomplete="tel" required [(ngModel)]="contact.phone" /></div>
                   <div class="field"><label for="c-email">Email</label><input id="c-email" name="email" type="email" maxlength="256" [(ngModel)]="contact.email" /></div>
                   <div class="field"><label for="c-address">Address</label><input id="c-address" name="address" maxlength="300" [(ngModel)]="contact.address" /></div>
                   <div class="card-actions">
@@ -135,10 +135,14 @@ export class MyHealthPage {
   }
 
   protected saveContact(): void {
+    if (!PHONE_PATTERN.test(this.contact.phone.trim())) {
+      this.error.set('Please enter a valid phone number.');
+      return;
+    }
     this.busy.set(true);
     this.error.set(null);
     this.api.updateMyContact({
-      phone: orNull(this.contact.phone),
+      phone: this.contact.phone.trim(),
       email: orNull(this.contact.email),
       address: orNull(this.contact.address)
     }).subscribe({

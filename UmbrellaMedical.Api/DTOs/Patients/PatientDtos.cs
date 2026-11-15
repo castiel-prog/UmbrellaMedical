@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using UmbrellaMedical.Domain.Enums;
 
 namespace UmbrellaMedical.Api.DTOs.Patients
@@ -55,8 +55,8 @@ namespace UmbrellaMedical.Api.DTOs.Patients
         [EnumDataType(typeof(Gender))]
         public Gender Gender { get; set; }
 
-        [Phone, StringLength(30)]
-        public string? Phone { get; set; }
+        [Required(ErrorMessage = "Phone number is required."), Phone(ErrorMessage = "Enter a valid phone number."), StringLength(30, MinimumLength = 6, ErrorMessage = "Enter a valid phone number.")]
+        public string Phone { get; set; } = string.Empty;
 
         [EmailAddress, StringLength(256)]
         public string? Email { get; set; }
@@ -82,8 +82,8 @@ namespace UmbrellaMedical.Api.DTOs.Patients
         [EnumDataType(typeof(Gender))]
         public Gender Gender { get; set; }
 
-        [Phone, StringLength(30)]
-        public string? Phone { get; set; }
+        [Required(ErrorMessage = "Phone number is required."), Phone(ErrorMessage = "Enter a valid phone number."), StringLength(30, MinimumLength = 6, ErrorMessage = "Enter a valid phone number.")]
+        public string Phone { get; set; } = string.Empty;
 
         [EmailAddress, StringLength(256)]
         public string? Email { get; set; }
@@ -98,8 +98,8 @@ namespace UmbrellaMedical.Api.DTOs.Patients
     
     public class UpdatePatientContactRequest
     {
-        [Phone, StringLength(30)]
-        public string? Phone { get; set; }
+        [Required(ErrorMessage = "Phone number is required."), Phone(ErrorMessage = "Enter a valid phone number."), StringLength(30, MinimumLength = 6, ErrorMessage = "Enter a valid phone number.")]
+        public string Phone { get; set; } = string.Empty;
 
         [EmailAddress, StringLength(256)]
         public string? Email { get; set; }

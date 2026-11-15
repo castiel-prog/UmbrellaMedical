@@ -2,10 +2,11 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
 import { RouterLink } from '@angular/router';
 import { DoctorListItem } from './model';
 import { StarRating } from './star-rating';
+import { TranslatePipe } from './i18n';
 
 @Component({
   selector: 'app-doctor-card',
-  imports: [StarRating, RouterLink],
+  imports: [TranslatePipe, StarRating, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <article class="card doctor">
@@ -15,17 +16,17 @@ import { StarRating } from './star-rating';
         <div class="avatar" aria-hidden="true">{{ initials() }}</div>
       }
       <div class="doctor-info">
-        <h3><a class="plain" [routerLink]="['/doctors', doctor().id]">Dr. {{ doctor().firstName }} {{ doctor().lastName }}</a></h3>
-        <p class="spec">{{ doctor().specialization }}</p>
-        <p class="muted">{{ doctor().yearsOfExperience }} years of experience</p>
+        <h3><a class="plain" [routerLink]="['/doctors', doctor().id]">{{ 'Dr. {name}' | t: { name: doctor().firstName + ' ' + doctor().lastName } }}</a></h3>
+        <p class="spec">{{ doctor().specialization | t }}</p>
+        <p class="muted">{{ '{n} years of experience' | t: { n: doctor().yearsOfExperience } }}</p>
         @if (doctor().reviewCount > 0) {
           <app-star-rating [value]="doctor().averageRating" [count]="doctor().reviewCount" />
         } @else {
-          <span class="muted">No reviews yet</span>
+          <span class="muted">{{ 'No reviews yet' | t }}</span>
         }
         <div class="card-actions">
-          <a class="btn small" [routerLink]="['/doctors', doctor().id]">Profile</a>
-          <a class="btn primary small" [routerLink]="['/book', doctor().id]">Book a visit</a>
+          <a class="btn small" [routerLink]="['/doctors', doctor().id]">{{ 'Profile' | t }}</a>
+          <a class="btn primary small" [routerLink]="['/book', doctor().id]">{{ 'Book a visit' | t }}</a>
         </div>
       </div>
     </article>

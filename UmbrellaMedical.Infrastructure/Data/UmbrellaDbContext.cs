@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
@@ -59,11 +59,24 @@ namespace UmbrellaMedical.Infrastructure.Data
         public DbSet<StoreOrder> StoreOrders => Set<StoreOrder>();
         public DbSet<StoreOrderItem> StoreOrderItems => Set<StoreOrderItem>();
         public DbSet<PrescriptionRequest> PrescriptionRequests => Set<PrescriptionRequest>();
+        public DbSet<ContactMessage> ContactMessages => Set<ContactMessage>();
 
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
-           
             configurationBuilder.Properties<decimal>().HavePrecision(18, 2);
+
+            // Times are stored as clinic wall-clock times (Tbilisi), not UTC instants,
+            // so PostgreSQL keeps them as "timestamp without time zone".
+            // Values are written as they are, whatever their DateTimeKind (as SQL Server's datetime2 did).
+            configurationBuilder.Properties<DateTime>().HaveColumnType("timestamp without time zone").HaveConversion<PlainDateTimeConverter>();
+            configurationBuilder.Properties<DateTime?>().HaveColumnType("timestamp without time zone").HaveConversion<PlainDateTimeConverter>();
+        }
+
+        /// <summary>Drops the DateTimeKind before saving; PostgreSQL refuses UTC-kind values in "timestamp without time zone".</summary>
+        private sealed class PlainDateTimeConverter : Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<DateTime, DateTime>
+        {
+            public PlainDateTimeConverter()
+                : base(v => DateTime.SpecifyKind(v, DateTimeKind.Unspecified), v => DateTime.SpecifyKind(v, DateTimeKind.Unspecified)) { }
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -113,10 +126,18 @@ namespace UmbrellaMedical.Infrastructure.Data
 
             // Prescriptions
             modelBuilder.Entity<Prescription>().Property(p => p.Code).HasMaxLength(20);
-            modelBuilder.Entity<Prescription>().HasIndex(p => p.Code).IsUnique().HasFilter("[Code] IS NOT NULL");
+            modelBuilder.Entity<Prescription>().HasIndex(p => p.Code).IsUnique(); // PostgreSQL allows many NULLs in a unique index
             modelBuilder.Entity<PrescriptionRequest>().Property(r => r.Message).HasMaxLength(1000);
             modelBuilder.Entity<PrescriptionRequest>().Property(r => r.DecisionNote).HasMaxLength(500);
             modelBuilder.Entity<PrescriptionRequest>().HasIndex(r => new { r.DoctorId, r.Status });
+
+            // Contact form
+            modelBuilder.Entity<ContactMessage>().Property(m => m.Name).HasMaxLength(100);
+            modelBuilder.Entity<ContactMessage>().Property(m => m.Email).HasMaxLength(256);
+            modelBuilder.Entity<ContactMessage>().Property(m => m.Phone).HasMaxLength(30);
+            modelBuilder.Entity<ContactMessage>().Property(m => m.Topic).HasMaxLength(60);
+            modelBuilder.Entity<ContactMessage>().Property(m => m.Message).HasMaxLength(2000);
+            modelBuilder.Entity<ContactMessage>().HasIndex(m => new { m.IsHandled, m.CreatedAt });
         }
     }
 }

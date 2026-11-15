@@ -335,6 +335,18 @@ export interface Prescription {
   warnings: string[];
 }
 
+// ---------- Public services and prices ----------
+export interface ClinicService {
+  id: number;
+  name: string;
+  description: string | null;
+  price: number;
+  durationMinutes: number;
+  departmentId: number;
+  department: string;
+  doctors: { id: number; name: string }[];
+}
+
 // ---------- Store ----------
 export type ProductCategory = 'Medicines' | 'Vitamins' | 'PersonalCare' | 'Hygiene' | 'FirstAid' | 'Devices';
 export type StoreOrderStatus = 'AwaitingReview' | 'ReadyForPickup' | 'Completed' | 'Rejected' | 'Cancelled';

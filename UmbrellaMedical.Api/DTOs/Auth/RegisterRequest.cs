@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using UmbrellaMedical.Domain.Enums;
 
 namespace UmbrellaMedical.Api.DTOs.Auth
@@ -22,6 +22,7 @@ namespace UmbrellaMedical.Api.DTOs.Auth
 
         public DateOnly DateOfBirth { get; set; }
         public Gender Gender { get; set; }
-        public string? Phone { get; set; }
+        [Required(ErrorMessage = "Phone number is required."), Phone(ErrorMessage = "Enter a valid phone number."), StringLength(30, MinimumLength = 6, ErrorMessage = "Enter a valid phone number.")]
+        public string Phone { get; set; } = string.Empty;
     }
 }
