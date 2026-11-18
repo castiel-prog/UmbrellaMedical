@@ -3,7 +3,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 let nextId = 0;
 
 /**
- * Umbrella Medical Center logo: an open umbrella (3 red and 3 white canopy panels) whose shaft is a red
+ * Umbrella Medical Center logo: an open umbrella (5 canopy panels: red, white, red, white, red) whose shaft is a red
  * medical cross, over a white heartbeat (ECG) line, on a dark round badge. Original artwork.
  */
 @Component({
@@ -25,14 +25,13 @@ let nextId = 0;
       <!-- tip -->
       <path d="M50 14 V7.5" stroke="#ffffff" stroke-width="3" stroke-linecap="round" />
 
-      <!-- canopy: six panels, alternating red and white, with scalloped edges -->
+      <!-- canopy: five panels, red-white-red-white-red, with scalloped edges -->
       <g stroke="#0b0b0c" stroke-width="1.4" stroke-linejoin="round">
-        <path d="M50 13 Q13 15 10 50 Q16.67 43 23.33 50 Q27 19 50 13 Z" fill="#d3122a" />
-        <path d="M50 13 Q27 19 23.33 50 Q30 43 36.67 50 Q39 24 50 13 Z" fill="#ffffff" />
-        <path d="M50 13 Q39 24 36.67 50 Q43.33 43 50 50 Z" fill="#d3122a" />
-        <path d="M50 13 L50 50 Q56.67 43 63.33 50 Q61 24 50 13 Z" fill="#ffffff" />
-        <path d="M50 13 Q61 24 63.33 50 Q70 43 76.67 50 Q73 19 50 13 Z" fill="#d3122a" />
-        <path d="M50 13 Q73 19 76.67 50 Q83.33 43 90 50 Q87 15 50 13 Z" fill="#ffffff" />
+        <path d="M50 13 Q13 15 10 50 Q18 43 26 50 Q30 18 50 13 Z" fill="#d3122a" />
+        <path d="M50 13 Q30 18 26 50 Q34 43 42 50 Q44 22 50 13 Z" fill="#ffffff" />
+        <path d="M50 13 Q44 22 42 50 Q50 43 58 50 Q56 22 50 13 Z" fill="#d3122a" />
+        <path d="M50 13 Q56 22 58 50 Q66 43 74 50 Q70 18 50 13 Z" fill="#ffffff" />
+        <path d="M50 13 Q70 18 74 50 Q82 43 90 50 Q87 15 50 13 Z" fill="#d3122a" />
       </g>
 
       <!-- medical cross held by the umbrella -->

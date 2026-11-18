@@ -217,7 +217,7 @@ a { color: var(--primary-dark); }
   display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem;
   padding: 0.62rem 1.2rem; border: 1px solid var(--field-border); border-radius: 10px;
   background: var(--surface); color: var(--text);
-  font: inherit; font-weight: 600; line-height: 1.25; text-decoration: none; text-align: center; text-wrap: balance; overflow-wrap: anywhere; min-width: 0; max-width: 100%; cursor: pointer;
+  font: inherit; font-weight: 600; line-height: 1.25; text-decoration: none; text-align: center; text-wrap: balance; overflow-wrap: break-word; hyphens: manual; max-width: 100%; cursor: pointer;
   box-shadow: 0 1px 2px rgba(17, 17, 19, 0.06);
   transition: background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s, transform 0.08s;
 }
@@ -802,7 +802,7 @@ h2.no-rule { margin-top: 0; }
   padding: 0.35rem 0.35rem 0.35rem 0.9rem; background: #ffffff; border-radius: 12px; color: #5c5c63;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
 }
-.hero-search input { border: none; padding: 0.55rem 0.25rem; background: transparent; color: #111113; }
+.hero-search input { flex: 1 1 0; min-width: 0; border: none; padding: 0.55rem 0.25rem; background: transparent; color: #111113; }
 .hero-search input:focus-visible { outline: none; }
 .hero-search input, .hero-search input:focus, .hero-search input:hover { border: none; background: transparent; box-shadow: none; }
 .hero-search:focus-within { outline: 3px solid #e5233f; outline-offset: 2px; }
@@ -1212,9 +1212,9 @@ app-product-image[data-cat='Devices'], .product-icon[data-cat='Devices'] { backg
   .receipt { display: block !important; border: none; box-shadow: none; }
 }
 /* ---------- Long words in any language ---------- */
-h1, h2, h3, .card, .field label, .badge, .chip-btn, .tab-link { overflow-wrap: anywhere; }
+h1, h2, h3, .card, .field label, .badge, .chip-btn, .tab-link { overflow-wrap: break-word; }
 h1, h2 { text-wrap: balance; }
-.nav-link, .mobile-item, .dropdown-item { overflow-wrap: anywhere; }
+.nav-link, .mobile-item, .dropdown-item { overflow-wrap: break-word; }
 
 /* Doctor profile services: on phones the duration moves under the name so the Book button fits. */
 .only-phone { display: none; }
@@ -1222,4 +1222,11 @@ h1, h2 { text-wrap: balance; }
   .services-table th:nth-child(2), .services-table td:nth-child(2) { display: none; }
   .services-table .only-phone { display: inline; }
   .services-table th, .services-table td { padding-left: 0.4rem; padding-right: 0.4rem; }
+}
+
+/* Search rows: the button keeps its full label; on small phones it goes under the field. */
+.hero-search .btn, .search-row .btn, form .btn[type=submit] { flex-shrink: 0; white-space: nowrap; }
+@media (max-width: 420px) {
+  .hero-search { flex-wrap: wrap; }
+  .hero-search .btn { flex: 1 1 100%; }
 }
