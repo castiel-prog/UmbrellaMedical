@@ -66,7 +66,7 @@ type Menu = 'work' | 'user' | 'lang' | null;
 
         <div class="header-actions">
           @if (cart.count() > 0) {
-            <a class="icon-btn" routerLink="/store" [attr.aria-label]="'Cart, {n} items' | t: { n: cart.count() }" [title]="'Cart' | t">
+            <a class="icon-btn" routerLink="/pharmacy" [attr.aria-label]="'Cart, {n} items' | t: { n: cart.count() }" [title]="'Cart' | t">
               <app-icon name="cart" [size]="20" />
               <span class="count-badge">{{ cart.count() }}</span>
             </a>
@@ -213,7 +213,7 @@ type Menu = 'work' | 'user' | 'lang' | null;
           <h3>{{ 'Patients' | t }}</h3>
           <a routerLink="/doctors">{{ 'Find a doctor' | t }}</a>
           <a routerLink="/services">{{ 'Services and prices' | t }}</a>
-          <a routerLink="/store">{{ 'Store' | t }}</a>
+          <a routerLink="/pharmacy">{{ 'Pharmacy' | t }}</a>
           @if (auth.isLoggedIn()) { <a routerLink="/account">{{ 'My profile' | t }}</a> } @else { <a routerLink="/register">{{ 'Create an account' | t }}</a> }
         </nav>
         <nav class="footer-col" [attr.aria-label]="'Your care' | t">
@@ -234,6 +234,7 @@ type Menu = 'work' | 'user' | 'lang' | null;
           <p><app-icon name="phone" [size]="16" /> <a [href]="'tel:' + clinic.phoneHref">{{ clinic.phone }}</a></p>
           <a routerLink="/contact">{{ 'Opening hours and contact form' | t }}</a>
           <a href="/swagger/" target="_blank" rel="noopener">{{ 'API documentation' | t }} ↗</a>
+          <a href="/photo-credits.html">{{ 'Photo credits' | t }}</a>
           <p>{{ 'Questions? Press Ask us at the bottom right.' | t }}</p>
         </div>
       </div>

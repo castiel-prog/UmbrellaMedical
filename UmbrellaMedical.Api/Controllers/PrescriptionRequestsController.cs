@@ -191,7 +191,7 @@ public class PrescriptionRequestsController : ControllerBase
             _notifications.Queue(patientUserId, "Prescription request approved",
                 $"Dr. {entity.Doctor.FirstName} {entity.Doctor.LastName} approved your request and prescribed {medication.Name} {medication.Strength}. " +
                 $"Your prescription code is {prescription.Code} (valid until {issued.AddDays(request.ValidDays):d MMM yyyy}). " +
-                "Use it in the store to buy the medicine; you'll also find it under My health > Prescriptions.");
+                "Use it in the pharmacy to buy the medicine; you'll also find it under My health > Prescriptions.");
 
         await _db.SaveChangesAsync();
         await _audit.LogAsync("ApprovedPrescriptionRequest", nameof(PrescriptionRequest), id, $"PrescriptionId={prescription.Id}");

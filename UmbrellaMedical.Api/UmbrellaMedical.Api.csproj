@@ -20,6 +20,11 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.6" />
   </ItemGroup>
 
+  <!-- Product photos given to products that have none (see ProductImageSeeder). -->
+  <ItemGroup>
+    <None Include="SeedData\**\*.jpg" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\UmbrellaMedical.Domain\UmbrellaMedical.Domain.csproj" />
     <ProjectReference Include="..\UmbrellaMedical.Infrastructure\UmbrellaMedical.Infrastructure.csproj" />

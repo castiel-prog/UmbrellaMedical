@@ -11,7 +11,7 @@ import { ALWAYS_OPEN, CLINIC, OPENING_HOURS, hhmm, openStatus } from '../../core
 import { I18n, TranslatePipe } from '../../core/i18n';
 import { Icon } from '../../shared/icon';
 
-const TOPICS = ['Appointments', 'Billing and payments', 'Prescriptions', 'Store orders', 'Feedback', 'Other'];
+const TOPICS = ['Appointments', 'Billing and payments', 'Prescriptions', 'Pharmacy orders', 'Feedback', 'Other'];
 
 /** Contact details, live opening hours, a map and a contact form that reaches the front desk. */
 @Component({

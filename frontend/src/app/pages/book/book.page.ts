@@ -125,12 +125,6 @@ interface CardForm { holderName: string; number: string; expiry: string; cvc: st
                 </dl>
 
                 @if (q.paymentRequired) {
-                  @if (q.testMode) {
-                    <p class="alert warn small-alert">
-                      {{ 'Test mode: no real money is taken. Use card 4242 4242 4242 4242, any future expiry date and any 3-digit CVC.' | t }} {{ '(4000 0000 0000 0002 shows a declined card.)' | t }}
-                    </p>
-                  }
-
                   <form class="card-form" (ngSubmit)="book()" autocomplete="on">
                     <div class="field">
                       <label for="cc-name">{{ 'Name on card' | t }}</label>

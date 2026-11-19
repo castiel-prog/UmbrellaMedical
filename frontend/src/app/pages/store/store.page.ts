@@ -4,7 +4,6 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CATEGORY_INFO, StoreApi } from '../../core/store.api';
 import { CartService, MAX_PER_PRODUCT } from '../../core/cart.service';
-import { AuthService } from '../../core/auth.service';
 import { Product, ProductCategory } from '../../core/model';
 import { apiErrorMessage } from '../../core/api-error';
 import { ProductImage } from '../../shared/product-image';
@@ -19,11 +18,19 @@ const CATEGORIES = Object.keys(CATEGORY_INFO) as ProductCategory[];
   template: `
     <div class="page-head">
       <div>
-        <h1>{{ 'Umbrella store' | t }}</h1>
+        <h1>{{ 'Umbrella pharmacy' | t }}</h1>
         <p class="muted">{{ 'Medicines, vitamins and everyday care. Pay online, collect at the clinic pharmacy desk.' | t }}</p>
       </div>
     </div>
 
+    @if (cart.count() > 0) {
+      <!-- Tablets and phones: the cart total and checkout stay in reach while scrolling the products. -->
+      <div class="cart-bar" role="region" [attr.aria-label]="'Your cart' | t">
+        <span class="cart-bar-sum">🛒 {{ 'Items in cart: {n}' | t: { n: cart.count() } }} · <strong>{{ cart.total() | currency: 'GEL' : 'symbol-narrow' }}</strong></span>
+        <a class="btn primary small" routerLink="/pharmacy/checkout">{{ 'Checkout' | t }}</a>
+
+      </div>
+    }
     <div class="store-layout">
       <section>
         <div class="store-filters">
@@ -106,13 +113,8 @@ const CATEGORIES = Object.keys(CATEGORY_INFO) as ProductCategory[];
           @if (cart.needsPrescription()) {
             <p class="muted small">℞ {{ 'Some items need a prescription. You\\'ll add your prescription code or upload a prescription at checkout.' | t }}</p>
           }
-          @if (canBuy()) {
-            <a class="btn primary block" routerLink="/store/checkout">{{ 'Go to checkout' | t }}</a>
-          } @else if (!auth.isLoggedIn()) {
-            <a class="btn primary block" routerLink="/login" [queryParams]="{ returnUrl: '/store/checkout' }">{{ 'Log in to check out' | t }}</a>
-          } @else {
-            <p class="muted small">{{ 'Online orders are for patient accounts.' | t }}</p>
-          }
+          <a class="btn primary block" routerLink="/pharmacy/checkout">{{ 'Go to checkout' | t }}</a>
+
         }
         <p class="muted small pickup-note">📍 {{ 'Collect your order at the clinic pharmacy desk. Bring a photo ID.' | t }}</p>
       </aside>
@@ -124,7 +126,6 @@ export class StorePage {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   protected readonly cart = inject(CartService);
-  protected readonly auth = inject(AuthService);
 
   protected readonly categories = CATEGORIES;
   protected readonly info = CATEGORY_INFO;
@@ -134,8 +135,6 @@ export class StorePage {
   protected readonly search = signal('');
   protected readonly category = signal<ProductCategory | null>(this.initialCategory());
   protected readonly rxOnly = signal(false);
-
-  protected readonly canBuy = computed(() => this.auth.hasRole('Patient'));
 
   protected readonly visible = computed(() => {
     const term = this.search().trim().toLowerCase();

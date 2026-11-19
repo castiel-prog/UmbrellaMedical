@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.RateLimiting;
 using System.Data;
 using System.Globalization;
 using System.Linq.Expressions;
@@ -29,11 +30,12 @@ public class StoreController : ControllerBase
     private readonly IAuditService _audit;
     private readonly IClinicClock _clock;
     private readonly IFileStorage _storage;
+    private readonly IEmailSender _email;
     private readonly ILogger<StoreController> _logger;
 
     public StoreController(
         UmbrellaDbContext db, ICurrentUser current, IPaymentGateway gateway, INotificationService notifications,
-        IAuditService audit, IClinicClock clock, IFileStorage storage, ILogger<StoreController> logger)
+        IAuditService audit, IClinicClock clock, IFileStorage storage, IEmailSender email, ILogger<StoreController> logger)
     {
         _db = db;
         _current = current;
@@ -42,6 +44,7 @@ public class StoreController : ControllerBase
         _audit = audit;
         _clock = clock;
         _storage = storage;
+        _email = email;
         _logger = logger;
     }
 
@@ -74,8 +77,10 @@ public class StoreController : ControllerBase
         PaymentReference = o.PaymentReference,
         Refunded = o.Refunded,
         PatientId = o.PatientId,
-        PatientName = o.Patient.FirstName + " " + o.Patient.LastName,
-        PatientPersonalNumber = o.Patient.PersonalNumber,
+        PatientName = o.Patient != null ? o.Patient.FirstName + " " + o.Patient.LastName : (o.CustomerName ?? ""),
+        PatientPersonalNumber = o.Patient != null ? o.Patient.PersonalNumber : null,
+        CustomerEmail = o.CustomerEmail,
+        CustomerPhone = o.CustomerPhone,
         PrescriptionDocumentId = o.PrescriptionDocumentId,
         PrescriptionFileName = o.PrescriptionDocument != null ? o.PrescriptionDocument.FileName : null,
         ReviewNote = o.ReviewNote,
@@ -250,12 +255,24 @@ public class StoreController : ControllerBase
 
     // ---------------------------------------------------------------- orders
 
+    /// <summary>
+    /// Places and pays an order. Patients order on their account; anyone else (a visitor, or a staff member) gives
+    /// their contact details. Prescription-only items then need a prescription code plus the patient's personal number.
+    /// </summary>
     [HttpPost("orders")]
-    [Authorize(Roles = "Patient")]
+    [AllowAnonymous]
+    [EnableRateLimiting("auth")]
     public async Task<ActionResult<StoreOrderDto>> CreateOrder(CreateStoreOrderRequest request)
     {
-        var patientId = await _current.GetPatientIdAsync();
-        if (patientId is null) return Forbid();
+        var isPatient = _current.Role == "Patient";
+        int? patientId = isPatient ? await _current.GetPatientIdAsync() : null;
+        if (isPatient && patientId is null) return Forbid();
+
+        var customer = request.Customer;
+        if (!isPatient && customer is null)
+            return Invalid("customer", "Enter your name, email and phone so we can tell you when your order is ready.");
+        if (!isPatient && request.PrescriptionDocumentId is not null)
+            return Invalid(nameof(request.PrescriptionDocumentId), "Uploading a prescription needs a patient account. Use the prescription code instead.");
 
         if (request.Items.Select(i => i.ProductId).Distinct().Count() != request.Items.Count)
             return Invalid("items", "Each product can appear only once; change the quantity instead.");
@@ -267,12 +284,13 @@ public class StoreController : ControllerBase
         // An uploaded prescription file must be the patient's own, of type Prescription.
         if (request.PrescriptionDocumentId is not null
             && !await _db.MedicalDocuments.AnyAsync(d => d.Id == request.PrescriptionDocumentId
-                                                         && d.PatientId == patientId.Value
+                                                         && d.PatientId == patientId!.Value
                                                          && d.Type == DocumentType.Prescription))
             return Invalid(nameof(request.PrescriptionDocumentId), "The uploaded prescription was not found.");
 
         var now = _clock.Now;
         var needsReview = false;
+        int? rxPatientId = null;
         var lines = new List<StoreOrderItem>();
 
         foreach (var line in request.Items)
@@ -282,9 +300,23 @@ public class StoreController : ControllerBase
 
             if (product.RequiresPrescription)
             {
-                if (!string.IsNullOrWhiteSpace(line.PrescriptionCode))
+                if (!string.IsNullOrWhiteSpace(line.PrescriptionCode) && patientId is null)
                 {
-                    var check = await CheckPrescriptionCodeAsync(line.PrescriptionCode, patientId.Value, product, now);
+                    // Without a patient account: the code must belong to the patient with this personal number.
+                    var personalNumber = customer?.PersonalNumber?.Trim();
+                    if (string.IsNullOrEmpty(personalNumber))
+                        return Invalid("customer.personalNumber", $"{product.Name}: enter the personal number of the patient the prescription is for.");
+                    var rxPatient = await _db.Patients.AsNoTracking().Where(p => p.PersonalNumber == personalNumber).Select(p => (int?)p.Id).FirstOrDefaultAsync();
+                    var check = rxPatient is null
+                        ? (PrescriptionId: (int?)null, Error: (string?)"this prescription code was not found for that personal number.")
+                        : await CheckPrescriptionCodeAsync(line.PrescriptionCode, rxPatient.Value, product, now, "this prescription code was not found for that personal number.");
+                    if (check.Error is not null) return Invalid("items", $"{product.Name}: {check.Error}");
+                    prescriptionId = check.PrescriptionId;
+                    rxPatientId = rxPatient;
+                }
+                else if (!string.IsNullOrWhiteSpace(line.PrescriptionCode))
+                {
+                    var check = await CheckPrescriptionCodeAsync(line.PrescriptionCode, patientId!.Value, product, now);
                     if (check.Error is not null) return Invalid("items", $"{product.Name}: {check.Error}");
                     prescriptionId = check.PrescriptionId;
                 }
@@ -294,8 +326,9 @@ public class StoreController : ControllerBase
                 }
                 else
                 {
-                    return Invalid("items",
-                        $"{product.Name} needs a prescription. Enter your prescription code, upload a prescription, or request one from a doctor.");
+                    return Invalid("items", isPatient
+                        ? $"{product.Name} needs a prescription. Enter your prescription code, upload a prescription, or request one from a doctor."
+                        : $"{product.Name} needs a prescription. Enter the prescription code and the patient's personal number.");
                 }
             }
 
@@ -313,6 +346,12 @@ public class StoreController : ControllerBase
 
         var total = lines.Sum(l => l.LineTotal);
         if (request.Card is null) return Invalid("card", "Please pay for the order to complete it.");
+
+        // The order belongs to the buyer's patient account, or to the patient whose prescription was used.
+        var orderPatientId = patientId ?? rxPatientId;
+        var notifyUserId = isPatient
+            ? _current.UserId
+            : orderPatientId is int owner ? await _db.Patients.Where(p => p.Id == owner).Select(p => p.UserId).FirstOrDefaultAsync() : null;
 
         string? chargeReference = null;
         var committed = false;
@@ -340,7 +379,7 @@ public class StoreController : ControllerBase
             var card = request.Card;
             var charge = await _gateway.ChargeAsync(total,
                 new CardDetails(card.Number, card.ExpiryMonth, card.ExpiryYear, card.Cvc, card.HolderName),
-                "Umbrella store order", HttpContext.RequestAborted);
+                "Umbrella pharmacy order", HttpContext.RequestAborted);
             if (!charge.Success)
                 return Problem(detail: charge.Error, statusCode: StatusCodes.Status402PaymentRequired, title: "Payment failed");
             chargeReference = charge.Reference;
@@ -352,7 +391,10 @@ public class StoreController : ControllerBase
                 Total = total,
                 PaymentReference = chargeReference,
                 PaidAt = now,
-                PatientId = patientId.Value,
+                PatientId = orderPatientId,
+                CustomerName = customer?.Name.Trim(),
+                CustomerEmail = customer?.Email.Trim(),
+                CustomerPhone = customer?.Phone.Trim(),
                 PrescriptionDocumentId = needsReview ? request.PrescriptionDocumentId : null
             };
             foreach (var line in lines) order.Items.Add(line);
@@ -361,8 +403,8 @@ public class StoreController : ControllerBase
             await _db.SaveChangesAsync();
             order.OrderNumber = $"ORD-{now.Year}-{order.Id:D6}";
 
-            var userId = _current.UserId!.Value;
-            _notifications.Queue(userId, needsReview ? "Order received: prescription check" : "Order ready for pickup",
+            if (notifyUserId is int userId)
+                _notifications.Queue(userId, needsReview ? "Order received: prescription check" : "Order ready for pickup",
                 needsReview
                     ? $"Thank you! Order {order.OrderNumber} ({Money(total)}) is paid. Our staff are checking your prescription; we'll tell you when it's ready to collect. If it can't be accepted, you'll get a full refund."
                     : $"Thank you! Order {order.OrderNumber} ({Money(total)}) is paid and ready to collect at the clinic pharmacy desk. Please bring a photo ID.");
@@ -383,7 +425,11 @@ public class StoreController : ControllerBase
         }
 
         await _audit.LogAsync("PlacedStoreOrder", nameof(StoreOrder), orderId);
-        return Ok(await LoadOrderAsync(orderId));
+        var placed = await LoadOrderAsync(orderId);
+        if (customer is not null)
+            await EmailCustomerAsync(customer.Email.Trim(), $"Your Umbrella pharmacy order {placed.OrderNumber}",
+                $"Hello {customer.Name.Trim()},\n\nThank you for your order {placed.OrderNumber} ({Money(placed.Total)}). It is paid and ready to collect at the clinic pharmacy desk, 12 Shota Rustaveli Avenue, Tbilisi. We are open 24/7. Please bring a photo ID and your order number.\n\nUmbrella Medical Center");
+        return Ok(placed);
     }
 
     /// <summary>Patients: their own orders. Reception and admins: all orders.</summary>
@@ -406,8 +452,10 @@ public class StoreController : ControllerBase
         {
             var term = search.Trim().ToLower();
             query = query.Where(o => o.OrderNumber.ToLower().Contains(term)
-                                     || (o.Patient.FirstName + " " + o.Patient.LastName).ToLower().Contains(term)
-                                     || o.Patient.PersonalNumber.ToLower().Contains(term));
+                                     || (o.Patient != null && ((o.Patient.FirstName + " " + o.Patient.LastName).ToLower().Contains(term)
+                                                             || o.Patient.PersonalNumber.ToLower().Contains(term)))
+                                     || (o.CustomerName != null && o.CustomerName.ToLower().Contains(term))
+                                     || (o.CustomerEmail != null && o.CustomerEmail.ToLower().Contains(term)));
         }
 
         if (status is not null) query = query.Where(o => o.Status == status);
@@ -533,7 +581,8 @@ public class StoreController : ControllerBase
 
     // ---------------------------------------------------------------- helpers
 
-    private async Task<(int? PrescriptionId, string? Error)> CheckPrescriptionCodeAsync(string rawCode, int patientId, Product product, DateTime now)
+    private async Task<(int? PrescriptionId, string? Error)> CheckPrescriptionCodeAsync(string rawCode, int patientId, Product product, DateTime now,
+        string notFound = "this prescription code was not found on your account.")
     {
         var code = PrescriptionCodes.Normalize(rawCode);
         var prescription = await _db.Prescriptions.AsNoTracking()
@@ -543,7 +592,7 @@ public class StoreController : ControllerBase
 
         // The same answer for "no such code" and "someone else's code", so codes can't be probed.
         if (prescription is null || prescription.PatientId != patientId)
-            return (null, "this prescription code was not found on your account.");
+            return (null, notFound);
         if (prescription.ExpiryDate < now)
             return (null, $"prescription {code} expired on {prescription.ExpiryDate:d MMM yyyy}.");
         if (product.MedicationId is null || !prescription.MedicationIds.Contains(product.MedicationId.Value))
@@ -571,7 +620,15 @@ public class StoreController : ControllerBase
 
     private void NotifyPatient(StoreOrder order, string title, string message)
     {
-        if (order.Patient.UserId is int userId) _notifications.Queue(userId, title, message);
+        if (order.Patient?.UserId is int userId) _notifications.Queue(userId, title, message);
+        else if (order.CustomerEmail is not null) _ = EmailCustomerAsync(order.CustomerEmail, title, message);
+    }
+
+    /// <summary>Order emails to buyers without an account. A mail problem never fails the order.</summary>
+    private async Task EmailCustomerAsync(string to, string subject, string body)
+    {
+        try { await _email.SendAsync(to, subject, body, CancellationToken.None); }
+        catch (Exception ex) { _logger.LogWarning(ex, "Could not email pharmacy order details to the customer."); }
     }
 
     private async Task<bool> CanSeeOrderAsync(int id)

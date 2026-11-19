@@ -4,7 +4,7 @@ using UmbrellaMedical.Domain.Entities;
 namespace UmbrellaMedical.Infrastructure.Data;
 
 /// <summary>
-/// Creates demo doctors (two per specialization, each offering every service of their department,
+/// Creates demo doctors (three per specialization, each offering every service of their department,
 /// with weekday working hours) and demo receptionists. People who already exist (same email or
 /// license number) are skipped, so it is safe to run on every start.
 /// All demo accounts share one password, taken from configuration (Seed:DemoStaffPassword).
@@ -13,7 +13,7 @@ public static class DemoStaffSeeder
 {
     private sealed record DemoDoctor(
         string FirstName, string LastName, string Specialization, string License, int Years,
-        string Bio, string Institution, string Degree, int GraduationYear, bool WorksSaturday);
+        string Bio, string Institution, string Degree, int GraduationYear, bool WorksSaturday, bool WorksSunday = false);
 
     private static readonly DemoDoctor[] Doctors =
     {
@@ -113,7 +113,51 @@ public static class DemoStaffSeeder
             "Tbilisi State Medical University", "MD, Urology", 2005, false),
         new("Beka", "Toidze", "Urologist", "UR-77739", 7,
             "General urology and urinary tract ultrasound.",
-            "Tbilisi State Medical University", "MD, Urology", 2017, true)
+            "Tbilisi State Medical University", "MD, Urology", 2017, true),
+
+        // Third doctor per specialization (added with the 24/7 opening hours; some also see patients on Sundays).
+        new("Lasha", "Kapanadze", "General Practitioner", "GP-10733", 10,
+            "Family doctor for adults and seniors: checkups, blood pressure and diabetes follow-up.",
+            "Tbilisi State Medical University", "MD, Family Medicine", 2014, true, true),
+        new("Nato", "Shavgulidze", "Dentist", "DN-20442", 8,
+            "Dentist for children and adults, from first checkups to crowns and whitening.",
+            "Tbilisi State Medical University", "DDS, Dentistry", 2016, false, true),
+        new("Giorgi", "Bochorishvili", "Cardiologist", "CD-30988", 12,
+            "Cardiologist focused on echocardiography, chest pain assessment and heart rhythm monitoring.",
+            "Tbilisi State Medical University", "MD, Cardiology", 2012, true),
+        new("Tamta", "Kobakhidze", "Pediatrician", "PD-40655", 9,
+            "Pediatrician for growth, nutrition and childhood infections, with a gentle approach for little patients.",
+            "Tbilisi State Medical University", "MD, Pediatrics", 2015, false, true),
+        new("Mikheil", "Dvali", "Dermatologist", "DR-50812", 11,
+            "Dermatologist for psoriasis, moles and hair loss, including dermatoscopy.",
+            "Tbilisi State Medical University", "MD, Dermatology", 2013, false),
+        new("Khatia", "Margvelashvili", "Radiologist", "RD-60714", 10,
+            "Radiologist for breast, thyroid and vascular ultrasound.",
+            "David Tvildiani Medical University", "MD, Radiology", 2014, false, true),
+        new("Revaz", "Tsintsadze", "Neurologist", "NR-70842", 13,
+            "Neurologist for back and neck pain, numbness and memory problems.",
+            "Tbilisi State Medical University", "MD, Neurology", 2011, false),
+        new("Ilia", "Gvenetadze", "Orthopedist", "OR-71933", 9,
+            "Orthopedist for sports medicine, ankle and wrist injuries and arthritis care.",
+            "Tbilisi State Medical University", "MD, Orthopedics and Traumatology", 2015, true, true),
+        new("Lia", "Kurtanidze", "Ophthalmologist", "OP-72786", 15,
+            "Ophthalmologist for cataract assessment, diabetic eye checks and contact lens fitting.",
+            "Tbilisi State Medical University", "MD, Ophthalmology", 2009, false),
+        new("Temur", "Lordkipanidze", "Otolaryngologist (ENT)", "EN-73902", 11,
+            "ENT specialist for snoring, ear infections and nosebleeds.",
+            "Tbilisi State Medical University", "MD, Otolaryngology", 2013, false),
+        new("Marika", "Dzneladze", "Gynecologist", "GY-74981", 10,
+            "Gynecologist for family planning, pregnancy follow-up and menopause care.",
+            "Ivane Javakhishvili Tbilisi State University", "MD, Obstetrics and Gynecology", 2014, false, true),
+        new("Davit", "Mamaladze", "Psychiatrist", "PS-75677", 7,
+            "Psychiatrist for adolescents and young adults: anxiety, ADHD and mood.",
+            "Tbilisi State Medical University", "MD, Psychiatry", 2017, true),
+        new("Inga", "Akhvlediani", "Endocrinologist", "ED-76938", 12,
+            "Endocrinologist for type 1 and type 2 diabetes, insulin plans and osteoporosis.",
+            "Tbilisi State Medical University", "MD, Endocrinology", 2012, false),
+        new("Shota", "Gugushvili", "Urologist", "UR-77955", 14,
+            "Urologist for men's health, urinary infections and kidney ultrasound.",
+            "David Tvildiani Medical University", "MD, Urology", 2010, false, true)
     };
 
     private static readonly (string FirstName, string LastName, string Phone)[] Receptionists =
@@ -207,6 +251,8 @@ public static class DemoStaffSeeder
             }
             if (d.WorksSaturday)
                 doctor.Schedules.Add(new DoctorSchedule { DayOfWeek = DayOfWeek.Saturday, StartTime = new TimeOnly(10, 0), EndTime = new TimeOnly(14, 0) });
+            if (d.WorksSunday)
+                doctor.Schedules.Add(new DoctorSchedule { DayOfWeek = DayOfWeek.Sunday, StartTime = new TimeOnly(10, 0), EndTime = new TimeOnly(16, 0) });
 
             db.Doctors.Add(doctor);
         }

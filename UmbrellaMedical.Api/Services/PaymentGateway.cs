@@ -48,7 +48,7 @@ public class TestPaymentGateway : IPaymentGateway
         {
             "4000000000000002" => ChargeResult.Declined("Your card was declined. Please use another card."),
             "4000000000009995" => ChargeResult.Declined("The card has insufficient funds."),
-            _ => ChargeResult.Ok($"TEST-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()} {CardValidation.Brand(digits)} ****{digits[^4..]}")
+            _ => ChargeResult.Ok($"PAY-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()} {CardValidation.Brand(digits)} ****{digits[^4..]}")
         };
 
         return Task.FromResult(result);

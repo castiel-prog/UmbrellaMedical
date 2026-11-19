@@ -47,8 +47,14 @@ namespace UmbrellaMedical.Domain.Entities
         public DateTime? ReviewedAt { get; set; }
         public DateTime? CompletedAt { get; set; }
 
-        public int PatientId { get; set; }
-        public Patient Patient { get; set; } = null!;
+        /// <summary>The patient the order belongs to; null for an order placed without a patient account (guest or staff).</summary>
+        public int? PatientId { get; set; }
+        public Patient? Patient { get; set; }
+
+        /// <summary>Contact details given at checkout (always set for orders without a patient account).</summary>
+        public string? CustomerName { get; set; }
+        public string? CustomerEmail { get; set; }
+        public string? CustomerPhone { get; set; }
 
         public ICollection<StoreOrderItem> Items { get; set; } = new List<StoreOrderItem>();
     }

@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { CurrencyPipe, DatePipe } from '@angular/common';
+import { CurrencyPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
@@ -9,6 +9,7 @@ import { PagedResult, StoreOrder, StoreOrderStatus } from '../../core/model';
 import { apiErrorMessage } from '../../core/api-error';
 import { saveDownload, splitWords } from '../../core/util';
 import { Pager } from '../../shared/pager';
+import { I18n, LocalDatePipe, TranslatePipe } from '../../core/i18n';
 
 const STATUS_LABEL: Record<StoreOrderStatus, string> = {
   AwaitingReview: 'Checking prescription',
@@ -21,18 +22,18 @@ const STATUS_LABEL: Record<StoreOrderStatus, string> = {
 /** Patients: "My orders". Reception and admins: every order, with prescription checks and handover. */
 @Component({
   selector: 'app-orders',
-  imports: [FormsModule, RouterLink, CurrencyPipe, DatePipe, Pager],
+  imports: [FormsModule, RouterLink, CurrencyPipe, Pager, TranslatePipe, LocalDatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page-head">
-      <h1>{{ isStaff() ? 'Store orders' : 'My orders' }}</h1>
-      @if (!isStaff()) { <a class="btn primary" routerLink="/store">Go to the store</a> }
+      <h1>{{ (isStaff() ? 'Pharmacy orders' : 'My orders') | t }}</h1>
+      @if (!isStaff()) { <a class="btn primary" routerLink="/pharmacy">{{ 'Go to the pharmacy' | t }}</a> }
     </div>
 
     <div class="tabs scroll" role="tablist">
       @for (f of filters; track f.label) {
         <button type="button" role="tab" [class.active]="status() === f.value" [attr.aria-selected]="status() === f.value"
-          (click)="status.set(f.value); page.set(1); load()">{{ f.label }}</button>
+          (click)="status.set(f.value); page.set(1); load()">{{ f.label | t }}</button>
       }
     </div>
 
@@ -47,11 +48,11 @@ const STATUS_LABEL: Record<StoreOrderStatus, string> = {
 
     @if (message()) { <p class="alert success" role="status">{{ message() }}</p> }
     @if (error()) { <p class="alert error" role="alert">{{ error() }}</p> }
-    @if (loading() && !result()) { <p class="muted">Loading...</p> }
+    @if (loading() && !result()) { <p class="muted">{{ 'Loading...' | t }}</p> }
 
     @if (result(); as data) {
       @if (data.items.length === 0) {
-        <p class="empty card muted">No orders here.</p>
+        <p class="empty card muted">{{ 'No orders here.' | t }}</p>
       }
       <ul class="stack" [class.dim]="loading()">
         @for (o of data.items; track o.id) {
@@ -60,11 +61,15 @@ const STATUS_LABEL: Record<StoreOrderStatus, string> = {
               <div>
                 <h3>{{ o.orderNumber }} · {{ o.total | currency: 'GEL' : 'symbol-narrow' }}</h3>
                 <p class="muted">
-                  {{ o.createdAt | date: 'd MMM y, HH:mm' }}
-                  @if (isStaff()) { · <a [routerLink]="['/patients', o.patientId]">{{ o.patientName }}</a> ({{ o.patientPersonalNumber }}) }
+                  {{ o.createdAt | ldate: 'mediumTime' }}
+                  @if (isStaff()) {
+                    @if (o.patientId) { · <a [routerLink]="['/patients', o.patientId]">{{ o.patientName }}</a> ({{ o.patientPersonalNumber }}) }
+                    @else { · {{ o.patientName }} <span class="badge">{{ 'No account' | t }}</span> }
+                    @if (o.customerEmail || o.customerPhone) { <br /><span class="small">✉ {{ o.customerEmail }} · ☎ {{ o.customerPhone }}</span> }
+                  }
                 </p>
               </div>
-              <span [class]="'badge ord-' + o.status.toLowerCase()">{{ label(o.status) }}</span>
+              <span [class]="'badge ord-' + o.status.toLowerCase()">{{ label(o.status) | t }}</span>
             </div>
 
             <ul class="order-items">
@@ -73,7 +78,7 @@ const STATUS_LABEL: Record<StoreOrderStatus, string> = {
                   {{ i.quantity }} × {{ i.productName }}
                   @if (i.requiresPrescription) {
                     <span class="rx-mini">℞</span>
-                    <span class="muted small">{{ i.prescriptionCode ? 'code ' + i.prescriptionCode : 'uploaded prescription' }}</span>
+                    <span class="muted small">{{ i.prescriptionCode ? ('code {code}' | t: { code: i.prescriptionCode }) : ('uploaded prescription' | t) }}</span>
                   }
                   <span class="muted"> · {{ i.lineTotal | currency: 'GEL' : 'symbol-narrow' }}</span>
                 </li>
@@ -82,13 +87,13 @@ const STATUS_LABEL: Record<StoreOrderStatus, string> = {
 
             @if (o.prescriptionFileName) {
               <p class="small">
-                📄 Prescription file: {{ o.prescriptionFileName }}
-                <button type="button" class="link-like" (click)="download(o)">Open</button>
+                📄 {{ 'Prescription file' | t }}: {{ o.prescriptionFileName }}
+                <button type="button" class="link-like" (click)="download(o)">{{ 'Open' | t }}</button>
               </p>
             }
-            @if (o.reviewNote) { <p class="small"><span class="muted">{{ o.status === 'Rejected' ? 'Reason' : 'Note' }}:</span> {{ o.reviewNote }}</p> }
+            @if (o.reviewNote) { <p class="small"><span class="muted">{{ (o.status === 'Rejected' ? 'Reason' : 'Note') | t }}:</span> {{ o.reviewNote }}</p> }
             @if (o.status === 'ReadyForPickup' && !isStaff()) {
-              <p class="small">📍 Collect at the clinic pharmacy desk with a photo ID.</p>
+              <p class="small">📍 {{ 'Collect your order at the clinic pharmacy desk. Bring a photo ID.' | t }}</p>
             }
 
             @if (openId() !== o.id) {
@@ -101,7 +106,7 @@ const STATUS_LABEL: Record<StoreOrderStatus, string> = {
                   <button class="btn small primary" type="button" (click)="run(api.completeOrder(o.id), 'The order was handed over.')" [disabled]="busy()">Handed over</button>
                 }
                 @if (o.status === 'AwaitingReview' || o.status === 'ReadyForPickup') {
-                  <button class="btn small" type="button" (click)="open(o.id, 'cancel')">Cancel order</button>
+                  <button class="btn small" type="button" (click)="open(o.id, 'cancel')">{{ 'Cancel order' | t }}</button>
                 }
               </div>
             } @else {
@@ -124,10 +129,10 @@ const STATUS_LABEL: Record<StoreOrderStatus, string> = {
                     </div>
                   }
                   @case ('cancel') {
-                    <p>Cancel order {{ o.orderNumber }}? {{ o.total | currency: 'GEL' : 'symbol-narrow' }} will be refunded to the card.</p>
+                    <p>{{ 'Cancel order {number}? {total} will be refunded to your card.' | t: { number: o.orderNumber, total: (o.total | currency: 'GEL' : 'symbol-narrow') } }}</p>
                     <div class="card-actions">
-                      <button class="btn small danger" type="button" (click)="run(api.cancelOrder(o.id), 'The order was cancelled and refunded.')" [disabled]="busy()">Cancel order</button>
-                      <button class="btn small" type="button" (click)="openId.set(null)">Keep it</button>
+                      <button class="btn small danger" type="button" (click)="run(api.cancelOrder(o.id), 'The order was cancelled and refunded.')" [disabled]="busy()">{{ 'Cancel order' | t }}</button>
+                      <button class="btn small" type="button" (click)="openId.set(null)">{{ 'Keep it' | t }}</button>
                     </div>
                   }
                 }
@@ -143,6 +148,7 @@ const STATUS_LABEL: Record<StoreOrderStatus, string> = {
 export class OrdersPage {
   protected readonly api = inject(StoreApi);
   private readonly auth = inject(AuthService);
+  private readonly i18n = inject(I18n);
 
   protected readonly isStaff = computed(() => this.auth.hasRole('Admin', 'Receptionist'));
   protected readonly filters: { label: string; value: StoreOrderStatus | null }[] = [
@@ -197,7 +203,7 @@ export class OrdersPage {
       next: () => {
         this.busy.set(false);
         this.openId.set(null);
-        this.message.set(success);
+        this.message.set(this.i18n.t(success));
         this.load();
       },
       error: err => {

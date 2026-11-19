@@ -46,7 +46,7 @@ public class ContactMessageDto
 [Route("api")]
 public class ContactController : ControllerBase
 {
-    private static readonly string[] Topics = { "Appointments", "Billing and payments", "Prescriptions", "Store orders", "Feedback", "Other" };
+    private static readonly string[] Topics = { "Appointments", "Billing and payments", "Prescriptions", "Pharmacy orders", "Feedback", "Other" };
 
     private readonly UmbrellaDbContext _db;
     private readonly IEmailSender _email;

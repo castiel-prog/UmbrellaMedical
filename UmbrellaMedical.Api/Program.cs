@@ -39,7 +39,7 @@ namespace UmbrellaMedical.Api
                     Title = "Umbrella Medical Center API",
                     Version = "v1",
                     Description = "REST API of the Umbrella Medical Center clinic system: doctors, booking, payments, medical records, " +
-                                  "prescriptions, store and administration.\n\n" +
+                                  "prescriptions, pharmacy and administration.\n\n" +
                                   "**To call protected endpoints:** use POST /api/auth/login, copy the `token` from the response, " +
                                   "press **Authorize** and paste it."
                 });
@@ -249,6 +249,10 @@ namespace UmbrellaMedical.Api
                 // Always in Development; on a server only when Seed:DemoPatients is true (a showcase site).
                 if (isDev || builder.Configuration.GetValue<bool>("Seed:DemoPatients"))
                     await DemoReviewsSeeder.SeedAsync(db);
+
+                // Pharmacy product photos for products that have none yet.
+                var photos = await ProductImageSeeder.SeedAsync(db, scope.ServiceProvider.GetRequiredService<IFileStorage>(), app.Environment.ContentRootPath);
+                if (photos > 0) app.Logger.LogInformation("Added photos to {Count} pharmacy product(s).", photos);
             }
 
             app.UseExceptionHandler();

@@ -12,7 +12,7 @@ export interface NavItem {
 export const MAIN_NAV: NavItem[] = [
   { label: 'Doctors', path: '/doctors', icon: 'stethoscope' },
   { label: 'Services', path: '/services', icon: 'receipt' },
-  { label: 'Store', path: '/store', icon: 'bag' },
+  { label: 'Pharmacy', path: '/pharmacy', icon: 'bag' },
   { label: 'Contact', path: '/contact', icon: 'mail' }
 ];
 
@@ -25,7 +25,7 @@ export const WORK_NAV: NavItem[] = [
   { label: 'Appointments', path: '/desk', icon: 'calendar', roles: ['Doctor', 'Receptionist', 'Admin'] },
   { label: 'Patients', path: '/patients', icon: 'users', roles: ['Doctor', 'Receptionist', 'Admin'] },
   { label: 'Prescriptions', path: '/prescriptions', icon: 'pill', roles: ['Doctor', 'Receptionist', 'Admin'] },
-  { label: 'Store orders', path: '/store-orders', icon: 'clipboard', roles: ['Receptionist', 'Admin'] },
+  { label: 'Pharmacy orders', path: '/pharmacy-orders', icon: 'clipboard', roles: ['Receptionist', 'Admin'] },
   { label: 'Invoices', path: '/invoices', icon: 'card', roles: ['Receptionist', 'Admin'] },
   { label: 'Working hours', path: '/working-hours', icon: 'clock', roles: ['Doctor'] },
   { label: 'Time off', path: '/time-off', icon: 'umbrella', roles: ['Doctor', 'Admin'] },

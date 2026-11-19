@@ -103,16 +103,18 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/staff-schedule/staff-schedule.page').then(m => m.StaffSchedulePage)
   },
 
-  // Store
+  // Pharmacy (it used to be called the store; old links still work)
+  { path: 'store', redirectTo: 'pharmacy', pathMatch: 'full' },
+  { path: 'store/checkout', redirectTo: 'pharmacy/checkout' },
+  { path: 'store-orders', redirectTo: 'pharmacy-orders' },
   {
-    path: 'store',
-    title: title('Store'),
+    path: 'pharmacy',
+    title: title('Pharmacy'),
     loadComponent: () => import('./pages/store/store.page').then(m => m.StorePage)
   },
   {
-    path: 'store/checkout',
+    path: 'pharmacy/checkout',
     title: title('Checkout'),
-    canActivate: [roleGuard('Patient')],
     loadComponent: () => import('./pages/store/checkout.page').then(m => m.CheckoutPage)
   },
   {
@@ -122,8 +124,8 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/store/orders.page').then(m => m.OrdersPage)
   },
   {
-    path: 'store-orders',
-    title: title('Store orders'),
+    path: 'pharmacy-orders',
+    title: title('Pharmacy orders'),
     canActivate: [roleGuard('Receptionist', 'Admin')],
     loadComponent: () => import('./pages/store/orders.page').then(m => m.OrdersPage)
   },

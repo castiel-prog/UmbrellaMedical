@@ -1,4 +1,4 @@
-﻿using System.Data;
+using System.Data;
 using System.Linq.Expressions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -106,8 +106,7 @@ namespace UmbrellaMedical.Api.Controllers
                 AmountDue = quote.AmountDue,
                 InsuranceCompany = quote.InsuranceCompany,
                 CoveragePercent = quote.CoveragePercent,
-                PaymentRequired = _current.Role == "Patient" && quote.AmountDue > 0,
-                TestMode = _gateway.IsTestMode
+                PaymentRequired = _current.Role == "Patient" && quote.AmountDue > 0
             });
         }
 

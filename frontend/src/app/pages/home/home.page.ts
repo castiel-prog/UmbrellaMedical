@@ -34,7 +34,7 @@ import { I18n, TranslatePipe } from '../../core/i18n';
 
         <div class="hero-actions">
           <a class="btn outline" routerLink="/doctors">{{ 'Browse all doctors' | t }}</a>
-          <a class="btn outline" routerLink="/store">{{ 'Visit the store' | t }}</a>
+          <a class="btn outline" routerLink="/pharmacy">{{ 'Visit the pharmacy' | t }}</a>
           @if (!auth.isLoggedIn()) { <a class="btn outline" routerLink="/register">{{ 'Create an account' | t }}</a> }
         </div>
       </div>
@@ -149,19 +149,19 @@ import { I18n, TranslatePipe } from '../../core/i18n';
     <!-- Store -->
     <section class="store-promo home-section">
       <div class="store-promo-text">
-        <p class="eyebrow">{{ 'Umbrella store' | t }}</p>
+        <p class="eyebrow">{{ 'Umbrella pharmacy' | t }}</p>
         <h2 class="no-rule">{{ 'Your pharmacy, ready when you are' | t }}</h2>
         <p class="muted">{{ 'Medicines, vitamins, first aid and everyday care. Pay online and collect at our pharmacy desk. Prescription medicines are available with a prescription from your doctor.' | t }}</p>
         <div class="promo-cats">
           @for (c of categories; track c) {
-            <a class="promo-cat" routerLink="/store" [queryParams]="{ category: c }">{{ info[c].label | t }}</a>
+            <a class="promo-cat" routerLink="/pharmacy" [queryParams]="{ category: c }">{{ info[c].label | t }}</a>
           }
         </div>
-        <a class="btn primary" routerLink="/store">{{ 'Shop now' | t }}</a>
+        <a class="btn primary" routerLink="/pharmacy">{{ 'Shop now' | t }}</a>
       </div>
       <div class="promo-shelf">
         @for (p of popularProducts(); track p.id) {
-          <a class="shelf-item" routerLink="/store" [queryParams]="{ category: p.category }">
+          <a class="shelf-item" routerLink="/pharmacy" [queryParams]="{ category: p.category }">
             <app-product-image class="shelf-pic" [attr.data-cat]="p.category" [name]="p.name" [category]="p.category" [imageUrl]="p.imageUrl" />
             <span class="small">{{ p.name }}</span>
             <strong class="small">{{ p.price | currency: 'GEL' : 'symbol-narrow' }}</strong>

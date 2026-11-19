@@ -97,7 +97,7 @@ interface ApproveForm { medication: Medication | null; term: string; results: Me
                       <div class="field"><label for="ap-valid">Valid for (days)</label><input id="ap-valid" type="number" min="1" max="365" [(ngModel)]="f.validDays" /></div>
                       <div class="field"><label for="ap-instr">Instructions (optional)</label><input id="ap-instr" maxlength="2000" [(ngModel)]="f.instructions" /></div>
                     </div>
-                    <p class="muted small">The patient gets a prescription code to buy the medicine in the store.</p>
+                    <p class="muted small">The patient gets a prescription code to buy the medicine in the pharmacy.</p>
                     <div class="card-actions">
                       <button class="btn small primary" type="button" (click)="submitApprove(r)" [disabled]="busy()">Issue prescription</button>
                       <button class="btn small" type="button" (click)="openId.set(null)">Back</button>
@@ -134,7 +134,7 @@ interface ApproveForm { medication: Medication | null; term: string; results: Me
         } @else {
           <div class="table-wrap">
             <table class="table">
-              <thead><tr><th>Code</th><th>Patient</th><th>Medicines</th><th>Doctor</th><th>Issued</th><th>Valid until</th><th>Store</th></tr></thead>
+              <thead><tr><th>Code</th><th>Patient</th><th>Medicines</th><th>Doctor</th><th>Issued</th><th>Valid until</th><th>Pharmacy</th></tr></thead>
               <tbody>
                 @for (p of data.items; track p.id) {
                   <tr>

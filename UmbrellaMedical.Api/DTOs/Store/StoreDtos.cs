@@ -74,6 +74,25 @@ public class CreateStoreOrderRequest
     public int? PrescriptionDocumentId { get; set; }
 
     public PaymentCardRequest? Card { get; set; }
+
+    /// <summary>Contact details: required when the buyer has no patient account (a visitor or a staff member).</summary>
+    public CheckoutCustomerRequest? Customer { get; set; }
+}
+
+public class CheckoutCustomerRequest
+{
+    [Required(ErrorMessage = "Enter your full name."), StringLength(100, MinimumLength = 2)]
+    public string Name { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Enter your email address."), EmailAddress(ErrorMessage = "Enter a valid email address."), StringLength(256)]
+    public string Email { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Enter your phone number."), StringLength(30, MinimumLength = 6)]
+    public string Phone { get; set; } = string.Empty;
+
+    /// <summary>Personal number of the patient the prescription is for (only needed for prescription-only items).</summary>
+    [StringLength(20)]
+    public string? PersonalNumber { get; set; }
 }
 
 public class StoreOrderItemDto
@@ -97,9 +116,11 @@ public class StoreOrderDto
     public DateTime? PaidAt { get; set; }
     public string? PaymentReference { get; set; }
     public bool Refunded { get; set; }
-    public int PatientId { get; set; }
+    public int? PatientId { get; set; }
     public string PatientName { get; set; } = string.Empty;
-    public string PatientPersonalNumber { get; set; } = string.Empty;
+    public string? PatientPersonalNumber { get; set; }
+    public string? CustomerEmail { get; set; }
+    public string? CustomerPhone { get; set; }
     public int? PrescriptionDocumentId { get; set; }
     public string? PrescriptionFileName { get; set; }
     public string? ReviewNote { get; set; }

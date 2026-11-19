@@ -75,7 +75,7 @@ import { orNull } from '../../core/util';
             </select>
           </div>
         }
-        <label class="check"><input type="checkbox" name="active" [(ngModel)]="f.isActive" /> Sold in the store</label>
+        <label class="check"><input type="checkbox" name="active" [(ngModel)]="f.isActive" /> Sold in the pharmacy</label>
 
         <div class="card-actions">
           <button class="btn primary" type="submit" [disabled]="busy()">Save</button>

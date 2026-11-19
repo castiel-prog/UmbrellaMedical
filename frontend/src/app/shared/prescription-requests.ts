@@ -19,7 +19,7 @@ import { apiErrorMessage } from '../core/api-error';
       <div class="row-head">
         <div>
           <h3>Need a prescription?</h3>
-          <p class="muted small">Ask a doctor. When they approve, you get a prescription code to buy the medicine in our store.</p>
+          <p class="muted small">Ask a doctor. When they approve, you get a prescription code to buy the medicine in our pharmacy.</p>
         </div>
         @if (!formOpen()) { <button class="btn primary small" type="button" (click)="openForm()">Request a prescription</button> }
       </div>
@@ -90,7 +90,7 @@ import { apiErrorMessage } from '../core/api-error';
                 <span [class]="'badge rq-' + r.status.toLowerCase()">{{ r.status === 'Pending' ? 'Waiting for the doctor' : r.status }}</span>
               </div>
               @if (r.status === 'Approved' && r.prescriptionCode) {
-                <p class="small">✓ Your code: <strong class="code-text">{{ r.prescriptionCode }}</strong> · <a routerLink="/store">use it in the store</a></p>
+                <p class="small">✓ Your code: <strong class="code-text">{{ r.prescriptionCode }}</strong> · <a routerLink="/pharmacy">use it in the pharmacy</a></p>
               }
               @if (r.status === 'Declined' && r.decisionNote) { <p class="small"><span class="muted">Doctor's reply:</span> {{ r.decisionNote }}</p> }
               @if (r.status === 'Pending') {

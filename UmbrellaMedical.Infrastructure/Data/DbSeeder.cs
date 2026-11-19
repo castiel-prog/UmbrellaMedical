@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using UmbrellaMedical.Domain.Entities;
 using UmbrellaMedical.Domain.Enums;
 
@@ -134,7 +134,10 @@ public static class DbSeeder
         ("Atorvastatin", "Atorvastatin", "Tablet", "20 mg"),
         ("Sertraline", "Sertraline", "Tablet", "50 mg"),
         ("Levothyroxine", "Levothyroxine", "Tablet", "50 mcg"),
-        ("Amlodipine", "Amlodipine", "Tablet", "5 mg")
+        ("Amlodipine", "Amlodipine", "Tablet", "5 mg"),
+        ("Lisinopril", "Lisinopril", "Tablet", "10 mg"),
+        ("Losartan", "Losartan", "Tablet", "50 mg"),
+        ("Salbutamol", "Salbutamol", "Inhaler", "100 mcg")
     };
 
     private static async Task EnsureMedicationsAsync(UmbrellaDbContext db)
@@ -194,7 +197,41 @@ public static class DbSeeder
         // Devices
         new("Digital thermometer", ProductCategory.Devices, 14.90m, 30, "1 piece", "Fast 10-second reading with fever alarm."),
         new("Upper-arm blood pressure monitor", ProductCategory.Devices, 89.00m, 12, "1 piece", "Automatic monitor with memory for two users."),
-        new("Pulse oximeter", ProductCategory.Devices, 39.90m, 15, "1 piece", "Measures oxygen saturation and pulse at the fingertip.")
+        new("Pulse oximeter", ProductCategory.Devices, 39.90m, 15, "1 piece", "Measures oxygen saturation and pulse at the fingertip."),
+
+        // Added with the pharmacy update
+        new("Loratadine 10 mg", ProductCategory.Medicines, 5.60m, 60, "10 tablets", "Non-drowsy antihistamine for allergies."),
+        new("Antacid chewable tablets", ProductCategory.Medicines, 4.90m, 70, "24 tablets", "Fast relief of heartburn and indigestion."),
+        new("Cough syrup", ProductCategory.Medicines, 9.40m, 45, "150 ml", "Soothing syrup for dry and tickly coughs."),
+        new("Oral rehydration salts", ProductCategory.Medicines, 6.20m, 60, "10 sachets", "Replaces fluids and salts lost through diarrhoea or heat."),
+        new("Lubricating eye drops", ProductCategory.Medicines, 11.50m, 40, "10 ml", "Artificial tears for dry, tired eyes."),
+        new("Diclofenac gel 1%", ProductCategory.Medicines, 10.80m, 50, "50 g", "Pain-relief gel for muscles and joints."),
+        new("Lisinopril 10 mg", ProductCategory.Medicines, 7.40m, 40, "30 tablets", "For high blood pressure. Prescription required.", "Lisinopril"),
+        new("Losartan 50 mg", ProductCategory.Medicines, 9.20m, 40, "30 tablets", "For high blood pressure. Prescription required.", "Losartan"),
+        new("Salbutamol inhaler 100 mcg", ProductCategory.Medicines, 13.80m, 30, "200 doses", "Reliever inhaler for asthma. Prescription required.", "Salbutamol"),
+
+        new("Multivitamin for adults", ProductCategory.Vitamins, 18.90m, 60, "30 tablets", "Daily vitamins and minerals in one tablet."),
+        new("Omega-3 fish oil 1000 mg", ProductCategory.Vitamins, 22.50m, 40, "60 capsules", "EPA and DHA for heart and brain health."),
+        new("Zinc 25 mg", ProductCategory.Vitamins, 9.90m, 50, "30 tablets", "Supports the immune system."),
+        new("Iron + folic acid", ProductCategory.Vitamins, 10.40m, 40, "30 tablets", "Helps reduce tiredness caused by low iron."),
+        new("Probiotic capsules", ProductCategory.Vitamins, 24.00m, 35, "30 capsules", "Friendly bacteria for digestive health."),
+        new("Calcium + vitamin D3", ProductCategory.Vitamins, 12.20m, 45, "60 tablets", "For strong bones and teeth."),
+
+        new("Lip balm SPF 15", ProductCategory.PersonalCare, 4.50m, 80, "4.8 g", "Protects and soothes dry lips."),
+        new("Anti-dandruff shampoo", ProductCategory.PersonalCare, 14.80m, 35, "250 ml", "Medicated shampoo that reduces flakes and itching."),
+        new("Body lotion for dry skin", ProductCategory.PersonalCare, 13.90m, 40, "400 ml", "Fragrance-free daily moisturiser."),
+
+        new("Antibacterial liquid soap", ProductCategory.Hygiene, 4.70m, 90, "300 ml", "Gentle hand wash that removes germs."),
+        new("Soft toothbrush", ProductCategory.Hygiene, 3.90m, 100, "1 piece", "Soft bristles for sensitive gums."),
+        new("Dental floss", ProductCategory.Hygiene, 3.50m, 80, "50 m", "Mint waxed floss."),
+        new("Nitrile examination gloves", ProductCategory.Hygiene, 12.00m, 60, "50 gloves", "Powder-free, latex-free disposable gloves."),
+
+        new("First aid kit", ProductCategory.FirstAid, 34.90m, 25, "1 kit", "Plasters, bandages, gauze and scissors for home or car."),
+        new("Medical adhesive tape", ProductCategory.FirstAid, 3.80m, 70, "2.5 cm x 5 m", "Breathable tape for dressings."),
+
+        new("Blood glucose meter", ProductCategory.Devices, 59.00m, 15, "1 kit", "Meter with 10 strips and a lancing device."),
+        new("Compressor nebuliser", ProductCategory.Devices, 119.00m, 8, "1 piece", "For inhaled medicines at home, for adults and children."),
+        new("Digital bathroom scale", ProductCategory.Devices, 49.00m, 12, "1 piece", "Accurate to 100 g, with a large display.")
     };
 
     /// <summary>Adds any missing store product by name. Existing products (and their prices or stock) are left alone.</summary>

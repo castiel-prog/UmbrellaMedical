@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using UmbrellaMedical.Domain.Enums;
 
 namespace UmbrellaMedical.Api.DTOs.Appointments
@@ -79,8 +79,6 @@ namespace UmbrellaMedical.Api.DTOs.Appointments
         public decimal? CoveragePercent { get; set; }
         /// <summary>True when the patient must pay by card to complete an online booking.</summary>
         public bool PaymentRequired { get; set; }
-        /// <summary>True while the clinic uses the simulated test card processor.</summary>
-        public bool TestMode { get; set; }
     }
 
     public class RescheduleAppointmentRequest

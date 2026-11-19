@@ -15,11 +15,6 @@ export function emptyCard(): CardFormValue {
   imports: [TranslatePipe, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    @if (testMode()) {
-      <p class="alert warn small-alert">
-        {{ 'Test mode: no real money is taken. Use card 4242 4242 4242 4242, any future expiry date and any 3-digit CVC.' | t }}
-      </p>
-    }
     <div class="field">
       <label for="cf-name">{{ 'Name on card' | t }}</label>
       <input id="cf-name" name="ccname" autocomplete="cc-name" maxlength="100" [(ngModel)]="card().holderName" />
@@ -44,7 +39,6 @@ export function emptyCard(): CardFormValue {
 })
 export class CardFields {
   readonly card = input.required<CardFormValue>();
-  readonly testMode = input(true);
 
   protected formatNumber(value: string): string {
     return value.replace(/\D/g, '').slice(0, 19).replace(/(\d{4})(?=\d)/g, '$1 ');

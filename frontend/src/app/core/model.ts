@@ -176,7 +176,6 @@ export interface BookingQuote {
   insuranceCompany: string | null;
   coveragePercent: number | null;
   paymentRequired: boolean;
-  testMode: boolean;
 }
 
 export interface ChatMessage {
@@ -407,9 +406,12 @@ export interface StoreOrder {
   paidAt: string | null;
   paymentReference: string | null;
   refunded: boolean;
-  patientId: number;
+  /** Null for an order placed without a patient account; patientName then holds the buyer's name. */
+  patientId: number | null;
   patientName: string;
-  patientPersonalNumber: string;
+  patientPersonalNumber: string | null;
+  customerEmail: string | null;
+  customerPhone: string | null;
   prescriptionDocumentId: number | null;
   prescriptionFileName: string | null;
   reviewNote: string | null;
@@ -422,6 +424,8 @@ export interface CreateStoreOrder {
   items: { productId: number; quantity: number; prescriptionCode: string | null }[];
   prescriptionDocumentId: number | null;
   card: PaymentCard;
+  /** Buyers without a patient account (visitors and staff). */
+  customer?: { name: string; email: string; phone: string; personalNumber: string | null } | null;
 }
 
 export interface PrescriptionRequestItem {
