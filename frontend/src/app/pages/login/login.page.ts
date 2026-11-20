@@ -61,7 +61,7 @@ type LoginField = 'email' | 'firstName' | 'lastName' | 'password';
       </form>
 
       <p class="switch"><a routerLink="/forgot-password">{{ 'Forgot your password?' | t }}</a></p>
-      <p class="switch">{{ 'New here?' | t }} <a routerLink="/register">{{ 'Create an account' | t }}</a></p>
+      <p class="switch">{{ 'New here?' | t }} <a routerLink="/register" queryParamsHandling="preserve">{{ 'Create an account' | t }}</a></p>
     </section>
   `
 })

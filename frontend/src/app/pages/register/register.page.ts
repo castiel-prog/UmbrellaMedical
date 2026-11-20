@@ -7,11 +7,11 @@ import {
   ValidatorFn,
   Validators
 } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { apiErrorMessage } from '../../core/api-error';
 import { Gender } from '../../core/model';
-import { PHONE_PATTERN, toDateInput } from '../../core/util';
+import { PHONE_PATTERN, safeReturnUrl, toDateInput } from '../../core/util';
 import { DatePicker } from '../../shared/date-picker';
 import { TranslatePipe } from '../../core/i18n';
 
@@ -165,7 +165,7 @@ const passwordsMatch: ValidatorFn = (group: AbstractControl): ValidationErrors |
         </button>
       </form>
 
-      <p class="switch">{{ 'Already registered?' | t }} <a routerLink="/login">{{ 'Log in' | t }}</a></p>
+      <p class="switch">{{ 'Already registered?' | t }} <a routerLink="/login" queryParamsHandling="preserve">{{ 'Log in' | t }}</a></p>
     </section>
   `
 })
@@ -173,6 +173,7 @@ export class RegisterPage {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
 
   protected readonly submitting = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -227,7 +228,11 @@ export class RegisterPage {
         password: value.password
       })
       .subscribe({
-        next: () => void this.router.navigateByUrl('/account'),
+        next: () => {
+          // Back to where the visitor was (e.g. the pharmacy checkout), otherwise to their new account.
+          const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
+          void this.router.navigateByUrl(returnUrl ? safeReturnUrl(returnUrl) : '/account');
+        },
         error: err => {
           this.error.set(apiErrorMessage(err));
           this.submitting.set(false);

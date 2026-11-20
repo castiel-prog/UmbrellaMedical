@@ -764,6 +764,9 @@ namespace UmbrellaMedical.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<DateTime?>("EmailedAt")
+                        .HasColumnType("timestamp without time zone");
+
                     b.Property<bool>("IsRead")
                         .HasColumnType("boolean");
 
@@ -787,6 +790,8 @@ namespace UmbrellaMedical.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("AppointmentId");
+
+                    b.HasIndex("EmailedAt");
 
                     b.HasIndex("UserId");
 
@@ -1535,6 +1540,12 @@ namespace UmbrellaMedical.Infrastructure.Migrations
                     b.Property<bool>("EmailConfirmed")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("EmailNotifications")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("EmailReminders")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
@@ -1545,6 +1556,14 @@ namespace UmbrellaMedical.Infrastructure.Migrations
                     b.Property<string>("PhotoKey")
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
+
+                    b.Property<string>("PreferredLanguage")
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
+                    b.Property<string>("PreferredTheme")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
 
                     b.Property<int>("RoleId")
                         .HasColumnType("integer");

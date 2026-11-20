@@ -115,6 +115,7 @@ export const routes: Routes = [
   {
     path: 'pharmacy/checkout',
     title: title('Checkout'),
+    canActivate: [authGuard],
     loadComponent: () => import('./pages/store/checkout.page').then(m => m.CheckoutPage)
   },
   {

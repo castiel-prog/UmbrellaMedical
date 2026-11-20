@@ -2,32 +2,33 @@ import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, inject, sig
 import { ProfileService } from '../core/profile.service';
 import { apiErrorMessage } from '../core/api-error';
 import { Avatar } from './avatar';
+import { I18n, TranslatePipe } from '../core/i18n';
 
 const MAX_BYTES = 2 * 1024 * 1024;
 
 @Component({
   selector: 'app-photo-uploader',
-  imports: [Avatar],
+  imports: [Avatar, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="photo-uploader">
       @if (preview(); as p) {
-        <img class="avatar big" [src]="p" alt="Preview of your new picture" />
+        <img class="avatar big" [src]="p" [alt]="'Preview of your new picture' | t" />
       } @else {
         <app-avatar size="big" [url]="profile.me()?.photoUrl ?? null" [name]="profile.me()?.displayName ?? profile.me()?.email ?? ''" />
       }
 
       <div class="photo-actions">
-        <p class="muted small">PNG or JPG, up to 2 MB. A square picture looks best.</p>
+        <p class="muted small">{{ 'PNG or JPG, up to 2 MB. A square picture looks best.' | t }}</p>
         <input #fileInput class="sr-only" id="photo-file" type="file" accept="image/png,image/jpeg,.png,.jpg,.jpeg" (change)="pick($event)" />
         <div class="card-actions tight">
           @if (preview()) {
-            <button class="btn primary small" type="button" (click)="upload()" [disabled]="busy()">{{ busy() ? 'Uploading...' : 'Save picture' }}</button>
-            <button class="btn small" type="button" (click)="clear()" [disabled]="busy()">Cancel</button>
+            <button class="btn primary small" type="button" (click)="upload()" [disabled]="busy()">{{ (busy() ? 'Uploading...' : 'Save picture') | t }}</button>
+            <button class="btn small" type="button" (click)="clear()" [disabled]="busy()">{{ 'Cancel' | t }}</button>
           } @else {
-            <label class="btn small" for="photo-file">{{ profile.me()?.photoUrl ? 'Change picture' : 'Upload a picture' }}</label>
+            <label class="btn small" for="photo-file">{{ (profile.me()?.photoUrl ? 'Change picture' : 'Upload a picture') | t }}</label>
             @if (profile.me()?.photoUrl) {
-              <button class="btn small danger" type="button" (click)="remove()" [disabled]="busy()">Remove</button>
+              <button class="btn small danger" type="button" (click)="remove()" [disabled]="busy()">{{ 'Remove' | t }}</button>
             }
           }
         </div>
@@ -39,6 +40,7 @@ const MAX_BYTES = 2 * 1024 * 1024;
 })
 export class PhotoUploader {
   protected readonly profile = inject(ProfileService);
+  private readonly i18n = inject(I18n);
   private readonly fileInput = viewChild<ElementRef<HTMLInputElement>>('fileInput');
 
   protected readonly preview = signal<string | null>(null);
@@ -58,12 +60,12 @@ export class PhotoUploader {
     if (!file) return;
 
     if (!['image/png', 'image/jpeg'].includes(file.type)) {
-      this.error.set('Use a PNG or JPG picture.');
+      this.error.set(this.i18n.t('Use a PNG or JPG picture.'));
       this.resetInput();
       return;
     }
     if (file.size > MAX_BYTES) {
-      this.error.set('The picture must be 2 MB or smaller.');
+      this.error.set(this.i18n.t('The picture must be 2 MB or smaller.'));
       this.resetInput();
       return;
     }
@@ -81,7 +83,7 @@ export class PhotoUploader {
       next: () => {
         this.busy.set(false);
         this.clear();
-        this.message.set('Your picture was updated.');
+        this.message.set(this.i18n.t('Your picture was updated.'));
       },
       error: err => {
         this.busy.set(false);
@@ -97,7 +99,7 @@ export class PhotoUploader {
     this.profile.deletePhoto().subscribe({
       next: () => {
         this.busy.set(false);
-        this.message.set('Your picture was removed.');
+        this.message.set(this.i18n.t('Your picture was removed.'));
       },
       error: err => {
         this.busy.set(false);

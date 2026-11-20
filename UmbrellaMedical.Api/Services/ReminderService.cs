@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using UmbrellaMedical.Api.Settings;
 using UmbrellaMedical.Domain.Entities;
@@ -58,7 +58,9 @@ public class ReminderService : IReminderService
 
             var when = NotificationText.When(appointment.StartDateTime);
             var doctorName = $"Dr. {appointment.Doctor.FirstName} {appointment.Doctor.LastName}";
-            var address = FirstNonEmpty(appointment.Patient.Email, appointment.Patient.User?.Email);
+            // Patients with an account can turn reminder emails off in their profile.
+            var wantsEmail = appointment.Patient.User?.EmailReminders ?? true;
+            var address = wantsEmail ? FirstNonEmpty(appointment.Patient.Email, appointment.Patient.User?.Email) : null;
 
             if (address is not null)
             {
@@ -95,6 +97,7 @@ public class ReminderService : IReminderService
                     Channel = NotificationChannel.InApp,
                     Status = NotificationStatus.Sent,
                     SentAt = DateTime.UtcNow,
+                    EmailedAt = DateTime.UtcNow,   // reminders have their own email (or the person turned them off)
                     AppointmentId = appointment.Id
                 });
             }

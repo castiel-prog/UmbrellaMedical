@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -227,6 +227,68 @@ public class AccountController : ControllerBase
         return Ok(await LoadInfoAsync(user.Id));
     }
 
+    /// <summary>Changes the logged-in person's own name, phone and (patients) address. The admin account has no personal record.</summary>
+    [HttpPut("details")]
+    [Authorize]
+    public async Task<ActionResult<AccountInfoDto>> UpdateDetails(UpdateAccountDetailsRequest request)
+    {
+        var userId = _current.UserId;
+        if (userId is null) return Unauthorized();
+
+        var first = request.FirstName.Trim();
+        var last = request.LastName.Trim();
+        var phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim();
+        if (first.Length == 0 || last.Length == 0)
+            return ValidationProblem(new ValidationProblemDetails(new Dictionary<string, string[]> { ["firstName"] = new[] { "First and last name are required." } }));
+
+        switch (_current.Role)
+        {
+            case "Patient":
+                var patient = await _db.Patients.FirstOrDefaultAsync(p => p.UserId == userId.Value);
+                if (patient is null) return NotFound();
+                if (phone is null)
+                    return ValidationProblem(new ValidationProblemDetails(new Dictionary<string, string[]> { ["phone"] = new[] { "Phone number is required." } }));
+                (patient.FirstName, patient.LastName, patient.Phone) = (first, last, phone);
+                patient.Address = string.IsNullOrWhiteSpace(request.Address) ? null : request.Address.Trim();
+                break;
+            case "Doctor":
+                var doctor = await _db.Doctors.FirstOrDefaultAsync(d => d.UserId == userId.Value);
+                if (doctor is null) return NotFound();
+                (doctor.FirstName, doctor.LastName, doctor.Phone) = (first, last, phone);
+                break;
+            case "Receptionist":
+                var receptionist = await _db.Receptionists.FirstOrDefaultAsync(r => r.UserId == userId.Value);
+                if (receptionist is null) return NotFound();
+                (receptionist.FirstName, receptionist.LastName, receptionist.Phone) = (first, last, phone);
+                break;
+            default:
+                return Problem(detail: "This account has no personal details to change.", statusCode: StatusCodes.Status400BadRequest, title: "Nothing to change");
+        }
+
+        await _db.SaveChangesAsync();
+        await _audit.LogAsync("UpdatedOwnDetails", "User", userId.Value);
+        return Ok(await LoadInfoAsync(userId.Value));
+    }
+
+    /// <summary>Saves language, theme and which emails the person wants. Applied on every device they log in from.</summary>
+    [HttpPut("preferences")]
+    [Authorize]
+    public async Task<ActionResult<AccountInfoDto>> UpdatePreferences(UpdatePreferencesRequest request)
+    {
+        var userId = _current.UserId;
+        if (userId is null) return Unauthorized();
+
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId.Value);
+        if (user is null) return Unauthorized();
+
+        user.PreferredLanguage = request.Language;
+        user.PreferredTheme = request.Theme;
+        user.EmailReminders = request.EmailReminders;
+        user.EmailNotifications = request.EmailNotifications;
+        await _db.SaveChangesAsync();
+        return Ok(await LoadInfoAsync(user.Id));
+    }
+
     private Task<AccountInfoDto?> LoadInfoAsync(int userId) =>
         _db.Users.AsNoTracking()
             .Where(u => u.Id == userId)
@@ -239,7 +301,21 @@ public class AccountController : ControllerBase
                 DisplayName =
                     _db.Doctors.Where(d => d.UserId == u.Id).Select(d => "Dr. " + d.FirstName + " " + d.LastName).FirstOrDefault()
                     ?? _db.Patients.Where(p => p.UserId == u.Id).Select(p => p.FirstName + " " + p.LastName).FirstOrDefault()
-                    ?? _db.Receptionists.Where(r => r.UserId == u.Id).Select(r => r.FirstName + " " + r.LastName).FirstOrDefault()
+                    ?? _db.Receptionists.Where(r => r.UserId == u.Id).Select(r => r.FirstName + " " + r.LastName).FirstOrDefault(),
+                FirstName = _db.Doctors.Where(d => d.UserId == u.Id).Select(d => d.FirstName).FirstOrDefault()
+                    ?? _db.Patients.Where(p => p.UserId == u.Id).Select(p => p.FirstName).FirstOrDefault()
+                    ?? _db.Receptionists.Where(r => r.UserId == u.Id).Select(r => r.FirstName).FirstOrDefault(),
+                LastName = _db.Doctors.Where(d => d.UserId == u.Id).Select(d => d.LastName).FirstOrDefault()
+                    ?? _db.Patients.Where(p => p.UserId == u.Id).Select(p => p.LastName).FirstOrDefault()
+                    ?? _db.Receptionists.Where(r => r.UserId == u.Id).Select(r => r.LastName).FirstOrDefault(),
+                Phone = _db.Doctors.Where(d => d.UserId == u.Id).Select(d => d.Phone).FirstOrDefault()
+                    ?? _db.Patients.Where(p => p.UserId == u.Id).Select(p => p.Phone).FirstOrDefault()
+                    ?? _db.Receptionists.Where(r => r.UserId == u.Id).Select(r => r.Phone).FirstOrDefault(),
+                Address = _db.Patients.Where(p => p.UserId == u.Id).Select(p => p.Address).FirstOrDefault(),
+                PreferredLanguage = u.PreferredLanguage,
+                PreferredTheme = u.PreferredTheme,
+                EmailReminders = u.EmailReminders,
+                EmailNotifications = u.EmailNotifications
             })
             .FirstOrDefaultAsync();
 

@@ -256,11 +256,10 @@ public class StoreController : ControllerBase
     // ---------------------------------------------------------------- orders
 
     /// <summary>
-    /// Places and pays an order. Patients order on their account; anyone else (a visitor, or a staff member) gives
-    /// their contact details. Prescription-only items then need a prescription code plus the patient's personal number.
+    /// Places and pays an order. Requires an account: patients order on their own account; staff accounts give contact
+    /// details, and prescription-only items then need a prescription code plus the patient's personal number.
     /// </summary>
     [HttpPost("orders")]
-    [AllowAnonymous]
     [EnableRateLimiting("auth")]
     public async Task<ActionResult<StoreOrderDto>> CreateOrder(CreateStoreOrderRequest request)
     {
@@ -270,7 +269,7 @@ public class StoreController : ControllerBase
 
         var customer = request.Customer;
         if (!isPatient && customer is null)
-            return Invalid("customer", "Enter your name, email and phone so we can tell you when your order is ready.");
+            return Invalid("customer", "Enter the buyer's name, email and phone so we can tell them when the order is ready.");
         if (!isPatient && request.PrescriptionDocumentId is not null)
             return Invalid(nameof(request.PrescriptionDocumentId), "Uploading a prescription needs a patient account. Use the prescription code instead.");
 

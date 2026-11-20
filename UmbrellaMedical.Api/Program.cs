@@ -97,6 +97,7 @@ namespace UmbrellaMedical.Api
             builder.Services.AddSingleton<IClinicClock, ClinicClock>();
             builder.Services.AddSingleton<IFileStorage, LocalFileStorage>();
             builder.Services.AddHostedService<AppointmentReminderWorker>();
+            builder.Services.AddHostedService<NotificationEmailWorker>();
 
             builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
             builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Email"));

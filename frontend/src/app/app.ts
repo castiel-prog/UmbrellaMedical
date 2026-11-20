@@ -101,7 +101,7 @@ type Menu = 'work' | 'user' | 'lang' | null;
             }
           </div>
 
-          <button type="button" class="icon-btn" (click)="theme.toggle()"
+          <button type="button" class="icon-btn" (click)="toggleTheme()"
             [attr.aria-label]="(theme.theme() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme') | t"
             [title]="(theme.theme() === 'dark' ? 'Light theme' : 'Dark theme') | t">
             <app-icon [name]="theme.theme() === 'dark' ? 'sun' : 'moon'" [size]="20" />
@@ -303,8 +303,13 @@ export class App {
   }
 
   protected setLang(lang: Lang): void {
-    void this.i18n.use(lang);
+    void this.i18n.use(lang).then(() => this.profile.rememberLanguageAndTheme());
     this.openMenu.set(null);
+  }
+
+  protected toggleTheme(): void {
+    this.theme.toggle();
+    this.profile.rememberLanguageAndTheme();
   }
 
   protected toggle(menu: Exclude<Menu, null>, event: Event): void {

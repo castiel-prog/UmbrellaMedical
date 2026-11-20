@@ -56,6 +56,22 @@ export interface AccountInfo {
   role: Role;
   displayName: string | null;
   photoUrl: string | null;
+  /** Personal details; null for the admin account, which has no personal record. */
+  firstName: string | null;
+  lastName: string | null;
+  phone: string | null;
+  address: string | null;
+  preferredLanguage: string | null;
+  preferredTheme: 'light' | 'dark' | null;
+  emailReminders: boolean;
+  emailNotifications: boolean;
+}
+
+export interface AccountPreferences {
+  language: string | null;
+  theme: 'light' | 'dark' | null;
+  emailReminders: boolean;
+  emailNotifications: boolean;
 }
 
 export interface MessageResponse {

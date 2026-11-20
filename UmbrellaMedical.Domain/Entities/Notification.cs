@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using UmbrellaMedical.Domain.Common;
@@ -14,6 +14,8 @@ namespace UmbrellaMedical.Domain.Entities
         public NotificationStatus Status { get; set; } = NotificationStatus.Pending;
         public DateTime? SentAt { get; set; }
         public bool IsRead { get; set; }
+        /// <summary>When a copy was emailed (or the email was skipped); null = not handled yet.</summary>
+        public DateTime? EmailedAt { get; set; }
 
         public int UserId { get; set; }
         public User User { get; set; } = null!;

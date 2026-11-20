@@ -7,13 +7,15 @@ import { CartService, MAX_PER_PRODUCT } from '../../core/cart.service';
 import { Product, ProductCategory } from '../../core/model';
 import { apiErrorMessage } from '../../core/api-error';
 import { ProductImage } from '../../shared/product-image';
+import { Pager } from '../../shared/pager';
 import { TranslatePipe } from '../../core/i18n';
+import { AuthService } from '../../core/auth.service';
 
 const CATEGORIES = Object.keys(CATEGORY_INFO) as ProductCategory[];
 
 @Component({
   selector: 'app-store',
-  imports: [TranslatePipe, FormsModule, RouterLink, CurrencyPipe, ProductImage],
+  imports: [TranslatePipe, FormsModule, RouterLink, CurrencyPipe, ProductImage, Pager],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page-head">
@@ -27,15 +29,19 @@ const CATEGORIES = Object.keys(CATEGORY_INFO) as ProductCategory[];
       <!-- Tablets and phones: the cart total and checkout stay in reach while scrolling the products. -->
       <div class="cart-bar" role="region" [attr.aria-label]="'Your cart' | t">
         <span class="cart-bar-sum">🛒 {{ 'Items in cart: {n}' | t: { n: cart.count() } }} · <strong>{{ cart.total() | currency: 'GEL' : 'symbol-narrow' }}</strong></span>
-        <a class="btn primary small" routerLink="/pharmacy/checkout">{{ 'Checkout' | t }}</a>
+        @if (auth.isLoggedIn()) {
+          <a class="btn primary small" routerLink="/pharmacy/checkout">{{ 'Checkout' | t }}</a>
+        } @else {
+          <a class="btn primary small" routerLink="/login" [queryParams]="{ returnUrl: '/pharmacy/checkout' }">{{ 'Log in to check out' | t }}</a>
+        }
 
       </div>
     }
     <div class="store-layout">
       <section>
-        <div class="store-filters">
+        <div class="store-filters" id="products-top">
           <label for="store-search" class="sr-only">{{ 'Search products' | t }}</label>
-          <input id="store-search" type="search" [placeholder]="'Search products...' | t" [ngModel]="search()" (ngModelChange)="search.set($event)" />
+          <input id="store-search" type="search" [placeholder]="'Search products...' | t" [ngModel]="search()" (ngModelChange)="search.set($event); setPage(1, false)" />
           <div class="chips" role="group" [attr.aria-label]="'Categories' | t">
             <button type="button" class="chip-btn" [class.on]="category() === null" (click)="setCategory(null)">{{ 'All' | t }}</button>
             @for (c of categories; track c) {
@@ -43,7 +49,7 @@ const CATEGORIES = Object.keys(CATEGORY_INFO) as ProductCategory[];
             }
           </div>
           <label class="check">
-            <input type="checkbox" [ngModel]="rxOnly()" (ngModelChange)="rxOnly.set($event)" /> {{ 'Prescription medicines only' | t }}
+            <input type="checkbox" [ngModel]="rxOnly()" (ngModelChange)="rxOnly.set($event); setPage(1, false)" /> {{ 'Prescription medicines only' | t }}
           </label>
         </div>
 
@@ -54,8 +60,12 @@ const CATEGORIES = Object.keys(CATEGORY_INFO) as ProductCategory[];
           <p class="empty card muted">{{ 'No products match your search.' | t }}</p>
         }
 
+        @if (!loading() && visible().length > 0) {
+          <p class="muted small results-count">{{ 'Showing {from}–{to} of {total} products' | t: { from: (currentPage() - 1) * pageSize + 1, to: (currentPage() - 1) * pageSize + paged().length, total: visible().length } }}</p>
+        }
+
         <div class="product-grid">
-          @for (p of visible(); track p.id) {
+          @for (p of paged(); track p.id) {
             <article class="product-card card">
               <app-product-image class="product-pic" [attr.data-cat]="p.category"
                 [name]="p.name" [category]="p.category" [imageUrl]="p.imageUrl" [rx]="p.requiresPrescription" />
@@ -85,6 +95,7 @@ const CATEGORIES = Object.keys(CATEGORY_INFO) as ProductCategory[];
             </article>
           }
         </div>
+        <app-pager [page]="currentPage()" [pageSize]="pageSize" [totalCount]="visible().length" (pageChange)="setPage($event, true)" />
       </section>
 
       <aside class="cart card" [class.is-empty]="cart.lines().length === 0" [attr.aria-label]="'Your cart' | t">
@@ -113,7 +124,12 @@ const CATEGORIES = Object.keys(CATEGORY_INFO) as ProductCategory[];
           @if (cart.needsPrescription()) {
             <p class="muted small">℞ {{ 'Some items need a prescription. You\\'ll add your prescription code or upload a prescription at checkout.' | t }}</p>
           }
-          <a class="btn primary block" routerLink="/pharmacy/checkout">{{ 'Go to checkout' | t }}</a>
+          @if (auth.isLoggedIn()) {
+            <a class="btn primary block" routerLink="/pharmacy/checkout">{{ 'Go to checkout' | t }}</a>
+          } @else {
+            <a class="btn primary block" routerLink="/login" [queryParams]="{ returnUrl: '/pharmacy/checkout' }">{{ 'Log in to check out' | t }}</a>
+            <p class="muted small center">{{ 'New here?' | t }} <a routerLink="/register" [queryParams]="{ returnUrl: '/pharmacy/checkout' }">{{ 'Create an account' | t }}</a></p>
+          }
 
         }
         <p class="muted small pickup-note">📍 {{ 'Collect your order at the clinic pharmacy desk. Bring a photo ID.' | t }}</p>
@@ -126,6 +142,7 @@ export class StorePage {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   protected readonly cart = inject(CartService);
+  protected readonly auth = inject(AuthService);
 
   protected readonly categories = CATEGORIES;
   protected readonly info = CATEGORY_INFO;
@@ -136,12 +153,23 @@ export class StorePage {
   protected readonly category = signal<ProductCategory | null>(this.initialCategory());
   protected readonly rxOnly = signal(false);
 
+  /** Nine products per page (a 3 x 3 grid on desktop). */
+  protected readonly pageSize = 9;
+  protected readonly page = signal(this.initialPage());
   protected readonly visible = computed(() => {
     const term = this.search().trim().toLowerCase();
     return this.products().filter(p =>
       (this.category() === null || p.category === this.category())
       && (!this.rxOnly() || p.requiresPrescription)
       && (!term || p.name.toLowerCase().includes(term) || (p.description ?? '').toLowerCase().includes(term)));
+  });
+
+  protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.visible().length / this.pageSize)));
+  /** The page asked for, kept within range when a filter leaves fewer pages. */
+  protected readonly currentPage = computed(() => Math.min(this.page(), this.totalPages()));
+  protected readonly paged = computed(() => {
+    const start = (this.currentPage() - 1) * this.pageSize;
+    return this.visible().slice(start, start + this.pageSize);
   });
 
   constructor() {
@@ -160,7 +188,21 @@ export class StorePage {
 
   protected setCategory(category: ProductCategory | null): void {
     this.category.set(category);
-    void this.router.navigate([], { queryParams: { category }, replaceUrl: true });
+    this.page.set(1);
+    void this.router.navigate([], { queryParams: { category, page: null }, replaceUrl: true });
+  }
+
+  /** Changes the page; from the pager it also scrolls back to the top of the products. */
+  protected setPage(page: number, scroll: boolean): void {
+    if (page === this.page()) return;
+    this.page.set(page);
+    void this.router.navigate([], { queryParams: { page: page > 1 ? page : null }, queryParamsHandling: 'merge', replaceUrl: !scroll });
+    if (scroll) document.getElementById('products-top')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  private initialPage(): number {
+    const value = Number(this.route.snapshot.queryParamMap.get('page'));
+    return Number.isInteger(value) && value > 1 ? value : 1;
   }
 
   protected maxFor(p: Product): number {

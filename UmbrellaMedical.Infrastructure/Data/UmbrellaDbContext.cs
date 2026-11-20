@@ -122,6 +122,9 @@ namespace UmbrellaMedical.Infrastructure.Data
             modelBuilder.Entity<StoreOrder>().Property(o => o.PaymentReference).HasMaxLength(100);
             modelBuilder.Entity<StoreOrder>().Property(o => o.ReviewNote).HasMaxLength(500);
             modelBuilder.Entity<StoreOrder>().Property(o => o.CustomerName).HasMaxLength(100);
+            modelBuilder.Entity<User>().Property(u => u.PreferredLanguage).HasMaxLength(5);
+            modelBuilder.Entity<User>().Property(u => u.PreferredTheme).HasMaxLength(10);
+            modelBuilder.Entity<Notification>().HasIndex(n => n.EmailedAt);
             modelBuilder.Entity<StoreOrder>().Property(o => o.CustomerEmail).HasMaxLength(256);
             modelBuilder.Entity<StoreOrder>().Property(o => o.CustomerPhone).HasMaxLength(30);
             modelBuilder.Entity<StoreOrderItem>().Property(i => i.ProductName).HasMaxLength(150);

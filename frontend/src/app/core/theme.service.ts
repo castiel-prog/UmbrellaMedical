@@ -14,10 +14,14 @@ export class ThemeService {
   }
 
   toggle(): void {
-    const next: Theme = this.current() === 'dark' ? 'light' : 'dark';
-    this.current.set(next);
-    localStorage.setItem(ThemeService.KEY, next);
-    this.apply(next);
+    this.set(this.current() === 'dark' ? 'light' : 'dark');
+  }
+
+  set(theme: Theme): void {
+    if (theme === this.current()) return;
+    this.current.set(theme);
+    try { localStorage.setItem(ThemeService.KEY, theme); } catch { /* storage unavailable */ }
+    this.apply(theme);
   }
 
   private initial(): Theme {

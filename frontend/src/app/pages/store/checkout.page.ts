@@ -85,9 +85,6 @@ const MAX_FILE_BYTES = 10 * 1024 * 1024;
                     <input id="co-phone" name="phone" type="tel" autocomplete="tel" maxlength="30" placeholder="+995 5XX XX XX XX" [(ngModel)]="contact.phone" />
                   </div>
                 </div>
-                @if (!auth.isLoggedIn()) {
-                  <p class="small">{{ 'Have a patient account?' | t }} <a routerLink="/login" [queryParams]="{ returnUrl: '/pharmacy/checkout' }">{{ 'Log in' | t }}</a></p>
-                }
               </section>
             }
 

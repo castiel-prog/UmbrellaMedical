@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { AccountInfo, MessageResponse } from './model';
+import { AccountInfo, AccountPreferences, MessageResponse } from './model';
 
 @Injectable({ providedIn: 'root' })
 export class AccountApi {
@@ -33,6 +33,14 @@ export class AccountApi {
 
   requestEmailChange(newEmail: string, currentPassword: string): Observable<MessageResponse> {
     return this.http.post<MessageResponse>('/api/account/email/change/request', { newEmail, currentPassword });
+  }
+
+  updateDetails(details: { firstName: string; lastName: string; phone: string | null; address: string | null }): Observable<AccountInfo> {
+    return this.http.put<AccountInfo>('/api/account/details', details);
+  }
+
+  updatePreferences(preferences: AccountPreferences): Observable<AccountInfo> {
+    return this.http.put<AccountInfo>('/api/account/preferences', preferences);
   }
 
   confirmEmailChange(code: string): Observable<AccountInfo> {
