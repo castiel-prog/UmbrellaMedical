@@ -39,10 +39,10 @@ const STATUS_LABEL: Record<StoreOrderStatus, string> = {
 
     @if (isStaff()) {
       <form class="toolbar" (ngSubmit)="page.set(1); load()">
-        <div class="field grow"><label for="o-search" class="sr-only">Search</label>
-          <input id="o-search" name="search" type="search" placeholder="Order number, patient name or personal number" [(ngModel)]="search" />
+        <div class="field grow"><label for="o-search" class="sr-only">{{ 'Search' | t }}</label>
+          <input id="o-search" name="search" type="search" [placeholder]="'Order number, patient name or personal number' | t" [(ngModel)]="search" />
         </div>
-        <button class="btn small" type="submit">Search</button>
+        <button class="btn small" type="submit">{{ 'Search' | t }}</button>
       </form>
     }
 
@@ -99,11 +99,11 @@ const STATUS_LABEL: Record<StoreOrderStatus, string> = {
             @if (openId() !== o.id) {
               <div class="card-actions">
                 @if (isStaff() && o.status === 'AwaitingReview') {
-                  <button class="btn small primary" type="button" (click)="open(o.id, 'approve')">Accept prescription</button>
-                  <button class="btn small danger" type="button" (click)="open(o.id, 'reject')">Reject…</button>
+                  <button class="btn small primary" type="button" (click)="open(o.id, 'approve')">{{ 'Accept prescription' | t }}</button>
+                  <button class="btn small danger" type="button" (click)="open(o.id, 'reject')">{{ 'Reject…' | t }}</button>
                 }
                 @if (isStaff() && o.status === 'ReadyForPickup') {
-                  <button class="btn small primary" type="button" (click)="run(api.completeOrder(o.id), 'The order was handed over.')" [disabled]="busy()">Handed over</button>
+                  <button class="btn small primary" type="button" (click)="run(api.completeOrder(o.id), 'The order was handed over.')" [disabled]="busy()">{{ 'Handed over' | t }}</button>
                 }
                 @if (o.status === 'AwaitingReview' || o.status === 'ReadyForPickup') {
                   <button class="btn small" type="button" (click)="open(o.id, 'cancel')">{{ 'Cancel order' | t }}</button>
@@ -113,19 +113,19 @@ const STATUS_LABEL: Record<StoreOrderStatus, string> = {
               <div class="inline-panel">
                 @switch (mode()) {
                   @case ('approve') {
-                    <p>Check that the prescription is genuine, in the patient's name, signed and still valid, and covers the medicines ordered.</p>
-                    <div class="field"><label [for]="'note-' + o.id">Note (optional)</label><input [id]="'note-' + o.id" maxlength="500" [(ngModel)]="text" /></div>
+                    <p>{{ 'Check that the prescription is genuine, in the patient\\'s name, signed and still valid, and covers the medicines ordered.' | t }}</p>
+                    <div class="field"><label [for]="'note-' + o.id">{{ 'Note (optional)' | t }}</label><input [id]="'note-' + o.id" maxlength="500" [(ngModel)]="text" /></div>
                     <div class="card-actions">
-                      <button class="btn small primary" type="button" (click)="run(api.approveOrder(o.id, text.trim() || null), 'The prescription was accepted. The patient was told the order is ready.')" [disabled]="busy()">Accept</button>
-                      <button class="btn small" type="button" (click)="openId.set(null)">Back</button>
+                      <button class="btn small primary" type="button" (click)="run(api.approveOrder(o.id, text.trim() || null), 'The prescription was accepted. The patient was told the order is ready.')" [disabled]="busy()">{{ 'Accept' | t }}</button>
+                      <button class="btn small" type="button" (click)="openId.set(null)">{{ 'Back' | t }}</button>
                     </div>
                   }
                   @case ('reject') {
-                    <div class="field"><label [for]="'reason-' + o.id">Why can't it be accepted? (sent to the patient)</label>
-                      <input [id]="'reason-' + o.id" maxlength="500" placeholder="For example: the prescription has expired." [(ngModel)]="text" /></div>
+                    <div class="field"><label [for]="'reason-' + o.id">{{ 'Why can\\'t it be accepted? (sent to the patient)' | t }}</label>
+                      <input [id]="'reason-' + o.id" maxlength="500" [placeholder]="'For example: the prescription has expired.' | t" [(ngModel)]="text" /></div>
                     <div class="card-actions">
-                      <button class="btn small danger" type="button" (click)="run(api.rejectOrder(o.id, text.trim()), 'The order was rejected and refunded.')" [disabled]="busy() || text.trim().length < 5">Reject and refund</button>
-                      <button class="btn small" type="button" (click)="openId.set(null)">Back</button>
+                      <button class="btn small danger" type="button" (click)="run(api.rejectOrder(o.id, text.trim()), 'The order was rejected and refunded.')" [disabled]="busy() || text.trim().length < 5">{{ 'Reject and refund' | t }}</button>
+                      <button class="btn small" type="button" (click)="openId.set(null)">{{ 'Back' | t }}</button>
                     </div>
                   }
                   @case ('cancel') {

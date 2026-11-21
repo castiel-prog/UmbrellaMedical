@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using UmbrellaMedical.Api.Services;
@@ -49,7 +49,7 @@ public class ReminderServiceTests
     }
 
     private static ReminderService CreateService(UmbrellaDbContext db, IEmailSender sender) =>
-        new(db, sender, new FakeClock(Now), Options.Create(new ReminderSettings()), NullLogger<ReminderService>.Instance);
+        new(db, sender, new FakeClock(Now), Options.Create(new ReminderSettings()), NullLogger<ReminderService>.Instance, new EnglishText());
 
     [Fact]
     public async Task A_due_appointment_is_reminded_once()

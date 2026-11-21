@@ -21,17 +21,19 @@ public class AccountController : ControllerBase
     private readonly IUserTokenService _tokens;
     private readonly IEmailSender _email;
     private readonly IAuditService _audit;
+    private readonly IClinicText _text;
     private readonly ILogger<AccountController> _logger;
 
     public AccountController(
         UmbrellaDbContext db, ICurrentUser current, IUserTokenService tokens,
-        IEmailSender email, IAuditService audit, ILogger<AccountController> logger)
+        IEmailSender email, IAuditService audit, IClinicText text, ILogger<AccountController> logger)
     {
         _db = db;
         _current = current;
         _tokens = tokens;
         _email = email;
         _audit = audit;
+        _text = text;
         _logger = logger;
     }
 
@@ -65,7 +67,7 @@ public class AccountController : ControllerBase
         var code = await _tokens.IssueAsync(user.Id, UserTokenPurpose.EmailVerification);
         if (code is null) return TooSoon();
 
-        if (!await TrySendAsync(user.Email, EmailTemplates.VerificationCode(code))) return SendFailed();
+        if (!await TrySendAsync(user.Email, EmailTemplates.VerificationCode(new Localizer(_text, user.PreferredLanguage), code))) return SendFailed();
 
         return Ok(new { message = "A verification code has been sent to your email." });
     }
@@ -104,7 +106,7 @@ public class AccountController : ControllerBase
         {
             var code = await _tokens.IssueAsync(user.Id, UserTokenPurpose.PasswordReset);
             if (code is not null)
-                await TrySendAsync(user.Email, EmailTemplates.PasswordResetCode(code));
+                await TrySendAsync(user.Email, EmailTemplates.PasswordResetCode(new Localizer(_text, user.PreferredLanguage), code));
         }
 
         return Ok(new { message = GenericResetMessage });
@@ -189,7 +191,7 @@ public class AccountController : ControllerBase
         var code = await _tokens.IssueAsync(user.Id, UserTokenPurpose.EmailChange, newEmail);
         if (code is null) return TooSoon();
 
-        if (!await TrySendAsync(newEmail, EmailTemplates.EmailChangeCode(code))) return SendFailed();
+        if (!await TrySendAsync(newEmail, EmailTemplates.EmailChangeCode(new Localizer(_text, user.PreferredLanguage), code))) return SendFailed();
 
         return Ok(new { message = "A confirmation code has been sent to the new email." });
     }
@@ -323,7 +325,7 @@ public class AccountController : ControllerBase
     {
         try
         {
-            await _email.SendAsync(to, mail.Subject, mail.Body, HttpContext.RequestAborted);
+            await _email.SendAsync(to, mail.Subject, mail.Body, HttpContext.RequestAborted, mail.Lang);
             return true;
         }
         catch (Exception ex)

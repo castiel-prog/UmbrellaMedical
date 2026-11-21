@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { CurrencyPipe } from '@angular/common';
-import { LocalDatePipe, TranslatePipe } from '../../core/i18n';
+import { I18n, LocalDatePipe, TranslatePipe } from '../../core/i18n';
 import { FormControl, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
@@ -142,7 +142,7 @@ interface CardForm { holderName: string; number: string; expiry: string; cvc: st
                           [ngModel]="card.expiry" (ngModelChange)="card.expiry = formatExpiry($event)" />
                       </div>
                       <div class="field">
-                        <label for="cc-cvc">CVC</label>
+                        <label for="cc-cvc">{{ 'CVC' | t }}</label>
                         <input id="cc-cvc" name="cvc" autocomplete="cc-csc" inputmode="numeric" maxlength="4" placeholder="123" [(ngModel)]="card.cvc" />
                       </div>
                     </div>
@@ -176,6 +176,7 @@ interface CardForm { holderName: string; number: string; expiry: string; cvc: st
   `
 })
 export class BookPage {
+  protected readonly i18n = inject(I18n);
   private readonly route = inject(ActivatedRoute);
   private readonly doctorsApi = inject(DoctorsApi);
   private readonly appointmentsApi = inject(AppointmentsApi);
@@ -256,7 +257,7 @@ export class BookPage {
     if (serviceId === null || start === null) return;
 
     if (this.isStaff() && !this.patient()) {
-      this.error.set('Choose the patient this visit is for.');
+      this.error.set(this.i18n.t('Choose the patient this visit is for.'));
       return;
     }
 

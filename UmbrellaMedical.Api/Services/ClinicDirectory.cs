@@ -95,15 +95,17 @@ public class ClinicDirectory : IClinicDirectory
     }
 
     /// <summary>"Mon-Fri 09:00-13:00, 14:00-18:00; Sat 10:00-14:00" (consecutive days with the same hours are joined).</summary>
-    public static string DescribeHours(IEnumerable<DirectoryShift> hours)
+    /// <summary>"Mon-Fri 09:00-13:00, 14:00-18:00; Sat 10:00-14:00", with day names in the given culture (English by default).</summary>
+    public static string DescribeHours(IEnumerable<DirectoryShift> hours, System.Globalization.CultureInfo? culture = null, string notSet = "not set yet")
     {
+        culture ??= System.Globalization.CultureInfo.GetCultureInfo("en-GB");
         var days = hours
             .GroupBy(h => h.Day)
-            .Select(g => (Order: ((int)g.Key + 6) % 7, Name: g.Key.ToString()[..3],
+            .Select(g => (Order: ((int)g.Key + 6) % 7, Name: culture.DateTimeFormat.GetAbbreviatedDayName(g.Key),
                           Shifts: string.Join(", ", g.OrderBy(h => h.Start).Select(h => $"{h.Start:HH\\:mm}-{h.End:HH\\:mm}"))))
             .OrderBy(d => d.Order)   // Monday first
             .ToList();
-        if (days.Count == 0) return "not set yet";
+        if (days.Count == 0) return notSet;
 
         var parts = new List<string>();
         var i = 0;

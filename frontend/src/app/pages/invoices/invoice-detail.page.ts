@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { CurrencyPipe, DatePipe } from '@angular/common';
+import { CurrencyPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
@@ -7,16 +7,17 @@ import { BillingApi } from '../../core/billing.api';
 import { AuthService } from '../../core/auth.service';
 import { Invoice, Payment, PaymentMethod, Receipt } from '../../core/model';
 import { apiErrorMessage } from '../../core/api-error';
+import { LocalDatePipe, TranslatePipe } from '../../core/i18n';
 import { orNull, splitWords } from '../../core/util';
 
 type Panel = 'pay' | 'cancel' | { refund: number } | null;
 
 @Component({
   selector: 'app-invoice-detail',
-  imports: [FormsModule, RouterLink, DatePipe, CurrencyPipe],
+  imports: [LocalDatePipe, TranslatePipe, FormsModule, RouterLink, CurrencyPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <a class="back" routerLink="/invoices">← Invoices</a>
+    <a class="back" routerLink="/invoices">{{ '← Invoices' | t }}</a>
 
     @if (message()) { <p class="alert success" role="status">{{ message() }}</p> }
     @if (error()) { <p class="alert error" role="alert">{{ error() }}</p> }
@@ -24,32 +25,32 @@ type Panel = 'pay' | 'cancel' | { refund: number } | null;
     @if (invoice(); as inv) {
       <div class="page-head">
         <div>
-          <h1>Invoice {{ inv.invoiceNumber }}</h1>
+          <h1>{{ 'Invoice {p0}' | t: { p0: (inv.invoiceNumber) } }}</h1>
           <p class="muted">
-            Issued {{ inv.issueDate | date: 'd MMMM y' }}
-            @if (inv.dueDate) { · due {{ inv.dueDate | date: 'd MMMM y' }} }
+            {{ 'Issued' | t }} {{ inv.issueDate | ldate: 'long' }}
+            @if (inv.dueDate) { {{ '· due' | t }} {{ inv.dueDate | ldate: 'long' }} }
             @if (isStaff()) { · <a [routerLink]="['/patients', inv.patientId]">{{ inv.patientName }}</a> } @else { · {{ inv.patientName }} }
           </p>
         </div>
-        <span [class]="'badge big-badge inv-' + inv.status.toLowerCase()">{{ words(inv.status) }}</span>
+        <span [class]="'badge big-badge inv-' + inv.status.toLowerCase()">{{ words(inv.status) | t }}</span>
       </div>
 
       <div class="stat-grid">
-        <div class="stat"><span>Subtotal</span><strong>{{ inv.subtotal | currency: 'GEL' : 'symbol-narrow' }}</strong></div>
-        <div class="stat"><span>Insurance pays</span><strong>{{ inv.insuranceCoverage | currency: 'GEL' : 'symbol-narrow' }}</strong></div>
-        <div class="stat"><span>Patient pays</span><strong>{{ inv.totalAmount | currency: 'GEL' : 'symbol-narrow' }}</strong></div>
-        <div class="stat"><span>Paid</span><strong>{{ inv.paidAmount | currency: 'GEL' : 'symbol-narrow' }}</strong></div>
-        <div class="stat accent"><span>Balance</span><strong>{{ inv.balance | currency: 'GEL' : 'symbol-narrow' }}</strong></div>
+        <div class="stat"><span>{{ 'Subtotal' | t }}</span><strong>{{ inv.subtotal | currency: 'GEL' : 'symbol-narrow' }}</strong></div>
+        <div class="stat"><span>{{ 'Insurance pays' | t }}</span><strong>{{ inv.insuranceCoverage | currency: 'GEL' : 'symbol-narrow' }}</strong></div>
+        <div class="stat"><span>{{ 'Patient pays' | t }}</span><strong>{{ inv.totalAmount | currency: 'GEL' : 'symbol-narrow' }}</strong></div>
+        <div class="stat"><span>{{ 'Paid' | t }}</span><strong>{{ inv.paidAmount | currency: 'GEL' : 'symbol-narrow' }}</strong></div>
+        <div class="stat accent"><span>{{ 'Balance' | t }}</span><strong>{{ inv.balance | currency: 'GEL' : 'symbol-narrow' }}</strong></div>
       </div>
 
       @if (inv.insuranceCompany) {
-        <p class="muted">Insurance: {{ inv.insuranceCompany }} · policy {{ inv.policyNumber }} · {{ inv.coveragePercent }}% coverage</p>
+        <p class="muted">{{ 'Insurance: {p0} · policy {p1} · {p2}% coverage' | t: { p0: (inv.insuranceCompany), p1: (inv.policyNumber), p2: (inv.coveragePercent) } }}</p>
       }
 
-      <h2>Items</h2>
+      <h2>{{ 'Items' | t }}</h2>
       <div class="table-wrap">
         <table class="table">
-          <thead><tr><th>Description</th><th class="right">Qty</th><th class="right">Unit price</th><th class="right">Total</th></tr></thead>
+          <thead><tr><th>{{ 'Description' | t }}</th><th class="right">{{ 'Qty' | t }}</th><th class="right">{{ 'Unit price' | t }}</th><th class="right">{{ 'Total' | t }}</th></tr></thead>
           <tbody>
             @for (item of inv.items; track item.id) {
               <tr>
@@ -64,14 +65,14 @@ type Panel = 'pay' | 'cancel' | { refund: number } | null;
       </div>
 
       <div class="page-head section-gap">
-        <h2>Payments</h2>
+        <h2>{{ 'Payments' | t }}</h2>
         @if (isStaff() && inv.status !== 'Cancelled') {
           <div class="card-actions tight">
             @if (inv.balance > 0) {
-              <button class="btn primary small" type="button" (click)="openPay(inv)">Record a payment</button>
+              <button class="btn primary small" type="button" (click)="openPay(inv)">{{ 'Record a payment' | t }}</button>
             }
             @if (inv.paidAmount === 0) {
-              <button class="btn small danger" type="button" (click)="open('cancel')">Cancel invoice</button>
+              <button class="btn small danger" type="button" (click)="open('cancel')">{{ 'Cancel invoice' | t }}</button>
             }
           </div>
         }
@@ -81,25 +82,25 @@ type Panel = 'pay' | 'cancel' | { refund: number } | null;
         <form class="inline-panel" (ngSubmit)="pay(inv)">
           <div class="form-grid three">
             <div class="field">
-              <label for="pay-amount">Amount (GEL)</label>
+              <label for="pay-amount">{{ 'Amount (GEL)' | t }}</label>
               <input id="pay-amount" name="amount" type="number" min="0.01" step="0.01" [max]="inv.balance" [(ngModel)]="amount" />
             </div>
             <div class="field">
-              <label for="pay-method">Method</label>
+              <label for="pay-method">{{ 'Method' | t }}</label>
               <select id="pay-method" name="method" [(ngModel)]="method">
-                <option value="Cash">Cash</option>
-                <option value="Card">Card</option>
-                <option value="BankTransfer">Bank transfer</option>
+                <option value="Cash">{{ 'Cash' | t }}</option>
+                <option value="Card">{{ 'Card' | t }}</option>
+                <option value="BankTransfer">{{ 'Bank transfer' | t }}</option>
               </select>
             </div>
             <div class="field">
-              <label for="pay-ref">Reference (optional)</label>
+              <label for="pay-ref">{{ 'Reference (optional)' | t }}</label>
               <input id="pay-ref" name="reference" maxlength="100" [(ngModel)]="reference" />
             </div>
           </div>
           <div class="card-actions">
-            <button class="btn primary small" type="submit" [disabled]="busy()">Save payment</button>
-            <button class="btn small" type="button" (click)="panel.set(null)">Cancel</button>
+            <button class="btn primary small" type="submit" [disabled]="busy()">{{ 'Save payment' | t }}</button>
+            <button class="btn small" type="button" (click)="panel.set(null)">{{ 'Cancel' | t }}</button>
           </div>
         </form>
       }
@@ -107,35 +108,35 @@ type Panel = 'pay' | 'cancel' | { refund: number } | null;
       @if (panel() === 'cancel') {
         <form class="inline-panel" (ngSubmit)="cancel(inv)">
           <div class="field">
-            <label for="cancel-reason">Why is this invoice being cancelled?</label>
+            <label for="cancel-reason">{{ 'Why is this invoice being cancelled?' | t }}</label>
             <textarea id="cancel-reason" name="reason" rows="2" minlength="3" maxlength="500" [(ngModel)]="reason"></textarea>
           </div>
           <div class="card-actions">
-            <button class="btn small danger" type="submit" [disabled]="busy() || reason.trim().length < 3">Cancel invoice</button>
-            <button class="btn small" type="button" (click)="panel.set(null)">Keep it</button>
+            <button class="btn small danger" type="submit" [disabled]="busy() || reason.trim().length < 3">{{ 'Cancel invoice' | t }}</button>
+            <button class="btn small" type="button" (click)="panel.set(null)">{{ 'Keep it' | t }}</button>
           </div>
         </form>
       }
 
       @if (inv.payments.length === 0) {
-        <p class="muted">No payments yet.</p>
+        <p class="muted">{{ 'No payments yet.' | t }}</p>
       } @else {
         <div class="table-wrap">
           <table class="table">
-            <thead><tr><th>Date</th><th>Method</th><th>Reference</th><th class="right">Amount</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>{{ 'Date' | t }}</th><th>{{ 'Method' | t }}</th><th>{{ 'Reference' | t }}</th><th class="right">{{ 'Amount' | t }}</th><th>{{ 'Status' | t }}</th><th></th></tr></thead>
             <tbody>
               @for (p of inv.payments; track p.id) {
                 <tr>
-                  <td>{{ (p.paidAt ?? p.createdAt) | date: 'd MMM y, HH:mm' }}</td>
-                  <td>{{ words(p.method) }}</td>
+                  <td>{{ (p.paidAt ?? p.createdAt) | ldate: 'mediumTime' }}</td>
+                  <td>{{ words(p.method) | t }}</td>
                   <td>{{ p.transactionReference ?? '—' }}</td>
                   <td class="right">{{ p.amount | currency: 'GEL' : 'symbol-narrow' }}</td>
-                  <td><span [class]="'badge pay-' + p.status.toLowerCase()">{{ p.status }}</span></td>
+                  <td><span [class]="'badge pay-' + p.status.toLowerCase()">{{ p.status | t }}</span></td>
                   <td class="right nowrap">
                     @if (p.status === 'Completed') {
-                      <button class="btn small" type="button" (click)="showReceipt(p)">Receipt</button>
+                      <button class="btn small" type="button" (click)="showReceipt(p)">{{ 'Receipt' | t }}</button>
                       @if (isAdmin()) {
-                        <button class="btn small danger" type="button" (click)="openRefund(p)">Refund</button>
+                        <button class="btn small danger" type="button" (click)="openRefund(p)">{{ 'Refund' | t }}</button>
                       }
                     }
                   </td>
@@ -145,12 +146,12 @@ type Panel = 'pay' | 'cancel' | { refund: number } | null;
                     <td colspan="6">
                       <form class="inline-panel" (ngSubmit)="refund(p)">
                         <div class="field">
-                          <label [for]="'refund-' + p.id">Reason for the refund</label>
+                          <label [for]="'refund-' + p.id">{{ 'Reason for the refund' | t }}</label>
                           <input [id]="'refund-' + p.id" name="refundReason" minlength="3" maxlength="500" [(ngModel)]="reason" />
                         </div>
                         <div class="card-actions">
-                          <button class="btn small danger" type="submit" [disabled]="busy() || reason.trim().length < 3">Refund {{ p.amount | currency: 'GEL' : 'symbol-narrow' }}</button>
-                          <button class="btn small" type="button" (click)="panel.set(null)">Back</button>
+                          <button class="btn small danger" type="submit" [disabled]="busy() || reason.trim().length < 3">{{ 'Refund' | t }} {{ p.amount | currency: 'GEL' : 'symbol-narrow' }}</button>
+                          <button class="btn small" type="button" (click)="panel.set(null)">{{ 'Back' | t }}</button>
                         </div>
                       </form>
                     </td>
@@ -163,24 +164,24 @@ type Panel = 'pay' | 'cancel' | { refund: number } | null;
       }
 
       @if (receipt(); as r) {
-        <section class="card receipt section-gap" aria-label="Receipt">
+        <section class="card receipt section-gap" [attr.aria-label]="'Receipt' | t">
           <div class="row-head">
             <h3>{{ r.clinicName }}</h3>
-            <button class="btn small" type="button" (click)="receipt.set(null)">Close</button>
+            <button class="btn small" type="button" (click)="receipt.set(null)">{{ 'Close' | t }}</button>
           </div>
           <dl class="details">
-            <dt>Receipt</dt><dd>{{ r.receiptNumber }}</dd>
-            <dt>Invoice</dt><dd>{{ r.invoiceNumber }}</dd>
-            <dt>Patient</dt><dd>{{ r.patientName }}</dd>
-            <dt>Paid</dt><dd>{{ r.paidAt | date: 'd MMMM y, HH:mm' }}</dd>
-            <dt>Method</dt><dd>{{ words(r.method) }}@if (r.transactionReference) { · {{ r.transactionReference }} }</dd>
-            <dt>Amount</dt><dd><strong>{{ r.amount | currency: 'GEL' : 'symbol-narrow' }}</strong></dd>
+            <dt>{{ 'Receipt' | t }}</dt><dd>{{ r.receiptNumber }}</dd>
+            <dt>{{ 'Invoice' | t }}</dt><dd>{{ r.invoiceNumber }}</dd>
+            <dt>{{ 'Patient' | t }}</dt><dd>{{ r.patientName }}</dd>
+            <dt>{{ 'Paid' | t }}</dt><dd>{{ r.paidAt | ldate: 'longTime' }}</dd>
+            <dt>{{ 'Method' | t }}</dt><dd>{{ words(r.method) | t }}@if (r.transactionReference) { · {{ r.transactionReference }} }</dd>
+            <dt>{{ 'Amount' | t }}</dt><dd><strong>{{ r.amount | currency: 'GEL' : 'symbol-narrow' }}</strong></dd>
           </dl>
-          <button class="btn small" type="button" (click)="print()">Print</button>
+          <button class="btn small" type="button" (click)="print()">{{ 'Print' | t }}</button>
         </section>
       }
     } @else if (!error()) {
-      <p class="muted">Loading...</p>
+      <p class="muted">{{ 'Loading...' | t }}</p>
     }
   `
 })

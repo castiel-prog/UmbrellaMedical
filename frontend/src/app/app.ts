@@ -5,10 +5,11 @@ import { filter } from 'rxjs';
 import { AuthService } from './core/auth.service';
 import { MAIN_NAV, WORK_MENU_LABEL, WORK_NAV } from './core/nav';
 import { NotificationsService } from './core/notifications.service';
+import { SupportService } from './core/support.service';
 import { ProfileService } from './core/profile.service';
 import { CartService } from './core/cart.service';
 import { ThemeService } from './core/theme.service';
-import { I18n, LANGUAGES, Lang, TranslatePipe } from './core/i18n';
+import { dateFormatter, I18n, Lang, LANGUAGES, TranslatePipe } from './core/i18n';
 import { ALWAYS_OPEN, CLINIC, openStatus } from './core/clinic';
 import { Avatar } from './shared/avatar';
 import { ChatWidget } from './shared/chat-widget';
@@ -33,7 +34,7 @@ type Menu = 'work' | 'user' | 'lang' | null;
         <a class="brand" routerLink="/" [attr.aria-label]="'Umbrella Medical Center, home' | t">
           <app-logo [size]="36" />
           <span class="brand-text">
-            <strong>UMBRELLA</strong>
+            <strong>{{ 'UMBRELLA' | t }}</strong>
             <small>{{ 'Medical Center' | t }}</small>
           </span>
         </a>
@@ -73,7 +74,12 @@ type Menu = 'work' | 'user' | 'lang' | null;
           }
 
           @if (auth.isLoggedIn()) {
-            <a class="icon-btn" routerLink="/notifications" routerLinkActive="active" [title]="'Notifications' | t"
+            <a class="icon-btn" routerLink="/support" routerLinkActive="active" [title]="'Support chat' | t"
+            [attr.aria-label]="support.unread() > 0 ? ('{n} unread support messages' | t: { n: support.unread() }) : ('Support chat' | t)">
+            <app-icon name="talk" [size]="20" />
+            @if (support.unread() > 0) { <span class="count-badge">{{ support.unread() > 99 ? '99+' : support.unread() }}</span> }
+          </a>
+          <a class="icon-btn" routerLink="/notifications" routerLinkActive="active" [title]="'Notifications' | t"
               [attr.aria-label]="notifications.unread() > 0 ? ('{n} unread notifications' | t: { n: notifications.unread() }) : ('Notifications' | t)">
               <app-icon name="bell" [size]="20" />
               @if (notifications.unread() > 0) {
@@ -194,7 +200,7 @@ type Menu = 'work' | 'user' | 'lang' | null;
         <div class="footer-brand">
           <a class="brand" routerLink="/">
             <app-logo [size]="34" />
-            <span class="brand-text"><strong>UMBRELLA</strong><small>{{ 'Medical Center' | t }}</small></span>
+            <span class="brand-text"><strong>{{ 'UMBRELLA' | t }}</strong><small>{{ 'Medical Center' | t }}</small></span>
           </a>
           <p>{{ 'Specialist care, online booking and an on-site pharmacy in Tbilisi.' | t }}</p>
           <p class="footer-status" [class.open]="alwaysOpen || status().open">
@@ -238,7 +244,7 @@ type Menu = 'work' | 'user' | 'lang' | null;
           <p>{{ 'Questions? Press Ask us at the bottom right.' | t }}</p>
         </div>
       </div>
-      <div class="footer-bottom">© {{ year }} Umbrella Medical Center · {{ 'All rights reserved' | t }}</div>
+      <div class="footer-bottom">© {{ year }} {{ 'Umbrella Medical Center ·' | t }} {{ 'All rights reserved' | t }}</div>
     </footer>
 
     <app-chat-widget />
@@ -248,6 +254,8 @@ export class App {
   protected readonly auth = inject(AuthService);
   protected readonly theme = inject(ThemeService);
   protected readonly notifications = inject(NotificationsService);
+  /** Starts the presence heartbeat and keeps the support chat badge up to date. */
+  protected readonly support = inject(SupportService);
   protected readonly profile = inject(ProfileService);
   protected readonly cart = inject(CartService);
   protected readonly i18n = inject(I18n);
@@ -299,7 +307,7 @@ export class App {
 
   protected dayName(day: number): string {
     // 2023-01-01 was a Sunday, so day 0..6 maps onto Jan 1..7.
-    return new Intl.DateTimeFormat(this.i18n.locale(), { weekday: 'long' }).format(new Date(2023, 0, 1 + day));
+    return dateFormatter(this.i18n, { weekday: 'long' }).format(new Date(2023, 0, 1 + day));
   }
 
   protected setLang(lang: Lang): void {

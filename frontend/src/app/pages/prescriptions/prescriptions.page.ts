@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { StoreApi } from '../../core/store.api';
@@ -8,6 +7,7 @@ import { AuthService } from '../../core/auth.service';
 import { Medication, PagedResult, Prescription, PrescriptionRequestItem, PrescriptionRequestStatus } from '../../core/model';
 import { apiErrorMessage } from '../../core/api-error';
 import { orNull } from '../../core/util';
+import { I18n, LocalDatePipe, TranslatePipe } from '../../core/i18n';
 import { Pager } from '../../shared/pager';
 
 type Tab = 'requests' | 'history';
@@ -17,16 +17,16 @@ interface ApproveForm { medication: Medication | null; term: string; results: Me
 /** Staff view of prescription requests and the full prescription history. */
 @Component({
   selector: 'app-prescriptions',
-  imports: [FormsModule, RouterLink, DatePipe, Pager],
+  imports: [LocalDatePipe, TranslatePipe, FormsModule, RouterLink, Pager],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <h1>Prescriptions</h1>
+    <h1>{{ 'Prescriptions' | t }}</h1>
 
     <div class="tabs" role="tablist">
       <button type="button" role="tab" [class.active]="tab() === 'requests'" [attr.aria-selected]="tab() === 'requests'" (click)="select('requests')">
-        Requests @if (pendingCount() > 0) { <span class="count-pill">{{ pendingCount() }}</span> }
+        {{ 'Requests' | t }} @if (pendingCount() > 0) { <span class="count-pill">{{ pendingCount() }}</span> }
       </button>
-      <button type="button" role="tab" [class.active]="tab() === 'history'" [attr.aria-selected]="tab() === 'history'" (click)="select('history')">History</button>
+      <button type="button" role="tab" [class.active]="tab() === 'history'" [attr.aria-selected]="tab() === 'history'" (click)="select('history')">{{ 'History' | t }}</button>
     </div>
 
     @if (message()) { <p class="alert success" role="status">{{ message() }}</p> }
@@ -34,17 +34,17 @@ interface ApproveForm { medication: Medication | null; term: string; results: Me
 
     @if (tab() === 'requests') {
       <div class="toolbar">
-        <p class="muted grow">{{ isDoctor() ? 'Patients who asked you for a prescription.' : 'All prescription requests sent to doctors.' }}</p>
-        <select [ngModel]="requestStatus()" (ngModelChange)="requestStatus.set($event); requestPage.set(1); loadRequests()" aria-label="Show">
-          <option [ngValue]="'Pending'">Waiting for an answer</option>
-          <option [ngValue]="'Approved'">Approved</option>
-          <option [ngValue]="'Declined'">Declined</option>
-          <option [ngValue]="null">All</option>
+        <p class="muted grow">{{ (isDoctor() ? 'Patients who asked you for a prescription.' : 'All prescription requests sent to doctors.') | t }}</p>
+        <select [ngModel]="requestStatus()" (ngModelChange)="requestStatus.set($event); requestPage.set(1); loadRequests()" [attr.aria-label]="'Show' | t">
+          <option [ngValue]="'Pending'">{{ 'Waiting for an answer' | t }}</option>
+          <option [ngValue]="'Approved'">{{ 'Approved' | t }}</option>
+          <option [ngValue]="'Declined'">{{ 'Declined' | t }}</option>
+          <option [ngValue]="null">{{ 'All' | t }}</option>
         </select>
       </div>
 
       @if (requests(); as data) {
-        @if (data.items.length === 0) { <p class="empty card muted">No requests here.</p> }
+        @if (data.items.length === 0) { <p class="empty card muted">{{ 'No requests here.' | t }}</p> }
         <ul class="stack">
           @for (r of data.items; track r.id) {
             <li class="card">
@@ -53,32 +53,32 @@ interface ApproveForm { medication: Medication | null; term: string; results: Me
                   <h3><a class="plain" [routerLink]="['/patients', r.patientId]" [queryParams]="{ tab: 'prescriptions' }">{{ r.patientName }}</a>
                     @if (r.medicationName) { <span class="muted"> · {{ r.medicationName }}</span> }</h3>
                   <p class="muted">
-                    {{ r.createdAt | date: 'd MMM y, HH:mm' }}
-                    @if (!isDoctor()) { · to Dr. {{ r.doctorName }} ({{ r.specialization }}) }
-                    @if (r.appointmentDate) { · about the visit on {{ r.appointmentDate | date: 'd MMM y' }} ({{ r.appointmentService }}) }
+                    {{ r.createdAt | ldate: 'mediumTime' }}
+                    @if (!isDoctor()) { {{ '· to Dr. {p0} ({p1})' | t: { p0: (r.doctorName), p1: (r.specialization | t) } }} }
+                    @if (r.appointmentDate) { {{ '· about the visit on' | t }} {{ r.appointmentDate | ldate: 'medium' }} ({{ r.appointmentService }}) }
                   </p>
                 </div>
-                <span [class]="'badge rq-' + r.status.toLowerCase()">{{ r.status === 'Pending' ? 'Waiting' : r.status }}</span>
+                <span [class]="'badge rq-' + r.status.toLowerCase()">{{ (r.status === 'Pending' ? 'Waiting' : r.status) | t }}</span>
               </div>
               <p class="pre-line">“{{ r.message }}”</p>
-              @if (r.prescriptionCode) { <p class="small">Issued prescription <strong class="code-text">{{ r.prescriptionCode }}</strong></p> }
-              @if (r.status === 'Declined' && r.decisionNote) { <p class="small"><span class="muted">Reason:</span> {{ r.decisionNote }}</p> }
+              @if (r.prescriptionCode) { <p class="small">{{ 'Issued prescription' | t }} <strong class="code-text">{{ r.prescriptionCode }}</strong></p> }
+              @if (r.status === 'Declined' && r.decisionNote) { <p class="small"><span class="muted">{{ 'Reason:' | t }}</span> {{ r.decisionNote }}</p> }
 
               @if (isDoctor() && r.status === 'Pending') {
                 @if (openId() !== r.id) {
                   <div class="card-actions">
-                    <button class="btn small primary" type="button" (click)="startApprove(r)">Approve and prescribe…</button>
-                    <button class="btn small danger" type="button" (click)="startDecline(r)">Decline…</button>
+                    <button class="btn small primary" type="button" (click)="startApprove(r)">{{ 'Approve and prescribe…' | t }}</button>
+                    <button class="btn small danger" type="button" (click)="startDecline(r)">{{ 'Decline…' | t }}</button>
                   </div>
                 } @else if (approve(); as f) {
                   <div class="inline-panel">
                     <div class="field">
-                      <label for="ap-med">Medication</label>
+                      <label for="ap-med">{{ 'Medication' | t }}</label>
                       @if (f.medication; as m) {
                         <div class="picked"><span><strong>{{ m.name }}</strong> {{ m.strength }} {{ m.form }}</span>
-                          <button class="btn small" type="button" (click)="f.medication = null">Change</button></div>
+                          <button class="btn small" type="button" (click)="f.medication = null">{{ 'Change' | t }}</button></div>
                       } @else {
-                        <input id="ap-med" type="search" placeholder="Search medications" autocomplete="off" [ngModel]="f.term" (ngModelChange)="searchMedication($event)" />
+                        <input id="ap-med" type="search" [placeholder]="'Search medications' | t" autocomplete="off" [ngModel]="f.term" (ngModelChange)="searchMedication($event)" />
                         @if (f.results.length > 0) {
                           <ul class="pick-list">
                             @for (m of f.results; track m.id) {
@@ -89,27 +89,27 @@ interface ApproveForm { medication: Medication | null; term: string; results: Me
                       }
                     </div>
                     <div class="form-grid three">
-                      <div class="field"><label for="ap-dose">Dosage</label><input id="ap-dose" maxlength="100" placeholder="1 tablet" [(ngModel)]="f.dosage" /></div>
-                      <div class="field"><label for="ap-freq">Frequency</label><input id="ap-freq" maxlength="100" placeholder="once a day" [(ngModel)]="f.frequency" /></div>
-                      <div class="field"><label for="ap-days">For (days)</label><input id="ap-days" type="number" min="1" max="365" [(ngModel)]="f.days" /></div>
+                      <div class="field"><label for="ap-dose">{{ 'Dosage' | t }}</label><input id="ap-dose" maxlength="100" [placeholder]="'1 tablet' | t" [(ngModel)]="f.dosage" /></div>
+                      <div class="field"><label for="ap-freq">{{ 'Frequency' | t }}</label><input id="ap-freq" maxlength="100" [placeholder]="'once a day' | t" [(ngModel)]="f.frequency" /></div>
+                      <div class="field"><label for="ap-days">{{ 'For (days)' | t }}</label><input id="ap-days" type="number" min="1" max="365" [(ngModel)]="f.days" /></div>
                     </div>
                     <div class="form-grid">
-                      <div class="field"><label for="ap-valid">Valid for (days)</label><input id="ap-valid" type="number" min="1" max="365" [(ngModel)]="f.validDays" /></div>
-                      <div class="field"><label for="ap-instr">Instructions (optional)</label><input id="ap-instr" maxlength="2000" [(ngModel)]="f.instructions" /></div>
+                      <div class="field"><label for="ap-valid">{{ 'Valid for (days)' | t }}</label><input id="ap-valid" type="number" min="1" max="365" [(ngModel)]="f.validDays" /></div>
+                      <div class="field"><label for="ap-instr">{{ 'Instructions (optional)' | t }}</label><input id="ap-instr" maxlength="2000" [(ngModel)]="f.instructions" /></div>
                     </div>
-                    <p class="muted small">The patient gets a prescription code to buy the medicine in the pharmacy.</p>
+                    <p class="muted small">{{ 'The patient gets a prescription code to buy the medicine in the pharmacy.' | t }}</p>
                     <div class="card-actions">
-                      <button class="btn small primary" type="button" (click)="submitApprove(r)" [disabled]="busy()">Issue prescription</button>
-                      <button class="btn small" type="button" (click)="openId.set(null)">Back</button>
+                      <button class="btn small primary" type="button" (click)="submitApprove(r)" [disabled]="busy()">{{ 'Issue prescription' | t }}</button>
+                      <button class="btn small" type="button" (click)="openId.set(null)">{{ 'Back' | t }}</button>
                     </div>
                   </div>
                 } @else {
                   <div class="inline-panel">
-                    <div class="field"><label for="dc-reason">Reason (sent to the patient)</label>
-                      <input id="dc-reason" maxlength="500" placeholder="For example: I need to see you first; please book a visit." [(ngModel)]="declineReason" /></div>
+                    <div class="field"><label for="dc-reason">{{ 'Reason (sent to the patient)' | t }}</label>
+                      <input id="dc-reason" maxlength="500" [placeholder]="'For example: I need to see you first; please book a visit.' | t" [(ngModel)]="declineReason" /></div>
                     <div class="card-actions">
-                      <button class="btn small danger" type="button" (click)="submitDecline(r)" [disabled]="busy() || declineReason.trim().length < 5">Decline</button>
-                      <button class="btn small" type="button" (click)="openId.set(null)">Back</button>
+                      <button class="btn small danger" type="button" (click)="submitDecline(r)" [disabled]="busy() || declineReason.trim().length < 5">{{ 'Decline' | t }}</button>
+                      <button class="btn small" type="button" (click)="openId.set(null)">{{ 'Back' | t }}</button>
                     </div>
                   </div>
                 }
@@ -118,32 +118,32 @@ interface ApproveForm { medication: Medication | null; term: string; results: Me
           }
         </ul>
         <app-pager [page]="requestPage()" [pageSize]="pageSize" [totalCount]="data.totalCount" (pageChange)="requestPage.set($event); loadRequests()" />
-      } @else { <p class="muted">Loading...</p> }
+      } @else { <p class="muted">{{ 'Loading...' | t }}</p> }
     } @else {
       <form class="toolbar" (ngSubmit)="historyPage.set(1); loadHistory()">
-        <div class="field grow"><label for="h-search" class="sr-only">Search</label>
-          <input id="h-search" name="search" type="search" placeholder="Patient name, personal number or prescription code" [(ngModel)]="search" /></div>
-        <label class="check"><input type="checkbox" name="active" [(ngModel)]="activeOnly" (ngModelChange)="historyPage.set(1); loadHistory()" /> Valid only</label>
-        <button class="btn small" type="submit">Search</button>
+        <div class="field grow"><label for="h-search" class="sr-only">{{ 'Search' | t }}</label>
+          <input id="h-search" name="search" type="search" [placeholder]="'Patient name, personal number or prescription code' | t" [(ngModel)]="search" /></div>
+        <label class="check"><input type="checkbox" name="active" [(ngModel)]="activeOnly" (ngModelChange)="historyPage.set(1); loadHistory()" /> {{ 'Valid only' | t }}</label>
+        <button class="btn small" type="submit">{{ 'Search' | t }}</button>
       </form>
-      <p class="muted small">{{ isDoctor() ? 'Prescriptions you wrote and those of your patients.' : 'Every prescription issued at the clinic.' }}</p>
+      <p class="muted small">{{ (isDoctor() ? 'Prescriptions you wrote and those of your patients.' : 'Every prescription issued at the clinic.') | t }}</p>
 
       @if (history(); as data) {
         @if (data.items.length === 0) {
-          <p class="empty card muted">No prescriptions found.</p>
+          <p class="empty card muted">{{ 'No prescriptions found.' | t }}</p>
         } @else {
           <div class="table-wrap">
             <table class="table">
-              <thead><tr><th>Code</th><th>Patient</th><th>Medicines</th><th>Doctor</th><th>Issued</th><th>Valid until</th><th>Pharmacy</th></tr></thead>
+              <thead><tr><th>{{ 'Code' | t }}</th><th>{{ 'Patient' | t }}</th><th>{{ 'Medicines' | t }}</th><th>{{ 'Doctor' | t }}</th><th>{{ 'Issued' | t }}</th><th>{{ 'Valid until' | t }}</th><th>{{ 'Pharmacy' | t }}</th></tr></thead>
               <tbody>
                 @for (p of data.items; track p.id) {
                   <tr>
                     <td class="nowrap"><span class="code-text">{{ p.code ?? '—' }}</span></td>
                     <td><a [routerLink]="['/patients', p.patientId]" [queryParams]="{ tab: 'prescriptions' }">{{ p.patientName }}</a></td>
                     <td>@for (i of p.items; track $index) { <div>{{ i.medicationName }} {{ i.strength }} <span class="muted small">· {{ i.dosage }}, {{ i.frequency }}, {{ i.durationDays }} d</span></div> }</td>
-                    <td>Dr. {{ p.doctorName }}</td>
-                    <td class="nowrap">{{ p.issuedDate | date: 'd MMM y' }}</td>
-                    <td class="nowrap"><span class="badge" [class.ok]="p.isActive" [class.muted-badge]="!p.isActive">{{ p.expiryDate | date: 'd MMM y' }}</span></td>
+                    <td>{{ 'Dr. {p0}' | t: { p0: (p.doctorName) } }}</td>
+                    <td class="nowrap">{{ p.issuedDate | ldate: 'medium' }}</td>
+                    <td class="nowrap"><span class="badge" [class.ok]="p.isActive" [class.muted-badge]="!p.isActive">{{ p.expiryDate | ldate: 'medium' }}</span></td>
                     <td>{{ p.usedFor.length > 0 ? 'Bought: ' + p.usedFor.join(', ') : '—' }}</td>
                   </tr>
                 }
@@ -152,11 +152,12 @@ interface ApproveForm { medication: Medication | null; term: string; results: Me
           </div>
         }
         <app-pager [page]="historyPage()" [pageSize]="pageSize" [totalCount]="data.totalCount" (pageChange)="historyPage.set($event); loadHistory()" />
-      } @else { <p class="muted">Loading...</p> }
+      } @else { <p class="muted">{{ 'Loading...' | t }}</p> }
     }
   `
 })
 export class PrescriptionsPage {
+  protected readonly i18n = inject(I18n);
   private readonly api = inject(StoreApi);
   private readonly medical = inject(MedicalApi);
   private readonly auth = inject(AuthService);
@@ -237,7 +238,7 @@ export class PrescriptionsPage {
     const f = this.approve();
     if (!f) return;
     if (!f.medication || !f.dosage.trim() || !f.frequency.trim() || !(f.days > 0) || !(f.validDays > 0)) {
-      this.error.set('Choose the medication and fill in dosage, frequency and days.');
+      this.error.set(this.i18n.t('Choose the medication and fill in dosage, frequency and days.'));
       return;
     }
     this.busy.set(true);

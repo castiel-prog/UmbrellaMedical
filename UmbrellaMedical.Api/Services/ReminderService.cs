@@ -17,16 +17,18 @@ public class ReminderService : IReminderService
     private readonly UmbrellaDbContext _db;
     private readonly IEmailSender _email;
     private readonly IClinicClock _clock;
+    private readonly IClinicText _text;
     private readonly ReminderSettings _settings;
     private readonly ILogger<ReminderService> _logger;
 
     public ReminderService(
         UmbrellaDbContext db, IEmailSender email, IClinicClock clock,
-        IOptions<ReminderSettings> options, ILogger<ReminderService> logger)
+        IOptions<ReminderSettings> options, ILogger<ReminderService> logger, IClinicText text)
     {
         _db = db;
         _email = email;
         _clock = clock;
+        _text = text;
         _settings = options.Value;
         _logger = logger;
     }
@@ -56,7 +58,8 @@ public class ReminderService : IReminderService
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var when = NotificationText.When(appointment.StartDateTime);
+            var l = new Localizer(_text, appointment.Patient.User?.PreferredLanguage);
+            var when = l.When(appointment.StartDateTime);
             var doctorName = $"Dr. {appointment.Doctor.FirstName} {appointment.Doctor.LastName}";
             // Patients with an account can turn reminder emails off in their profile.
             var wantsEmail = appointment.Patient.User?.EmailReminders ?? true;
@@ -64,17 +67,11 @@ public class ReminderService : IReminderService
 
             if (address is not null)
             {
-                var subject = "Appointment reminder - Umbrella Medical Center";
-                var body =
-                    $"Hello {appointment.Patient.FirstName},{Environment.NewLine}{Environment.NewLine}" +
-                    $"This is a reminder of your appointment:{Environment.NewLine}" +
-                    $"  {appointment.Service.Name} with {doctorName}{Environment.NewLine}" +
-                    $"  {when}{Environment.NewLine}{Environment.NewLine}" +
-                    "If you cannot attend, please cancel or reschedule so that someone else can take the time.";
+                var mail = EmailTemplates.AppointmentReminder(l, appointment.Patient.FirstName, doctorName, appointment.Service.Name, when);
 
                 try
                 {
-                    await _email.SendAsync(address, subject, body, cancellationToken);
+                    await _email.SendAsync(address, mail.Subject, mail.Body, cancellationToken, mail.Lang);
                 }
                 catch (OperationCanceledException)
                 {
@@ -92,8 +89,8 @@ public class ReminderService : IReminderService
                 _db.Notifications.Add(new Notification
                 {
                     UserId = userId,
-                    Title = "Appointment reminder",
-                    Message = $"{appointment.Service.Name} with {doctorName} on {when}.",
+                    Title = l.T("Appointment reminder"),
+                    Message = l.T("{service} with {doctor} on {when}.", ("service", appointment.Service.Name), ("doctor", doctorName), ("when", when)),
                     Channel = NotificationChannel.InApp,
                     Status = NotificationStatus.Sent,
                     SentAt = DateTime.UtcNow,

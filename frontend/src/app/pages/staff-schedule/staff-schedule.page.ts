@@ -1,42 +1,42 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { StaffApi } from '../../core/staff.api';
 import { AuthService } from '../../core/auth.service';
 import { DoctorScheduleOverview } from '../../core/model';
 import { apiErrorMessage } from '../../core/api-error';
+import { LocalDatePipe, TranslatePipe } from '../../core/i18n';
 import { addDays, toDateInput } from '../../core/util';
 
 /** Week grid of every doctor's shifts, leave and booked visits. */
 @Component({
   selector: 'app-staff-schedule',
-  imports: [DatePipe, RouterLink],
+  imports: [LocalDatePipe, TranslatePipe, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page-head">
-      <h1>Staff schedule</h1>
+      <h1>{{ 'Staff schedule' | t }}</h1>
       <div class="card-actions tight">
-        <button class="btn small" type="button" (click)="shift(-7)">← Previous week</button>
-        <button class="btn small" type="button" (click)="thisWeek()">This week</button>
-        <button class="btn small" type="button" (click)="shift(7)">Next week →</button>
+        <button class="btn small" type="button" (click)="shift(-7)">{{ '← Previous week' | t }}</button>
+        <button class="btn small" type="button" (click)="thisWeek()">{{ 'This week' | t }}</button>
+        <button class="btn small" type="button" (click)="shift(7)">{{ 'Next week →' | t }}</button>
       </div>
     </div>
-    <p class="muted">{{ start() | date: 'd MMM' }} – {{ end() | date: 'd MMM y' }}</p>
+    <p class="muted">{{ start() | ldate: 'dayMonth' }} – {{ end() | ldate: 'medium' }}</p>
 
     @if (error()) { <p class="alert error" role="alert">{{ error() }}</p> }
 
     @if (loading()) {
-      <p class="muted">Loading...</p>
+      <p class="muted">{{ 'Loading...' | t }}</p>
     } @else if (rows().length === 0) {
-      <p class="empty card muted">No doctors.</p>
+      <p class="empty card muted">{{ 'No doctors.' | t }}</p>
     } @else {
       <div class="table-wrap">
         <table class="table schedule-table">
           <thead>
             <tr>
-              <th>Doctor</th>
+              <th>{{ 'Doctor' | t }}</th>
               @for (d of rows()[0].days; track d.date) {
-                <th>{{ d.date | date: 'EEE d' }}</th>
+                <th>{{ d.date | ldate: 'weekdayDay' }}</th>
               }
             </tr>
           </thead>
@@ -44,23 +44,23 @@ import { addDays, toDateInput } from '../../core/util';
             @for (r of rows(); track r.doctorId) {
               <tr>
                 <td>
-                  <strong>Dr. {{ r.doctorName }}</strong><br />
-                  <span class="muted small">{{ r.specialization }}</span>
+                  <strong>{{ 'Dr. {p0}' | t: { p0: (r.doctorName) } }}</strong><br />
+                  <span class="muted small">{{ r.specialization | t }}</span>
                   @if (isAdmin()) {
-                    <br /><a class="small" routerLink="/working-hours" [queryParams]="{ doctorId: r.doctorId }">Edit hours</a>
+                    <br /><a class="small" routerLink="/working-hours" [queryParams]="{ doctorId: r.doctorId }">{{ 'Edit hours' | t }}</a>
                   }
                 </td>
                 @for (d of r.days; track d.date) {
                   <td [class.leave]="d.onLeave" [class.off]="!d.onLeave && d.shifts.length === 0">
                     @if (d.onLeave) {
-                      <span class="badge warn">On leave</span>
+                      <span class="badge warn">{{ 'On leave' | t }}</span>
                     } @else if (d.shifts.length === 0) {
                       <span class="muted">—</span>
                     } @else {
                       @for (s of d.shifts; track s) { <div class="small">{{ s }}</div> }
                     }
                     @if (d.scheduledAppointments > 0) {
-                      <div class="count-pill">{{ d.scheduledAppointments }} booked</div>
+                      <div class="count-pill">{{ '{p0} booked' | t: { p0: (d.scheduledAppointments) } }}</div>
                     }
                   </td>
                 }

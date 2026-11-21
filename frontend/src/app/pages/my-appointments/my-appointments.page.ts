@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { CurrencyPipe, DatePipe } from '@angular/common';
+import { CurrencyPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
@@ -7,6 +7,7 @@ import { AppointmentsApi } from '../../core/appointments.api';
 import { Appointment, PagedResult } from '../../core/model';
 import { apiErrorMessage } from '../../core/api-error';
 import { toDateInput } from '../../core/util';
+import { I18n, LocalDatePipe, TranslatePipe } from '../../core/i18n';
 import { SlotPicker } from '../../shared/slot-picker';
 
 type Tab = 'upcoming' | 'history';
@@ -14,17 +15,17 @@ type Mode = 'cancel' | 'reschedule' | 'review';
 
 @Component({
   selector: 'app-my-appointments',
-  imports: [FormsModule, RouterLink, DatePipe, CurrencyPipe, SlotPicker],
+  imports: [LocalDatePipe, TranslatePipe, FormsModule, RouterLink, CurrencyPipe, SlotPicker],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page-head">
-      <h1>My appointments</h1>
-      <a class="btn primary" routerLink="/doctors">Book a new visit</a>
+      <h1>{{ 'My appointments' | t }}</h1>
+      <a class="btn primary" routerLink="/doctors">{{ 'Book a new visit' | t }}</a>
     </div>
 
     <div class="tabs" role="tablist">
-      <button type="button" role="tab" [class.active]="tab() === 'upcoming'" [attr.aria-selected]="tab() === 'upcoming'" (click)="switchTab('upcoming')">Upcoming</button>
-      <button type="button" role="tab" [class.active]="tab() === 'history'" [attr.aria-selected]="tab() === 'history'" (click)="switchTab('history')">History</button>
+      <button type="button" role="tab" [class.active]="tab() === 'upcoming'" [attr.aria-selected]="tab() === 'upcoming'" (click)="switchTab('upcoming')">{{ 'Upcoming' | t }}</button>
+      <button type="button" role="tab" [class.active]="tab() === 'history'" [attr.aria-selected]="tab() === 'history'" (click)="switchTab('history')">{{ 'History' | t }}</button>
     </div>
 
     @if (message()) {
@@ -35,14 +36,14 @@ type Mode = 'cancel' | 'reschedule' | 'review';
     }
 
     @if (loading() && !result()) {
-      <p class="muted">Loading...</p>
+      <p class="muted">{{ 'Loading...' | t }}</p>
     }
 
     @if (result(); as data) {
       @if (items().length === 0) {
         <div class="empty card">
-          <p>{{ tab() === 'upcoming' ? 'You have no upcoming visits.' : 'No past visits yet.' }}</p>
-          <a class="btn primary small" routerLink="/doctors">Find a doctor</a>
+          <p>{{ (tab() === 'upcoming' ? 'You have no upcoming visits.' : 'No past visits yet.') | t }}</p>
+          <a class="btn primary small" routerLink="/doctors">{{ 'Find a doctor' | t }}</a>
         </div>
       }
 
@@ -50,68 +51,68 @@ type Mode = 'cancel' | 'reschedule' | 'review';
         @for (a of items(); track a.id) {
           <li class="card appt">
             <div class="appt-date">
-              <strong>{{ a.startDateTime | date: 'd' }}</strong>
-              <span>{{ a.startDateTime | date: 'MMM' }}</span>
-              <small>{{ a.startDateTime | date: 'HH:mm' }}</small>
+              <strong>{{ a.startDateTime | ldate: 'day' }}</strong>
+              <span>{{ a.startDateTime | ldate: 'month' }}</span>
+              <small>{{ a.startDateTime | ldate: 'time' }}</small>
             </div>
 
             <div class="appt-body">
               <div class="appt-title">
                 <h3>{{ a.serviceName }}</h3>
-                <span [class]="'badge status-' + a.status.toLowerCase()">{{ statusLabel(a.status) }}</span>
+                <span [class]="'badge status-' + a.status.toLowerCase()">{{ statusLabel(a.status) | t }}</span>
               </div>
               <p>
-                <a [routerLink]="['/doctors', a.doctorId]">Dr. {{ a.doctorName }}</a>
-                · <span class="muted">{{ a.specialization }}</span>
+                <a [routerLink]="['/doctors', a.doctorId]">{{ 'Dr. {p0}' | t: { p0: (a.doctorName) } }}</a>
+                · <span class="muted">{{ a.specialization | t }}</span>
               </p>
               <p class="muted">
-                {{ a.startDateTime | date: 'EEEE, d MMMM y' }}, {{ a.startDateTime | date: 'HH:mm' }}–{{ a.endDateTime | date: 'HH:mm' }}
+                {{ a.startDateTime | ldate: 'fullDate' }}, {{ a.startDateTime | ldate: 'time' }}–{{ a.endDateTime | ldate: 'time' }}
                 · {{ a.price | currency: 'GEL' : 'symbol-narrow' }}
               </p>
               @if (a.amountPaid > 0 && a.status !== 'Cancelled') {
                 <p>
-                  <span class="badge ok">✓ Paid {{ a.amountPaid | currency: 'GEL' : 'symbol-narrow' }}</span>
-                  @if (a.invoiceId) { · <a [routerLink]="['/invoices', a.invoiceId]">Receipt</a> }
+                  <span class="badge ok">{{ '✓ Paid' | t }} {{ a.amountPaid | currency: 'GEL' : 'symbol-narrow' }}</span>
+                  @if (a.invoiceId) { · <a [routerLink]="['/invoices', a.invoiceId]">{{ 'Receipt' | t }}</a> }
                 </p>
               }
               @if (a.reason) {
-                <p><span class="muted">Reason:</span> {{ a.reason }}</p>
+                <p><span class="muted">{{ 'Reason:' | t }}</span> {{ a.reason }}</p>
               }
               @if (a.status === 'Cancelled' && a.cancellationReason) {
-                <p><span class="muted">Cancelled:</span> {{ a.cancellationReason }}</p>
+                <p><span class="muted">{{ 'Cancelled:' | t }}</span> {{ a.cancellationReason }}</p>
               }
 
               @if (a.status === 'Scheduled' && !isOpen(a.id)) {
                 <div class="card-actions">
-                  <button class="btn small" type="button" (click)="open(a.id, 'reschedule')">Reschedule</button>
-                  <button class="btn small danger" type="button" (click)="open(a.id, 'cancel')">Cancel</button>
+                  <button class="btn small" type="button" (click)="open(a.id, 'reschedule')">{{ 'Reschedule' | t }}</button>
+                  <button class="btn small danger" type="button" (click)="open(a.id, 'cancel')">{{ 'Cancel' | t }}</button>
                 </div>
               }
               @if (a.status === 'Completed' && !isOpen(a.id)) {
                 <div class="card-actions">
                   @if (!reviewed().has(a.id)) {
-                    <button class="btn small primary" type="button" (click)="open(a.id, 'review')">Rate this visit</button>
+                    <button class="btn small primary" type="button" (click)="open(a.id, 'review')">{{ 'Rate this visit' | t }}</button>
                   }
                   <a class="btn small" routerLink="/health"
-                    [queryParams]="{ tab: 'prescriptions', request: 1, doctorId: a.doctorId, appointmentId: a.id }">Request a prescription</a>
+                    [queryParams]="{ tab: 'prescriptions', request: 1, doctorId: a.doctorId, appointmentId: a.id }">{{ 'Request a prescription' | t }}</a>
                 </div>
               }
               @if (reviewed().has(a.id)) {
-                <p class="muted">Thank you for your review.</p>
+                <p class="muted">{{ 'Thank you for your review.' | t }}</p>
               }
 
               @if (isOpen(a.id, 'cancel')) {
                 <div class="inline-panel">
                   @if (a.amountPaid > 0) {
-                    <p>Your payment of <strong>{{ a.amountPaid | currency: 'GEL' : 'symbol-narrow' }}</strong> will be refunded to your card.</p>
+                    <p>{{ 'Your payment of' | t }} <strong>{{ a.amountPaid | currency: 'GEL' : 'symbol-narrow' }}</strong> {{ 'will be refunded to your card.' | t }}</p>
                   }
                   <div class="field">
-                    <label [for]="'cancel-' + a.id">Why are you cancelling? (optional)</label>
+                    <label [for]="'cancel-' + a.id">{{ 'Why are you cancelling? (optional)' | t }}</label>
                     <textarea [id]="'cancel-' + a.id" rows="2" maxlength="500" [(ngModel)]="cancelReason"></textarea>
                   </div>
                   <div class="card-actions">
-                    <button class="btn small danger" type="button" (click)="cancel(a)" [disabled]="busy()">Yes, cancel the visit</button>
-                    <button class="btn small" type="button" (click)="close()">Keep it</button>
+                    <button class="btn small danger" type="button" (click)="cancel(a)" [disabled]="busy()">{{ 'Yes, cancel the visit' | t }}</button>
+                    <button class="btn small" type="button" (click)="close()">{{ 'Keep it' | t }}</button>
                   </div>
                 </div>
               }
@@ -120,15 +121,15 @@ type Mode = 'cancel' | 'reschedule' | 'review';
                 <div class="inline-panel">
                   <app-slot-picker [doctorId]="a.doctorId" [serviceId]="a.serviceId" (picked)="newStart.set($event)" />
                   <div class="card-actions">
-                    <button class="btn small primary" type="button" (click)="reschedule(a)" [disabled]="!newStart() || busy()">Move the visit</button>
-                    <button class="btn small" type="button" (click)="close()">Back</button>
+                    <button class="btn small primary" type="button" (click)="reschedule(a)" [disabled]="!newStart() || busy()">{{ 'Move the visit' | t }}</button>
+                    <button class="btn small" type="button" (click)="close()">{{ 'Back' | t }}</button>
                   </div>
                 </div>
               }
 
               @if (isOpen(a.id, 'review')) {
                 <div class="inline-panel">
-                  <div class="rate" role="radiogroup" aria-label="Rating">
+                  <div class="rate" role="radiogroup" [attr.aria-label]="'Rating' | t">
                     @for (n of [1, 2, 3, 4, 5]; track n) {
                       <button
                         type="button"
@@ -139,12 +140,12 @@ type Mode = 'cancel' | 'reschedule' | 'review';
                     }
                   </div>
                   <div class="field">
-                    <label [for]="'review-' + a.id">Comment (optional)</label>
+                    <label [for]="'review-' + a.id">{{ 'Comment (optional)' | t }}</label>
                     <textarea [id]="'review-' + a.id" rows="3" maxlength="1000" [(ngModel)]="reviewComment"></textarea>
                   </div>
                   <div class="card-actions">
-                    <button class="btn small primary" type="button" (click)="review(a)" [disabled]="rating() === 0 || busy()">Send review</button>
-                    <button class="btn small" type="button" (click)="close()">Back</button>
+                    <button class="btn small primary" type="button" (click)="review(a)" [disabled]="rating() === 0 || busy()">{{ 'Send review' | t }}</button>
+                    <button class="btn small" type="button" (click)="close()">{{ 'Back' | t }}</button>
                   </div>
                 </div>
               }
@@ -154,16 +155,17 @@ type Mode = 'cancel' | 'reschedule' | 'review';
       </ul>
 
       @if (totalPages() > 1) {
-        <nav class="pager" aria-label="Pages">
-          <button class="btn small" type="button" (click)="goToPage(page() - 1)" [disabled]="page() <= 1 || loading()">Previous</button>
-          <span>Page {{ page() }} of {{ totalPages() }}</span>
-          <button class="btn small" type="button" (click)="goToPage(page() + 1)" [disabled]="page() >= totalPages() || loading()">Next</button>
+        <nav class="pager" [attr.aria-label]="'Pages' | t">
+          <button class="btn small" type="button" (click)="goToPage(page() - 1)" [disabled]="page() <= 1 || loading()">{{ 'Previous' | t }}</button>
+          <span>{{ 'Page {p0} of {p1}' | t: { p0: (page()), p1: (totalPages()) } }}</span>
+          <button class="btn small" type="button" (click)="goToPage(page() + 1)" [disabled]="page() >= totalPages() || loading()">{{ 'Next' | t }}</button>
         </nav>
       }
     }
   `
 })
 export class MyAppointmentsPage {
+  protected readonly i18n = inject(I18n);
   private readonly api = inject(AppointmentsApi);
   private readonly pageSize = 10;
 
@@ -250,7 +252,7 @@ export class MyAppointmentsPage {
         this.busy.set(false);
         this.reviewed.update(set => new Set(set).add(a.id));
         this.close();
-        this.message.set('Thank you! Your review was published.');
+        this.message.set(this.i18n.t('Thank you! Your review was published.'));
       },
       error: err => {
         this.busy.set(false);

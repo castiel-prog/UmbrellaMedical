@@ -1,63 +1,64 @@
 import { ChangeDetectionStrategy, Component, effect, inject, input, signal, untracked } from '@angular/core';
-import { CurrencyPipe, DatePipe } from '@angular/common';
+import { CurrencyPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { BillingApi } from '../core/billing.api';
 import { InvoiceListItem, InvoiceStatus, PagedResult } from '../core/model';
 import { apiErrorMessage } from '../core/api-error';
 import { splitWords } from '../core/util';
+import { LocalDatePipe, TranslatePipe } from '../core/i18n';
 import { Pager } from './pager';
 
 const STATUSES: InvoiceStatus[] = ['Issued', 'PartiallyPaid', 'Paid', 'Cancelled', 'Draft'];
 
 @Component({
   selector: 'app-invoice-list',
-  imports: [FormsModule, RouterLink, DatePipe, CurrencyPipe, Pager],
+  imports: [LocalDatePipe, TranslatePipe, FormsModule, RouterLink, CurrencyPipe, Pager],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (filters()) {
       <form class="filters" (ngSubmit)="page.set(1); load()">
         <div class="field">
-          <label for="inv-search">Search</label>
-          <input id="inv-search" name="search" type="search" placeholder="Invoice number or patient" [(ngModel)]="search" />
+          <label for="inv-search">{{ 'Search' | t }}</label>
+          <input id="inv-search" name="search" type="search" [placeholder]="'Invoice number or patient' | t" [(ngModel)]="search" />
         </div>
         <div class="field">
-          <label for="inv-status">Status</label>
+          <label for="inv-status">{{ 'Status' | t }}</label>
           <select id="inv-status" name="status" [(ngModel)]="status" (ngModelChange)="page.set(1); load()">
-            <option [ngValue]="null">All</option>
-            @for (s of statuses; track s) { <option [ngValue]="s">{{ words(s) }}</option> }
+            <option [ngValue]="null">{{ 'All' | t }}</option>
+            @for (s of statuses; track s) { <option [ngValue]="s">{{ words(s) | t }}</option> }
           </select>
         </div>
-        <div class="field"><label for="inv-from">From</label><input id="inv-from" name="from" type="date" [(ngModel)]="from" (change)="page.set(1); load()" /></div>
-        <div class="field"><label for="inv-to">To</label><input id="inv-to" name="to" type="date" [(ngModel)]="to" (change)="page.set(1); load()" /></div>
+        <div class="field"><label for="inv-from">{{ 'From' | t }}</label><input id="inv-from" name="from" type="date" [(ngModel)]="from" (change)="page.set(1); load()" /></div>
+        <div class="field"><label for="inv-to">{{ 'To' | t }}</label><input id="inv-to" name="to" type="date" [(ngModel)]="to" (change)="page.set(1); load()" /></div>
       </form>
     }
 
     @if (error()) { <p class="alert error" role="alert">{{ error() }}</p> }
-    @if (loading() && !result()) { <p class="muted">Loading...</p> }
+    @if (loading() && !result()) { <p class="muted">{{ 'Loading...' | t }}</p> }
 
     @if (result(); as data) {
       @if (data.items.length === 0) {
-        <p class="empty card muted">No invoices.</p>
+        <p class="empty card muted">{{ 'No invoices.' | t }}</p>
       } @else {
         <div class="table-wrap" [class.dim]="loading()">
           <table class="table">
             <thead>
               <tr>
-                <th>Invoice</th><th>Issued</th>@if (showPatient()) { <th>Patient</th> }
-                <th class="right">Total</th><th class="right">Insurance</th><th class="right">Balance</th><th>Status</th>
+                <th>{{ 'Invoice' | t }}</th><th>{{ 'Issued' | t }}</th>@if (showPatient()) { <th>{{ 'Patient' | t }}</th> }
+                <th class="right">{{ 'Total' | t }}</th><th class="right">{{ 'Insurance' | t }}</th><th class="right">{{ 'Balance' | t }}</th><th>{{ 'Status' | t }}</th>
               </tr>
             </thead>
             <tbody>
               @for (i of data.items; track i.id) {
                 <tr>
                   <td><a [routerLink]="['/invoices', i.id]">{{ i.invoiceNumber }}</a></td>
-                  <td>{{ i.issueDate | date: 'd MMM y' }}</td>
+                  <td>{{ i.issueDate | ldate: 'medium' }}</td>
                   @if (showPatient()) { <td>{{ i.patientName }}</td> }
                   <td class="right">{{ i.totalAmount | currency: 'GEL' : 'symbol-narrow' }}</td>
                   <td class="right">{{ i.insuranceCoverage | currency: 'GEL' : 'symbol-narrow' }}</td>
                   <td class="right"><strong>{{ i.balance | currency: 'GEL' : 'symbol-narrow' }}</strong></td>
-                  <td><span [class]="'badge inv-' + i.status.toLowerCase()">{{ words(i.status) }}</span></td>
+                  <td><span [class]="'badge inv-' + i.status.toLowerCase()">{{ words(i.status) | t }}</span></td>
                 </tr>
               }
             </tbody>

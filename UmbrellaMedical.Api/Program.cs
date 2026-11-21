@@ -98,6 +98,9 @@ namespace UmbrellaMedical.Api
             builder.Services.AddSingleton<IFileStorage, LocalFileStorage>();
             builder.Services.AddHostedService<AppointmentReminderWorker>();
             builder.Services.AddHostedService<NotificationEmailWorker>();
+            builder.Services.AddSingleton<IClinicText, ClinicText>();
+            builder.Services.AddSingleton<PresenceTracker>();
+            builder.Services.AddScoped<IVisitSummaryPdf, VisitSummaryPdf>();
 
             builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
             builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Email"));
@@ -249,7 +252,10 @@ namespace UmbrellaMedical.Api
                 // Demo patients (password "Patient123") with past visits and 2-3 reviews per doctor.
                 // Always in Development; on a server only when Seed:DemoPatients is true (a showcase site).
                 if (isDev || builder.Configuration.GetValue<bool>("Seed:DemoPatients"))
+                {
                     await DemoReviewsSeeder.SeedAsync(db);
+                    await DemoVisitRecordsSeeder.SeedAsync(db);   // doctor's notes for the demo visits
+                }
 
                 // Pharmacy product photos for products that have none yet.
                 var photos = await ProductImageSeeder.SeedAsync(db, scope.ServiceProvider.GetRequiredService<IFileStorage>(), app.Environment.ContentRootPath);

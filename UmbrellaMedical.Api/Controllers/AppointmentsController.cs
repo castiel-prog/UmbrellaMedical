@@ -308,7 +308,7 @@ namespace UmbrellaMedical.Api.Controllers
                 };
 
                 if (_current.Role != "Patient")
-                    await QueueForPatientAsync(patientId, "Appointment booked", $"An appointment was booked for you on {NotificationText.When(start)}.", null);
+                    await QueueForPatientAsync(patientId, t => (t.T("Appointment booked"), t.T("An appointment was booked for you on {when}.", ("when", t.When(start)))), null);
 
                 _db.Appointments.Add(appointment);
                 await _db.SaveChangesAsync();
@@ -318,12 +318,12 @@ namespace UmbrellaMedical.Api.Controllers
 
                 // Tell the doctor about the new visit (saved in the same transaction).
                 var patientName = await PatientNameAsync(patientId);
-                var what = _current.Role == "Patient"
-                    ? $"{patientName} booked {service.Name} with you"
-                    : $"The clinic booked {service.Name} for {patientName} with you";
-                var reasonText = string.IsNullOrWhiteSpace(appointment.Reason) ? "" : $" Reason: {appointment.Reason}";
-                if (await QueueForDoctorAsync(appointment.DoctorId, "New appointment booked",
-                        $"{what} on {NotificationText.When(start)}.{reasonText}",
+                var byPatient = _current.Role == "Patient";
+                if (await QueueForDoctorAsync(appointment.DoctorId, t => (t.T("New appointment booked"),
+                        (byPatient
+                            ? t.T("{patient} booked {service} with you on {when}.", ("patient", patientName), ("service", service.Name), ("when", t.When(start)))
+                            : t.T("The clinic booked {service} for {patient} with you on {when}.", ("patient", patientName), ("service", service.Name), ("when", t.When(start))))
+                        + (string.IsNullOrWhiteSpace(appointment.Reason) ? "" : " " + t.T("Reason: {reason}", ("reason", appointment.Reason)))),
                         appointment.Id))
                     await _db.SaveChangesAsync();
 
@@ -394,10 +394,11 @@ namespace UmbrellaMedical.Api.Controllers
                 appointment.ReminderSent = false;
 
                 if (_current.Role != "Patient")
-                    await QueueForPatientAsync(appointment.PatientId, "Appointment rescheduled", $"Your appointment was moved to {NotificationText.When(start)}.", appointment.Id);
+                    await QueueForPatientAsync(appointment.PatientId, t => (t.T("Appointment rescheduled"), t.T("Your appointment was moved to {when}.", ("when", t.When(start)))), appointment.Id);
 
-                await QueueForDoctorAsync(appointment.DoctorId, "Appointment rescheduled",
-                    $"{await PatientNameAsync(appointment.PatientId)}'s {appointment.Service.Name} visit moved from {NotificationText.When(previousStart)} to {NotificationText.When(start)}.",
+                var movedPatient = await PatientNameAsync(appointment.PatientId);
+                await QueueForDoctorAsync(appointment.DoctorId, t => (t.T("Appointment rescheduled"),
+                    t.T("{patient}'s {service} visit moved from {from} to {to}.", ("patient", movedPatient), ("service", appointment.Service.Name), ("from", t.When(previousStart)), ("to", t.When(start)))),
                     appointment.Id);
 
                 await _db.SaveChangesAsync();
@@ -439,16 +440,19 @@ namespace UmbrellaMedical.Api.Controllers
 
             // A visit paid online is refunded in full when it is cancelled.
             var refunded = await _prepaid.RefundForCancelledVisitAsync(appointment.Id, HttpContext.RequestAborted);
-            var refundText = refunded > 0 ? $" Your payment of {CardValidation.Money(refunded)} GEL was refunded to your card." : "";
+            string RefundNote(Localizer t) => refunded > 0 ? " " + t.T("Your payment of {amount} was refunded to your card.", ("amount", t.Money(refunded))) : "";
+            var byThePatient = _current.Role == "Patient";
 
-            await QueueForPatientAsync(appointment.PatientId, "Appointment cancelled",
-                _current.Role == "Patient"
-                    ? $"You cancelled your appointment on {NotificationText.When(appointment.StartDateTime)}.{refundText}"
-                    : $"Your appointment on {NotificationText.When(appointment.StartDateTime)} was cancelled. Reason: {appointment.CancellationReason}.{refundText}",
+            await QueueForPatientAsync(appointment.PatientId, t => (t.T("Appointment cancelled"),
+                (byThePatient
+                    ? t.T("You cancelled your appointment on {when}.", ("when", t.When(appointment.StartDateTime)))
+                    : t.T("Your appointment on {when} was cancelled. Reason: {reason}.", ("when", t.When(appointment.StartDateTime)), ("reason", appointment.CancellationReason)))
+                + RefundNote(t)),
                 appointment.Id);
 
-            await QueueForDoctorAsync(appointment.DoctorId, "Appointment cancelled",
-                $"{await PatientNameAsync(appointment.PatientId)}'s visit on {NotificationText.When(appointment.StartDateTime)} was cancelled. Reason: {appointment.CancellationReason}",
+            var cancelledPatient = await PatientNameAsync(appointment.PatientId);
+            await QueueForDoctorAsync(appointment.DoctorId, t => (t.T("Appointment cancelled"),
+                t.T("{patient}'s visit on {when} was cancelled. Reason: {reason}", ("patient", cancelledPatient), ("when", t.When(appointment.StartDateTime)), ("reason", appointment.CancellationReason))),
                 appointment.Id);
 
             await _db.SaveChangesAsync();
@@ -575,7 +579,7 @@ namespace UmbrellaMedical.Api.Controllers
             }
         }
 
-        private async Task QueueForPatientAsync(int patientId, string title, string message, int? appointmentId)
+        private async Task QueueForPatientAsync(int patientId, Func<Localizer, (string Title, string Message)> build, int? appointmentId)
         {
             var userId = await _db.Patients
                 .Where(p => p.Id == patientId)
@@ -583,14 +587,14 @@ namespace UmbrellaMedical.Api.Controllers
                 .FirstOrDefaultAsync();
 
             if (userId is not null)
-                _notifications.Queue(userId.Value, title, message, appointmentId);
+                _notifications.Queue(userId.Value, build, appointmentId);
         }
 
         /// <summary>
         /// Queues a notification for the doctor's account, unless the doctor made the change themselves.
         /// Returns true when a notification was queued.
         /// </summary>
-        private async Task<bool> QueueForDoctorAsync(int doctorId, string title, string message, int? appointmentId)
+        private async Task<bool> QueueForDoctorAsync(int doctorId, Func<Localizer, (string Title, string Message)> build, int? appointmentId)
         {
             var userId = await _db.Doctors
                 .Where(d => d.Id == doctorId)
@@ -599,7 +603,7 @@ namespace UmbrellaMedical.Api.Controllers
 
             if (userId is null || userId == _current.UserId) return false;
 
-            _notifications.Queue(userId.Value, title, message, appointmentId);
+            _notifications.Queue(userId.Value, build, appointmentId);
             return true;
         }
 

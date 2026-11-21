@@ -137,7 +137,13 @@ public static class DbSeeder
         ("Amlodipine", "Amlodipine", "Tablet", "5 mg"),
         ("Lisinopril", "Lisinopril", "Tablet", "10 mg"),
         ("Losartan", "Losartan", "Tablet", "50 mg"),
-        ("Salbutamol", "Salbutamol", "Inhaler", "100 mcg")
+        ("Salbutamol", "Salbutamol", "Inhaler", "100 mcg"),
+        ("Prednisolone", "Prednisolone", "Tablet", "5 mg"),
+        ("Ciprofloxacin", "Ciprofloxacin", "Tablet", "500 mg"),
+        ("Pantoprazole", "Pantoprazole", "Tablet", "40 mg"),
+        ("Bisoprolol", "Bisoprolol", "Tablet", "5 mg"),
+        ("Montelukast", "Montelukast", "Tablet", "10 mg"),
+        ("Clopidogrel", "Clopidogrel", "Tablet", "75 mg")
     };
 
     private static async Task EnsureMedicationsAsync(UmbrellaDbContext db)
@@ -231,7 +237,48 @@ public static class DbSeeder
 
         new("Blood glucose meter", ProductCategory.Devices, 59.00m, 15, "1 kit", "Meter with 10 strips and a lancing device."),
         new("Compressor nebuliser", ProductCategory.Devices, 119.00m, 8, "1 piece", "For inhaled medicines at home, for adults and children."),
-        new("Digital bathroom scale", ProductCategory.Devices, 49.00m, 12, "1 piece", "Accurate to 100 g, with a large display.")
+        new("Digital bathroom scale", ProductCategory.Devices, 49.00m, 12, "1 piece", "Accurate to 100 g, with a large display."),
+
+        // Second pharmacy expansion
+        new("Aspirin 500 mg", ProductCategory.Medicines, 4.20m, 100, "20 tablets", "For headache, pain and fever. Not for children under 16."),
+        new("Naproxen 220 mg", ProductCategory.Medicines, 7.80m, 60, "20 tablets", "Long-lasting relief for period pain, back pain and toothache."),
+        new("Loperamide 2 mg", ProductCategory.Medicines, 5.40m, 70, "12 capsules", "Stops sudden diarrhoea. For adults and children over 12."),
+        new("Antibiotic ointment", ProductCategory.Medicines, 9.60m, 45, "28 g", "Helps prevent infection in minor cuts, scrapes and burns."),
+        new("Nicotine patches", ProductCategory.Medicines, 39.00m, 25, "14 patches", "24-hour patches that help you stop smoking."),
+        new("Allergy eye drops", ProductCategory.Medicines, 10.90m, 40, "10 ml", "Relieves itchy, watery eyes caused by hay fever."),
+        new("Motion sickness tablets", ProductCategory.Medicines, 6.80m, 50, "10 tablets", "Prevents travel sickness. Take 30 minutes before the journey."),
+        new("Children's paracetamol syrup", ProductCategory.Medicines, 8.50m, 60, "100 ml", "Strawberry-flavoured syrup for fever and pain, from 3 months."),
+        new("Prednisolone 5 mg", ProductCategory.Medicines, 6.50m, 30, "30 tablets", "Corticosteroid for inflammation and allergies. Prescription required.", "Prednisolone"),
+        new("Ciprofloxacin 500 mg", ProductCategory.Medicines, 11.20m, 30, "10 tablets", "Antibiotic. Prescription required.", "Ciprofloxacin"),
+        new("Pantoprazole 40 mg", ProductCategory.Medicines, 10.60m, 40, "28 tablets", "For stomach ulcers and reflux. Prescription required.", "Pantoprazole"),
+        new("Bisoprolol 5 mg", ProductCategory.Medicines, 8.10m, 35, "30 tablets", "For high blood pressure and heart rhythm. Prescription required.", "Bisoprolol"),
+        new("Montelukast 10 mg", ProductCategory.Medicines, 15.80m, 30, "28 tablets", "Prevents asthma attacks and allergy symptoms. Prescription required.", "Montelukast"),
+        new("Clopidogrel 75 mg", ProductCategory.Medicines, 13.40m, 30, "28 tablets", "Helps prevent blood clots. Prescription required.", "Clopidogrel"),
+
+        new("Vitamin B12 1000 mcg", ProductCategory.Vitamins, 12.60m, 50, "60 tablets", "Supports energy and the nervous system."),
+        new("Melatonin 3 mg", ProductCategory.Vitamins, 14.20m, 45, "30 tablets", "Helps you fall asleep, also after travel across time zones."),
+        new("Biotin for hair and nails", ProductCategory.Vitamins, 16.50m, 40, "60 capsules", "Biotin, zinc and selenium for healthy hair and nails."),
+        new("Vitamin E 400 IU", ProductCategory.Vitamins, 13.80m, 40, "30 softgels", "Antioxidant that protects cells."),
+        new("Electrolyte effervescent tablets", ProductCategory.Vitamins, 9.30m, 60, "20 tablets", "Replaces salts after exercise or on hot days."),
+        new("Cod liver oil capsules", ProductCategory.Vitamins, 15.90m, 35, "90 capsules", "Omega-3 with vitamins A and D."),
+
+        new("Aloe vera gel", ProductCategory.PersonalCare, 9.80m, 50, "200 ml", "Cools and soothes sunburn and dry skin."),
+        new("Nappy rash cream", ProductCategory.PersonalCare, 8.40m, 55, "100 g", "Zinc oxide cream that protects babies' skin."),
+        new("Insect repellent spray", ProductCategory.PersonalCare, 12.90m, 40, "100 ml", "Protects against mosquitoes and ticks for up to 8 hours."),
+        new("Contact lens case", ProductCategory.PersonalCare, 3.90m, 60, "1 piece", "Leak-proof case for storing soft contact lenses. Replace every 3 months."),
+        new("Gentle facial cleanser", ProductCategory.PersonalCare, 13.20m, 40, "250 ml", "Soap-free cleanser for sensitive skin."),
+
+        new("Antiseptic mouthwash", ProductCategory.Hygiene, 8.70m, 60, "500 ml", "Kills germs that cause bad breath and plaque."),
+        new("Reusable cloth pads", ProductCategory.Hygiene, 18.50m, 30, "3 pads", "Soft washable cotton pads, a low-waste choice for normal flow."),
+        new("Disinfectant wipes", ProductCategory.Hygiene, 6.40m, 70, "60 wipes", "Cleans and disinfects surfaces at home and work."),
+        new("Baby shampoo", ProductCategory.Hygiene, 7.60m, 50, "300 ml", "No-tears formula for babies and children."),
+        new("Blister plasters", ProductCategory.FirstAid, 7.90m, 60, "6 plasters", "Cushioning gel plasters that relieve blister pain."),
+        new("Hot water bottle", ProductCategory.FirstAid, 12.50m, 30, "2 litres", "Rubber bottle with a soft cover for aches and cramps."),
+        new("Weekly pill organiser", ProductCategory.Devices, 6.90m, 60, "1 piece", "Seven days, morning and evening compartments."),
+        new("Knee support brace", ProductCategory.Devices, 29.00m, 25, "1 piece, size M/L", "Adjustable support for weak or painful knees."),
+        new("Wrist blood pressure monitor", ProductCategory.Devices, 65.00m, 15, "1 piece", "Compact automatic monitor, easy to take on trips."),
+        new("Adjustable walking stick", ProductCategory.Devices, 34.00m, 15, "1 piece", "Lightweight aluminium stick with a soft grip."),
+        new("Pregnancy test", ProductCategory.Devices, 8.90m, 50, "2 tests", "Early result from the day your period is due.")
     };
 
     /// <summary>Adds any missing store product by name. Existing products (and their prices or stock) are left alone.</summary>

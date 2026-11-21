@@ -4,57 +4,59 @@ import { MedicalApi } from '../core/medical.api';
 import { PatientsApi } from '../core/patients.api';
 import { Allergy, AllergySeverity, PatientAllergy } from '../core/model';
 import { apiErrorMessage } from '../core/api-error';
+import { I18n, TranslatePipe } from '../core/i18n';
 import { orNull } from '../core/util';
 
 interface Row { allergyId: number | null; severity: AllergySeverity; notes: string; }
 
 @Component({
   selector: 'app-allergies-panel',
-  imports: [FormsModule],
+  imports: [TranslatePipe, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (error()) { <p class="alert error" role="alert">{{ error() }}</p> }
 
     @if (!editing()) {
       @if (allergies().length === 0) {
-        <p class="muted">No known allergies.</p>
+        <p class="muted">{{ 'No known allergies.' | t }}</p>
       } @else {
         <ul class="chips">
           @for (a of allergies(); track a.allergyId) {
             <li [class]="'chip sev-' + a.severity.toLowerCase()" [title]="a.notes ?? ''">
-              {{ a.name }} · {{ a.severity }}@if (a.notes) { · {{ a.notes }} }
+              {{ a.name }} · {{ a.severity | t }}@if (a.notes) { · {{ a.notes }} }
             </li>
           }
         </ul>
       }
       @if (canEdit()) {
-        <button class="btn small" type="button" (click)="startEdit()">Edit allergies</button>
+        <button class="btn small" type="button" (click)="startEdit()">{{ 'Edit allergies' | t }}</button>
       }
     } @else {
       @for (row of rows(); track $index; let i = $index) {
         <div class="allergy-row">
           <select [attr.aria-label]="'Allergy ' + (i + 1)" [(ngModel)]="row.allergyId">
-            <option [ngValue]="null" disabled>Choose an allergy</option>
+            <option [ngValue]="null" disabled>{{ 'Choose an allergy' | t }}</option>
             @for (a of catalog(); track a.id) { <option [ngValue]="a.id">{{ a.name }}</option> }
           </select>
           <select [attr.aria-label]="'Severity ' + (i + 1)" [(ngModel)]="row.severity">
-            <option value="Mild">Mild</option>
-            <option value="Moderate">Moderate</option>
-            <option value="Severe">Severe</option>
+            <option value="Mild">{{ 'Mild' | t }}</option>
+            <option value="Moderate">{{ 'Moderate' | t }}</option>
+            <option value="Severe">{{ 'Severe' | t }}</option>
           </select>
-          <input [attr.aria-label]="'Notes ' + (i + 1)" placeholder="Notes" maxlength="500" [(ngModel)]="row.notes" />
-          <button class="btn small danger" type="button" aria-label="Remove" (click)="rows.set(removeAt(i))">✕</button>
+          <input [attr.aria-label]="'Notes ' + (i + 1)" [placeholder]="'Notes' | t" maxlength="500" [(ngModel)]="row.notes" />
+          <button class="btn small danger" type="button" [attr.aria-label]="'Remove' | t" (click)="rows.set(removeAt(i))">✕</button>
         </div>
       }
       <div class="card-actions">
-        <button class="btn small" type="button" (click)="rows.set([...rows(), { allergyId: null, severity: 'Mild', notes: '' }])">Add allergy</button>
-        <button class="btn small primary" type="button" (click)="save()" [disabled]="busy()">Save</button>
-        <button class="btn small" type="button" (click)="editing.set(false)">Cancel</button>
+        <button class="btn small" type="button" (click)="rows.set([...rows(), { allergyId: null, severity: 'Mild', notes: '' }])">{{ 'Add allergy' | t }}</button>
+        <button class="btn small primary" type="button" (click)="save()" [disabled]="busy()">{{ 'Save' | t }}</button>
+        <button class="btn small" type="button" (click)="editing.set(false)">{{ 'Cancel' | t }}</button>
       </div>
     }
   `
 })
 export class AllergiesPanel {
+  protected readonly i18n = inject(I18n);
   private readonly medical = inject(MedicalApi);
   private readonly patients = inject(PatientsApi);
 
@@ -86,7 +88,7 @@ export class AllergiesPanel {
     const rows = this.rows().filter(r => r.allergyId !== null);
     const ids = rows.map(r => r.allergyId);
     if (new Set(ids).size !== ids.length) {
-      this.error.set('Each allergy can be listed only once.');
+      this.error.set(this.i18n.t('Each allergy can be listed only once.'));
       return;
     }
 

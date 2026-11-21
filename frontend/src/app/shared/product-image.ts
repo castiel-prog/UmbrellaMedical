@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input, signal } from '@angular/core';
+import { TranslatePipe } from '../core/i18n';
 import { ProductCategory } from '../core/model';
 
 type Shape =
@@ -69,6 +70,7 @@ function labelLines(name: string): [string, string] {
  */
 @Component({
   selector: 'app-product-image',
+  imports: [TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (imageUrl() && !failed()) {
@@ -100,7 +102,7 @@ function labelLines(name: string): [string, string] {
             <rect x="52" y="36" width="56" height="72" rx="14" [attr.fill]="color()[0]" />
             <rect x="58" y="56" width="44" height="32" rx="4" fill="#fff" />
             <text x="80" y="70" text-anchor="middle" class="t2b" [attr.textLength]="fit(label()[0], 40, 5.6)" lengthAdjust="spacingAndGlyphs" [attr.fill]="color()[1]">{{ label()[0] }}</text>
-            <text x="80" y="82" text-anchor="middle" class="t3">nasal spray</text>
+            <text x="80" y="82" text-anchor="middle" class="t3">{{ 'nasal spray' | t }}</text>
           }
           @case ('tub') {
             <rect x="44" y="20" width="72" height="18" rx="5" [attr.fill]="color()[1]" />
@@ -121,7 +123,7 @@ function labelLines(name: string): [string, string] {
             <rect x="60" y="14" width="40" height="30" rx="14" fill="#e9ecef" stroke="#ced4da" />
             <rect x="56" y="40" width="48" height="68" rx="10" [attr.fill]="color()[0]" />
             <rect x="62" y="58" width="36" height="30" rx="3" fill="#fff" />
-            <text x="80" y="72" text-anchor="middle" class="t3b" [attr.fill]="color()[1]">deodorant</text>
+            <text x="80" y="72" text-anchor="middle" class="t3b" [attr.fill]="color()[1]">{{ 'deodorant' | t }}</text>
             <text x="80" y="83" text-anchor="middle" class="t3">48h</text>
           }
           @case ('bottle') {
@@ -137,14 +139,14 @@ function labelLines(name: string): [string, string] {
             <rect x="66" y="32" width="28" height="10" rx="3" fill="#868e96" />
             <rect x="48" y="40" width="64" height="68" rx="10" [attr.fill]="color()[0]" opacity="0.9" />
             <rect x="54" y="58" width="52" height="30" rx="3" fill="#fff" />
-            <text x="80" y="72" text-anchor="middle" class="t2b" [attr.fill]="color()[1]">hand gel</text>
-            <text x="80" y="83" text-anchor="middle" class="t3">70% alcohol</text>
+            <text x="80" y="72" text-anchor="middle" class="t2b" [attr.fill]="color()[1]">{{ 'hand gel' | t }}</text>
+            <text x="80" y="83" text-anchor="middle" class="t3">{{ '70% alcohol' | t }}</text>
           }
           @case ('pads') {
             <rect x="34" y="34" width="92" height="74" rx="8" [attr.fill]="color()[0]" opacity="0.25" />
             @for (i of [0, 1, 2, 3, 4]; track i) { <ellipse cx="80" [attr.cy]="96 - i * 12" rx="38" ry="12" fill="#fff" stroke="#dee2e6" /> }
             <rect x="34" y="34" width="92" height="14" rx="6" [attr.fill]="color()[0]" />
-            <text x="80" y="45" text-anchor="middle" class="t3b" fill="#fff">cotton pads</text>
+            <text x="80" y="45" text-anchor="middle" class="t3b" fill="#fff">{{ 'cotton pads' | t }}</text>
           }
           @case ('swabs') {
             <rect x="30" y="40" width="100" height="66" rx="10" [attr.fill]="color()[0]" opacity="0.25" />
@@ -155,7 +157,7 @@ function labelLines(name: string): [string, string] {
               </g>
             }
             <rect x="30" y="86" width="100" height="20" rx="6" [attr.fill]="color()[0]" />
-            <text x="80" y="100" text-anchor="middle" class="t3b" fill="#fff">cotton swabs</text>
+            <text x="80" y="100" text-anchor="middle" class="t3b" fill="#fff">{{ 'cotton swabs' | t }}</text>
           }
           @case ('mask') {
             <path d="M40 50 Q80 34 120 50 L114 92 Q80 108 46 92 Z" fill="#a5d8ff" stroke="#74c0fc" />

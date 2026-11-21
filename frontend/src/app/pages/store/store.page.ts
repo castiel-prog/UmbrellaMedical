@@ -8,10 +8,24 @@ import { Product, ProductCategory } from '../../core/model';
 import { apiErrorMessage } from '../../core/api-error';
 import { ProductImage } from '../../shared/product-image';
 import { Pager } from '../../shared/pager';
-import { TranslatePipe } from '../../core/i18n';
+import { I18n, TranslatePipe } from '../../core/i18n';
 import { AuthService } from '../../core/auth.service';
 
 const CATEGORIES = Object.keys(CATEGORY_INFO) as ProductCategory[];
+
+type PriceBand = 'any' | 'u10' | '10-25' | '25-50' | '50+';
+type RxFilter = 'all' | 'otc' | 'rx';
+type SortId = 'featured' | 'name' | 'priceAsc' | 'priceDesc';
+type FilterId = 'search' | 'category' | 'price' | 'rx' | 'stock';
+
+/** Price ranges in GEL (min included, max excluded). */
+const PRICE_BANDS: { id: PriceBand; label: string; price: string; min: number; max: number }[] = [
+  { id: 'any', label: 'Any price', price: '', min: 0, max: Infinity },
+  { id: 'u10', label: 'Under {price}', price: '₾10', min: 0, max: 10 },
+  { id: '10-25', label: '{price}', price: '₾10–25', min: 10, max: 25 },
+  { id: '25-50', label: '{price}', price: '₾25–50', min: 25, max: 50 },
+  { id: '50+', label: '{price} and over', price: '₾50', min: 50, max: Infinity }
+];
 
 @Component({
   selector: 'app-store',
@@ -39,29 +53,90 @@ const CATEGORIES = Object.keys(CATEGORY_INFO) as ProductCategory[];
     }
     <div class="store-layout">
       <section>
-        <div class="store-filters" id="products-top">
-          <label for="store-search" class="sr-only">{{ 'Search products' | t }}</label>
-          <input id="store-search" type="search" [placeholder]="'Search products...' | t" [ngModel]="search()" (ngModelChange)="search.set($event); setPage(1, false)" />
-          <div class="chips" role="group" [attr.aria-label]="'Categories' | t">
-            <button type="button" class="chip-btn" [class.on]="category() === null" (click)="setCategory(null)">{{ 'All' | t }}</button>
+        <!-- Filters: search and sort, category tiles with live counts, then price / prescription / stock -->
+        <section class="card shop-filters" id="products-top" [attr.aria-label]="'Filters' | t">
+          <div class="shop-search-row">
+            <div class="shop-search">
+              <span class="shop-search-icon" aria-hidden="true">🔍</span>
+              <label for="store-search" class="sr-only">{{ 'Search products' | t }}</label>
+              <input id="store-search" type="search" [placeholder]="'Search products...' | t" [ngModel]="search()" (ngModelChange)="search.set($event); setPage(1, false)" />
+            </div>
+            <div class="shop-sort">
+              <label for="store-sort">{{ 'Sort by' | t }}</label>
+              <select id="store-sort" [ngModel]="sort()" (ngModelChange)="sort.set($event); setPage(1, false)">
+                @for (s of sorts; track s.id) { <option [value]="s.id">{{ s.label | t }}</option> }
+              </select>
+            </div>
+          </div>
+
+          <div class="cat-tiles" role="group" [attr.aria-label]="'Categories' | t">
+            <button type="button" class="cat-tile" [class.on]="category() === null" [attr.aria-pressed]="category() === null" (click)="setCategory(null)">
+              <span class="cat-icon" aria-hidden="true">🏥</span>
+              <span class="cat-name">{{ 'All products' | t }}</span>
+              <span class="cat-count">{{ countFor(null) }}</span>
+            </button>
             @for (c of categories; track c) {
-              <button type="button" class="chip-btn" [class.on]="category() === c" (click)="setCategory(c)">{{ info[c].icon }} {{ info[c].label | t }}</button>
+              <button type="button" class="cat-tile" [class.on]="category() === c" [attr.aria-pressed]="category() === c" (click)="setCategory(c)">
+                <span class="cat-icon" aria-hidden="true">{{ info[c].icon }}</span>
+                <span class="cat-name">{{ info[c].label | t }}</span>
+                <span class="cat-count">{{ countFor(c) }}</span>
+              </button>
             }
           </div>
-          <label class="check">
-            <input type="checkbox" [ngModel]="rxOnly()" (ngModelChange)="rxOnly.set($event); setPage(1, false)" /> {{ 'Prescription medicines only' | t }}
-          </label>
-        </div>
+
+          <div class="shop-refine">
+            <div class="refine-group" role="radiogroup" [attr.aria-label]="'Price' | t">
+              <span class="refine-label">{{ 'Price' | t }}</span>
+              <div class="pill-set">
+                @for (b of priceBands; track b.id) {
+                  <button type="button" class="pill" role="radio" [class.on]="price() === b.id" [attr.aria-checked]="price() === b.id" (click)="price.set(b.id); setPage(1, false)">{{ b.label | t: { price: b.price } }}</button>
+                }
+              </div>
+            </div>
+            <div class="refine-group" role="radiogroup" [attr.aria-label]="'Prescription' | t">
+              <span class="refine-label">{{ 'Prescription' | t }}</span>
+              <div class="pill-set">
+                @for (r of rxOptions; track r.id) {
+                  <button type="button" class="pill" role="radio" [class.on]="rx() === r.id" [attr.aria-checked]="rx() === r.id" (click)="rx.set(r.id); setPage(1, false)">{{ r.label | t }}</button>
+                }
+              </div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" role="switch" [ngModel]="inStock()" (ngModelChange)="inStock.set($event); setPage(1, false)" />
+              <span class="switch-track" aria-hidden="true"></span>
+              {{ 'In stock only' | t }}
+            </label>
+          </div>
+        </section>
 
         @if (error()) { <p class="alert error" role="alert">{{ error() }}</p> }
         @if (loading()) { <p class="muted">{{ 'Loading products...' | t }}</p> }
 
-        @if (!loading() && visible().length === 0) {
-          <p class="empty card muted">{{ 'No products match your search.' | t }}</p>
+        @if (!loading()) {
+          <div class="shop-results-bar">
+            <p class="muted small results-count">
+              @if (visible().length > 0) {
+                {{ 'Showing {from}–{to} of {total} products' | t: { from: (currentPage() - 1) * pageSize + 1, to: (currentPage() - 1) * pageSize + paged().length, total: visible().length } }}
+              } @else {
+                {{ 'No products match your search.' | t }}
+              }
+            </p>
+            @if (activeFilters().length > 0) {
+              <div class="active-filters">
+                @for (f of activeFilters(); track f.id) {
+                  <button type="button" class="active-chip" (click)="clearFilter(f.id)" [attr.aria-label]="'Remove filter {name}' | t: { name: f.text }">{{ f.text }} <span aria-hidden="true">×</span></button>
+                }
+                <button type="button" class="link-like small" (click)="clearAll()">{{ 'Clear all' | t }}</button>
+              </div>
+            }
+          </div>
         }
 
-        @if (!loading() && visible().length > 0) {
-          <p class="muted small results-count">{{ 'Showing {from}–{to} of {total} products' | t: { from: (currentPage() - 1) * pageSize + 1, to: (currentPage() - 1) * pageSize + paged().length, total: visible().length } }}</p>
+        @if (!loading() && visible().length === 0) {
+          <div class="empty card muted center">
+            <p>{{ 'Try a different search or fewer filters.' | t }}</p>
+            <button type="button" class="btn small" (click)="clearAll()">{{ 'Clear all' | t }}</button>
+          </div>
         }
 
         <div class="product-grid">
@@ -143,6 +218,7 @@ export class StorePage {
   private readonly router = inject(Router);
   protected readonly cart = inject(CartService);
   protected readonly auth = inject(AuthService);
+  private readonly i18n = inject(I18n);
 
   protected readonly categories = CATEGORIES;
   protected readonly info = CATEGORY_INFO;
@@ -151,18 +227,92 @@ export class StorePage {
   protected readonly error = signal<string | null>(null);
   protected readonly search = signal('');
   protected readonly category = signal<ProductCategory | null>(this.initialCategory());
-  protected readonly rxOnly = signal(false);
+  protected readonly price = signal<PriceBand>('any');
+  protected readonly rx = signal<RxFilter>('all');
+  protected readonly inStock = signal(false);
+  protected readonly sort = signal<SortId>('featured');
+
+  protected readonly sorts: { id: SortId; label: string }[] = [
+    { id: 'featured', label: 'Featured' },
+    { id: 'name', label: 'Name A–Z' },
+    { id: 'priceAsc', label: 'Price: low to high' },
+    { id: 'priceDesc', label: 'Price: high to low' }
+  ];
+  protected readonly priceBands = PRICE_BANDS;
+  protected readonly rxOptions: { id: RxFilter; label: string }[] = [
+    { id: 'all', label: 'All' },
+    { id: 'otc', label: 'No prescription' },
+    { id: 'rx', label: 'Prescription only' }
+  ];
 
   /** Nine products per page (a 3 x 3 grid on desktop). */
   protected readonly pageSize = 9;
   protected readonly page = signal(this.initialPage());
-  protected readonly visible = computed(() => {
+
+  /** Products matching everything except the category (the category tiles count from these). */
+  private readonly refined = computed(() => {
     const term = this.search().trim().toLowerCase();
+    const band = PRICE_BANDS.find(b => b.id === this.price())!;
     return this.products().filter(p =>
-      (this.category() === null || p.category === this.category())
-      && (!this.rxOnly() || p.requiresPrescription)
+      p.price >= band.min && p.price < band.max
+      && (this.rx() === 'all' || p.requiresPrescription === (this.rx() === 'rx'))
+      && (!this.inStock() || p.stock > 0)
       && (!term || p.name.toLowerCase().includes(term) || (p.description ?? '').toLowerCase().includes(term)));
   });
+
+  protected readonly visible = computed(() => {
+    const list = this.refined().filter(p => this.category() === null || p.category === this.category());
+    const lang = this.i18n.locale();
+    switch (this.sort()) {
+      case 'name': return [...list].sort((a, b) => a.name.localeCompare(b.name, lang));
+      case 'priceAsc': return [...list].sort((a, b) => a.price - b.price);
+      case 'priceDesc': return [...list].sort((a, b) => b.price - a.price);
+      default: return list;
+    }
+  });
+
+  private readonly counts = computed(() => {
+    const map = new Map<ProductCategory | null, number>([[null, this.refined().length]]);
+    for (const p of this.refined()) map.set(p.category, (map.get(p.category) ?? 0) + 1);
+    return map;
+  });
+
+  /** The filters in use, shown as removable chips above the products. */
+  protected readonly activeFilters = computed(() => {
+    const list: { id: FilterId; text: string }[] = [];
+    const t = (s: string, p?: Record<string, string | number>) => this.i18n.t(s, p);
+    if (this.search().trim()) list.push({ id: 'search', text: `“${this.search().trim()}”` });
+    const c = this.category();
+    if (c) list.push({ id: 'category', text: t(CATEGORY_INFO[c].label) });
+    const band = PRICE_BANDS.find(b => b.id === this.price())!;
+    if (band.id !== 'any') list.push({ id: 'price', text: t(band.label, { price: band.price }) });
+    if (this.rx() !== 'all') list.push({ id: 'rx', text: t(this.rx() === 'rx' ? 'Prescription only' : 'No prescription') });
+    if (this.inStock()) list.push({ id: 'stock', text: t('In stock only') });
+    return list;
+  });
+
+  protected countFor(category: ProductCategory | null): number {
+    return this.counts().get(category) ?? 0;
+  }
+
+  protected clearFilter(id: FilterId): void {
+    switch (id) {
+      case 'search': this.search.set(''); break;
+      case 'category': this.setCategory(null); return;
+      case 'price': this.price.set('any'); break;
+      case 'rx': this.rx.set('all'); break;
+      case 'stock': this.inStock.set(false); break;
+    }
+    this.setPage(1, false);
+  }
+
+  protected clearAll(): void {
+    this.search.set('');
+    this.price.set('any');
+    this.rx.set('all');
+    this.inStock.set(false);
+    this.setCategory(null);
+  }
 
   protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.visible().length / this.pageSize)));
   /** The page asked for, kept within range when a filter leaves fewer pages. */

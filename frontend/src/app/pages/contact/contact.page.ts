@@ -8,7 +8,7 @@ import { ProfileService } from '../../core/profile.service';
 import { apiErrorMessage } from '../../core/api-error';
 import { PHONE_PATTERN } from '../../core/util';
 import { ALWAYS_OPEN, CLINIC, OPENING_HOURS, hhmm, openStatus } from '../../core/clinic';
-import { I18n, TranslatePipe } from '../../core/i18n';
+import { dateFormatter, I18n, TranslatePipe } from '../../core/i18n';
 import { Icon } from '../../shared/icon';
 
 const TOPICS = ['Appointments', 'Billing and payments', 'Prescriptions', 'Pharmacy orders', 'Feedback', 'Other'];
@@ -156,7 +156,7 @@ export class ContactPage {
 
   /** Weekly hours starting Monday, in the chosen language, with today highlighted. */
   protected readonly hours = computed(() => {
-    const names = new Intl.DateTimeFormat(this.i18n.locale(), { weekday: 'long' });
+    const names = dateFormatter(this.i18n, { weekday: 'long' });
     const today = new Date().getDay();
     return [1, 2, 3, 4, 5, 6, 0].map(day => {
       const h = OPENING_HOURS[day];

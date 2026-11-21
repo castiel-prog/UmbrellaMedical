@@ -1,42 +1,42 @@
 import { ChangeDetectionStrategy, Component, inject, input, model, signal } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { catchError, debounceTime, distinctUntilChanged, map, of, switchMap } from 'rxjs';
 import { PatientsApi } from '../core/patients.api';
+import { LocalDatePipe, TranslatePipe } from '../core/i18n';
 import { PatientListItem } from '../core/model';
 
 /** Search box for staff to choose a patient by name or personal number. */
 @Component({
   selector: 'app-patient-picker',
-  imports: [DatePipe],
+  imports: [LocalDatePipe, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (selected(); as p) {
       <div class="picked">
         <span><strong>{{ p.firstName }} {{ p.lastName }}</strong> · <span class="muted">{{ p.personalNumber }}</span></span>
-        <button class="btn small" type="button" (click)="selected.set(null)">Change</button>
+        <button class="btn small" type="button" (click)="selected.set(null)">{{ 'Change' | t }}</button>
       </div>
     } @else {
       <div class="field">
-        <label [for]="inputId()">{{ label() }}</label>
+        <label [for]="inputId()">{{ label() | t }}</label>
         <input
           [id]="inputId()"
           type="search"
-          placeholder="Name or personal number"
+          [placeholder]="'Name or personal number' | t"
           autocomplete="off"
           [value]="term()"
           (input)="term.set($any($event.target).value)" />
       </div>
       @if (term().trim().length >= 2) {
         @if (results().length === 0) {
-          <p class="muted">No patients found.</p>
+          <p class="muted">{{ 'No patients found.' | t }}</p>
         }
         <ul class="pick-list">
           @for (p of results(); track p.id) {
             <li>
               <button type="button" (click)="selected.set(p)">
                 <strong>{{ p.firstName }} {{ p.lastName }}</strong>
-                <span class="muted">{{ p.personalNumber }} · born {{ p.dateOfBirth | date: 'd MMM y' }}</span>
+                <span class="muted">{{ p.personalNumber }} {{ '· born' | t }} {{ p.dateOfBirth | ldate: 'medium' }}</span>
               </button>
             </li>
           }

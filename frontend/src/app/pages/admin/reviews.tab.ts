@@ -1,25 +1,25 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AdminApi } from '../../core/admin.api';
 import { AdminReview, PagedResult } from '../../core/model';
 import { apiErrorMessage } from '../../core/api-error';
 import { StarRating } from '../../core/star-rating';
+import { LocalDatePipe, TranslatePipe } from '../../core/i18n';
 import { Pager } from '../../shared/pager';
 
 @Component({
   selector: 'app-admin-reviews',
-  imports: [FormsModule, DatePipe, RouterLink, StarRating, Pager],
+  imports: [LocalDatePipe, TranslatePipe, FormsModule, RouterLink, StarRating, Pager],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="filters">
       <div class="field">
-        <label for="rv-filter">Show</label>
+        <label for="rv-filter">{{ 'Show' | t }}</label>
         <select id="rv-filter" [(ngModel)]="isApproved" (ngModelChange)="page.set(1); load()">
-          <option [ngValue]="null">All reviews</option>
-          <option [ngValue]="true">Visible</option>
-          <option [ngValue]="false">Hidden</option>
+          <option [ngValue]="null">{{ 'All reviews' | t }}</option>
+          <option [ngValue]="true">{{ 'Visible' | t }}</option>
+          <option [ngValue]="false">{{ 'Hidden' | t }}</option>
         </select>
       </div>
     </div>
@@ -27,7 +27,7 @@ import { Pager } from '../../shared/pager';
     @if (error()) { <p class="alert error" role="alert">{{ error() }}</p> }
 
     @if (result(); as data) {
-      @if (data.items.length === 0) { <p class="empty card muted">No reviews.</p> }
+      @if (data.items.length === 0) { <p class="empty card muted">{{ 'No reviews.' | t }}</p> }
       <ul class="stack" [class.dim]="loading()">
         @for (r of data.items; track r.id) {
           <li class="card" [class.dim]="!r.isApproved">
@@ -35,12 +35,12 @@ import { Pager } from '../../shared/pager';
               <div>
                 <app-star-rating [value]="r.rating" />
                 <p class="muted">
-                  <a [routerLink]="['/doctors', r.doctorId]">Dr. {{ r.doctorName }}</a>
-                  · by {{ r.patientName }} · {{ r.createdAt | date: 'd MMM y' }}
+                  <a [routerLink]="['/doctors', r.doctorId]">{{ 'Dr. {p0}' | t: { p0: (r.doctorName) } }}</a>
+                  {{ '· by' | t }} {{ r.patientName }} · {{ r.createdAt | ldate: 'medium' }}
                 </p>
               </div>
               <button class="btn small" [class.danger]="r.isApproved" type="button" (click)="toggle(r)" [disabled]="busy() === r.id">
-                {{ r.isApproved ? 'Hide' : 'Show' }}
+                {{ (r.isApproved ? 'Hide' : 'Show') | t }}
               </button>
             </div>
             @if (r.comment) { <p class="pre-line">{{ r.comment }}</p> }
@@ -49,7 +49,7 @@ import { Pager } from '../../shared/pager';
       </ul>
       <app-pager [page]="page()" [pageSize]="pageSize" [totalCount]="data.totalCount" [disabled]="loading()" (pageChange)="page.set($event); load()" />
     } @else if (loading()) {
-      <p class="muted">Loading...</p>
+      <p class="muted">{{ 'Loading...' | t }}</p>
     }
   `
 })

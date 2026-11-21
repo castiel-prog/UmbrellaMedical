@@ -42,7 +42,6 @@ type Segment = { text: string; link?: string };
           <div class="bubble bot">
             {{ (mode() === 'ai' ? 'Hi! I am the Umbrella Assistant, an AI helper.' : 'Hi! I am the Umbrella Assistant, an automated helper.') | t }}
             {{ 'Ask me about our doctors, services, prices, booking, payments or how to use this site.' | t }}
-            @if (i18n.lang() !== 'en') { <em class="chat-lang-note">{{ 'The assistant replies in English.' | t }}</em> }
           </div>
 
           @if (messages().length === 0 && available() !== false) {
@@ -184,7 +183,7 @@ export class ChatWidget {
 
     // Only role and text go to the server; suggestion buttons stay in the browser.
     const history = this.messages().map(m => ({ role: m.role, content: m.content }));
-    this.http.post<{ reply: string; suggestions: string[] }>('/api/chat', { messages: history }).subscribe({
+    this.http.post<{ reply: string; suggestions: string[] }>('/api/chat', { messages: history, language: this.i18n.lang() }).subscribe({
       next: r => {
         this.sending.set(false);
         this.messages.set([...this.messages(), { role: 'assistant', content: r.reply, suggestions: r.suggestions ?? [] }]);

@@ -22,6 +22,11 @@ export class MedicalApi {
     return this.http.get<MedicalRecord>(`/api/medical-records/${id}`);
   }
 
+  /** The visit summary PDF, with labels in the given site language. */
+  recordPdf(id: number, lang: string): Observable<HttpResponse<Blob>> {
+    return this.http.get(`/api/medical-records/${id}/summary.pdf`, { params: { lang }, responseType: 'blob', observe: 'response' });
+  }
+
   createRecord(patientId: number, request: MedicalRecordRequest): Observable<MedicalRecord> {
     return this.http.post<MedicalRecord>(`/api/patients/${patientId}/medical-records`, request);
   }

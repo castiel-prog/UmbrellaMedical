@@ -30,6 +30,7 @@ export const WORK_NAV: NavItem[] = [
   { label: 'Working hours', path: '/working-hours', icon: 'clock', roles: ['Doctor'] },
   { label: 'Time off', path: '/time-off', icon: 'umbrella', roles: ['Doctor', 'Admin'] },
   { label: 'Staff schedule', path: '/staff-schedule', icon: 'calendar', roles: ['Receptionist', 'Admin'] },
+  { label: 'Support chat', path: '/support', icon: 'talk' },
   { label: 'Reports', path: '/reports', icon: 'chart', roles: ['Admin'] },
   { label: 'Administration', path: '/admin', icon: 'settings', roles: ['Admin'] }
 ];

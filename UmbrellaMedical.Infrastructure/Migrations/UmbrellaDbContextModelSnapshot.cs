@@ -1437,6 +1437,86 @@ namespace UmbrellaMedical.Infrastructure.Migrations
                     b.ToTable("StoreOrderItems");
                 });
 
+            modelBuilder.Entity("UmbrellaMedical.Domain.Entities.SupportConversation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("ContactMessageId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<bool>("IsClosed")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("LastMessageAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("StaffReadAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UserReadAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContactMessageId");
+
+                    b.HasIndex("UserId", "LastMessageAt");
+
+                    b.ToTable("SupportConversations");
+                });
+
+            modelBuilder.Entity("UmbrellaMedical.Domain.Entities.SupportMessage", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("ConversationId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<bool>("FromStaff")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("SenderUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("SentAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ConversationId");
+
+                    b.HasIndex("SenderUserId");
+
+                    b.ToTable("SupportMessages");
+                });
+
             modelBuilder.Entity("UmbrellaMedical.Domain.Entities.TimeOff", b =>
                 {
                     b.Property<int>("Id")
@@ -2162,6 +2242,43 @@ namespace UmbrellaMedical.Infrastructure.Migrations
                     b.Navigation("StoreOrder");
                 });
 
+            modelBuilder.Entity("UmbrellaMedical.Domain.Entities.SupportConversation", b =>
+                {
+                    b.HasOne("UmbrellaMedical.Domain.Entities.ContactMessage", "ContactMessage")
+                        .WithMany()
+                        .HasForeignKey("ContactMessageId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("UmbrellaMedical.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ContactMessage");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("UmbrellaMedical.Domain.Entities.SupportMessage", b =>
+                {
+                    b.HasOne("UmbrellaMedical.Domain.Entities.SupportConversation", "Conversation")
+                        .WithMany("Messages")
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("UmbrellaMedical.Domain.Entities.User", "Sender")
+                        .WithMany()
+                        .HasForeignKey("SenderUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Conversation");
+
+                    b.Navigation("Sender");
+                });
+
             modelBuilder.Entity("UmbrellaMedical.Domain.Entities.TimeOff", b =>
                 {
                     b.HasOne("UmbrellaMedical.Domain.Entities.Doctor", "Doctor")
@@ -2335,6 +2452,11 @@ namespace UmbrellaMedical.Infrastructure.Migrations
             modelBuilder.Entity("UmbrellaMedical.Domain.Entities.StoreOrder", b =>
                 {
                     b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("UmbrellaMedical.Domain.Entities.SupportConversation", b =>
+                {
+                    b.Navigation("Messages");
                 });
 
             modelBuilder.Entity("UmbrellaMedical.Domain.Entities.User", b =>

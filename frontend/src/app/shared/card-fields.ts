@@ -31,7 +31,7 @@ export function emptyCard(): CardFormValue {
           [ngModel]="card().expiry" (ngModelChange)="card().expiry = formatExpiry($event)" />
       </div>
       <div class="field">
-        <label for="cf-cvc">CVC</label>
+        <label for="cf-cvc">{{ 'CVC' | t }}</label>
         <input id="cf-cvc" name="cvc" autocomplete="cc-csc" inputmode="numeric" maxlength="4" placeholder="123" [(ngModel)]="card().cvc" />
       </div>
     </div>

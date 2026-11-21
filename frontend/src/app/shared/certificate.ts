@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { DecimalPipe } from '@angular/common';
 import { DoctorDetails, Education } from '../core/model';
+import { LocalDatePipe, TranslatePipe } from '../core/i18n';
 import { Logo } from './logo';
 
 /**
@@ -9,7 +10,7 @@ import { Logo } from './logo';
  */
 @Component({
   selector: 'app-certificate',
-  imports: [Logo, DatePipe, DecimalPipe],
+  imports: [LocalDatePipe, TranslatePipe, Logo, DecimalPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <article class="paper" [attr.aria-label]="title()">
@@ -18,40 +19,35 @@ import { Logo } from './logo';
 
         <header>
           <app-logo [size]="54" />
-          <p class="clinic">UMBRELLA MEDICAL CENTER</p>
+          <p class="clinic">{{ 'UMBRELLA MEDICAL CENTER' | t }}</p>
           <h3 class="title">{{ title() }}</h3>
         </header>
 
         @if (kind() === 'excellence') {
-          <p class="lead-in">This certificate is proudly presented to</p>
+          <p class="lead-in">{{ 'This certificate is proudly presented to' | t }}</p>
           <p class="name">{{ fullName() }}</p>
           <p class="body">
-            in recognition of outstanding skill, sound clinical judgement and genuine compassion in
-            <strong>{{ doctor().specialization }}</strong>.
-            Across {{ doctor().yearsOfExperience }} years of practice, {{ shortName() }} has consistently
-            delivered care that meets the highest standards of Umbrella Medical Center, earning the
-            trust and gratitude of patients and colleagues alike.
+            {{ 'in recognition of outstanding skill, sound clinical judgement and genuine compassion in' | t }}
+            <strong>{{ doctor().specialization }}</strong>{{ '. Across {p0} years of practice, {p1} has consistently delivered care that meets the highest standards of Umbrella Medical Center, earning the trust and gratitude of patients and colleagues alike.' | t: { p0: (doctor().yearsOfExperience), p1: (shortName()) } }}
           </p>
           @if (doctor().reviewCount > 0) {
-            <p class="rating">★ Rated {{ doctor().averageRating | number: '1.1-1' }} / 5 by {{ doctor().reviewCount }} patient{{ doctor().reviewCount === 1 ? '' : 's' }}</p>
+            <p class="rating">{{ '★ Rated {p0} / 5 by {p1} patient{p2}' | t: { p0: (doctor().averageRating | number: '1.1-1'), p1: (doctor().reviewCount), p2: (doctor().reviewCount === 1 ? '' : 's') } }}</p>
           }
         } @else {
-          <p class="lead-in">Umbrella Medical Center confirms that</p>
+          <p class="lead-in">{{ 'Umbrella Medical Center confirms that' | t }}</p>
           <p class="name">{{ fullName() }}</p>
           <p class="body">
-            holds the degree of <strong>{{ education()?.degree }}</strong>, awarded by
-            <strong>{{ education()?.institution }}</strong> in {{ education()?.graduationYear }}
-            after studies begun in {{ education()?.startYear }}, and is licensed to practise medicine
-            under licence no. <strong>{{ doctor().licenseNumber }}</strong>.
+            {{ 'holds the degree of' | t }} <strong>{{ education()?.degree }}</strong>{{ ', awarded by' | t }}
+            <strong>{{ education()?.institution }}</strong> {{ 'in {p0} after studies begun in {p1}, and is licensed to practise medicine under licence no.' | t: { p0: (education()?.graduationYear), p1: (education()?.startYear) } }} <strong>{{ doctor().licenseNumber }}</strong>.
           </p>
-          <p class="rating">Credentials reviewed and verified by the Umbrella Credentialing Office.</p>
+          <p class="rating">{{ 'Credentials reviewed and verified by the Umbrella Credentialing Office.' | t }}</p>
         }
 
         <footer>
           <div class="sign">
-            <span class="signature">{{ kind() === 'excellence' ? 'T. Morgan' : 'S. Hale' }}</span>
+            <span class="signature">{{ (kind() === 'excellence' ? 'T. Morgan' : 'S. Hale') | t }}</span>
             <span class="line"></span>
-            <small>{{ kind() === 'excellence' ? 'Chief Medical Officer' : 'Head of Credentialing' }}</small>
+            <small>{{ (kind() === 'excellence' ? 'Chief Medical Officer' : 'Head of Credentialing') | t }}</small>
           </div>
 
           <div class="seal" aria-hidden="true">
@@ -63,22 +59,22 @@ import { Logo } from './logo';
               <circle cx="60" cy="60" r="54" fill="none" stroke="#f3d9a4" stroke-width="1.5" />
               <circle cx="60" cy="60" r="33" fill="none" stroke="#f3d9a4" stroke-width="1.5" />
               <text fill="#f3d9a4" font-size="9" font-weight="700" letter-spacing="1.6">
-                <textPath [attr.href]="'#' + ringId()">UMBRELLA MEDICAL CENTER ★ CERTIFIED ★</textPath>
+                <textPath [attr.href]="'#' + ringId()">{{ 'UMBRELLA MEDICAL CENTER ★ CERTIFIED ★' | t }}</textPath>
               </text>
             </svg>
             <app-logo class="seal-logo" [size]="56" />
           </div>
 
           <div class="sign">
-            <span class="signature">{{ kind() === 'excellence' ? 'R. Lindqvist' : 'T. Morgan' }}</span>
+            <span class="signature">{{ (kind() === 'excellence' ? 'R. Lindqvist' : 'T. Morgan') | t }}</span>
             <span class="line"></span>
-            <small>{{ kind() === 'excellence' ? 'Board of Clinical Standards' : 'Chief Medical Officer' }}</small>
+            <small>{{ (kind() === 'excellence' ? 'Board of Clinical Standards' : 'Chief Medical Officer') | t }}</small>
           </div>
         </footer>
 
         <p class="meta">
-          {{ kind() === 'excellence' ? 'Awarded' : 'Verified' }} {{ doctor().memberSince | date: 'd MMMM y' }}
-          · Certificate no. {{ number() }}
+          {{ (kind() === 'excellence' ? 'Awarded' : 'Verified') | t }} {{ doctor().memberSince | ldate: 'long' }}
+          {{ '· Certificate no.' | t }} {{ number() }}
         </p>
       </div>
     </article>

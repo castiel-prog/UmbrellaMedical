@@ -20,6 +20,10 @@ public class ChatRequest
 {
     [Required, MinLength(1), MaxLength(40)]
     public List<ChatTurnDto> Messages { get; set; } = new();
+
+    /// <summary>The site language the visitor is using (en, ka, de, fr, it, es, ru); answers follow it.</summary>
+    [StringLength(5)]
+    public string? Language { get; set; }
 }
 
 public class ChatReplyDto
@@ -74,7 +78,7 @@ public class ChatController : ControllerBase
 
         try
         {
-            var answer = await _assistant.ReplyAsync(turns, cancellationToken);
+            var answer = await _assistant.ReplyAsync(turns, request.Language, cancellationToken);
             return Ok(new ChatReplyDto { Reply = answer.Text, Suggestions = answer.Suggestions.ToList() });
         }
         catch (AnthropicRateLimitException ex)

@@ -3,49 +3,51 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { PatientsApi } from '../core/patients.api';
 import { Gender, PatientDetails, PatientRequest } from '../core/model';
 import { apiErrorMessage } from '../core/api-error';
+import { I18n, TranslatePipe } from '../core/i18n';
 import { orNull, PHONE_PATTERN } from '../core/util';
 
 /** Create or edit a patient (reception and admin). */
 @Component({
   selector: 'app-patient-form',
-  imports: [ReactiveFormsModule],
+  imports: [TranslatePipe, ReactiveFormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <form class="card form-card" [formGroup]="form" (ngSubmit)="save()" novalidate>
-      <h3>{{ patient() ? 'Edit patient' : 'Register a patient' }}</h3>
+      <h3>{{ (patient() ? 'Edit patient' : 'Register a patient') | t }}</h3>
       @if (error()) { <p class="alert error" role="alert">{{ error() }}</p> }
 
       <div class="form-grid">
-        <div class="field"><label for="pf-first">First name</label><input id="pf-first" formControlName="firstName" maxlength="100" /></div>
-        <div class="field"><label for="pf-last">Last name</label><input id="pf-last" formControlName="lastName" maxlength="100" /></div>
+        <div class="field"><label for="pf-first">{{ 'First name' | t }}</label><input id="pf-first" formControlName="firstName" maxlength="100" /></div>
+        <div class="field"><label for="pf-last">{{ 'Last name' | t }}</label><input id="pf-last" formControlName="lastName" maxlength="100" /></div>
         @if (!patient()) {
-          <div class="field"><label for="pf-pn">Personal number</label><input id="pf-pn" formControlName="personalNumber" maxlength="20" /></div>
+          <div class="field"><label for="pf-pn">{{ 'Personal number' | t }}</label><input id="pf-pn" formControlName="personalNumber" maxlength="20" /></div>
         }
-        <div class="field"><label for="pf-dob">Date of birth</label><input id="pf-dob" type="date" formControlName="dateOfBirth" /></div>
+        <div class="field"><label for="pf-dob">{{ 'Date of birth' | t }}</label><input id="pf-dob" type="date" formControlName="dateOfBirth" /></div>
         <div class="field">
-          <label for="pf-gender">Gender</label>
+          <label for="pf-gender">{{ 'Gender' | t }}</label>
           <select id="pf-gender" formControlName="gender">
-            <option value="Male">Male</option>
-            <option value="Female">Female</option>
-            <option value="Other">Other</option>
+            <option value="Male">{{ 'Male' | t }}</option>
+            <option value="Female">{{ 'Female' | t }}</option>
+            <option value="Other">{{ 'Other' | t }}</option>
           </select>
         </div>
-        <div class="field"><label for="pf-phone">Phone</label><input id="pf-phone" type="tel" formControlName="phone" maxlength="30" autocomplete="tel" placeholder="+995 5XX XX XX XX" required /></div>
-        <div class="field"><label for="pf-email">Email</label><input id="pf-email" type="email" formControlName="email" maxlength="256" /></div>
-        <div class="field"><label for="pf-address">Address</label><input id="pf-address" formControlName="address" maxlength="300" /></div>
+        <div class="field"><label for="pf-phone">{{ 'Phone' | t }}</label><input id="pf-phone" type="tel" formControlName="phone" maxlength="30" autocomplete="tel" [placeholder]="'+995 5XX XX XX XX' | t" required /></div>
+        <div class="field"><label for="pf-email">{{ 'Email' | t }}</label><input id="pf-email" type="email" formControlName="email" maxlength="256" /></div>
+        <div class="field"><label for="pf-address">{{ 'Address' | t }}</label><input id="pf-address" formControlName="address" maxlength="300" /></div>
       </div>
       <div class="field">
-        <label for="pf-history">Medical history</label>
+        <label for="pf-history">{{ 'Medical history' | t }}</label>
         <textarea id="pf-history" rows="3" formControlName="medicalHistory" maxlength="4000"></textarea>
       </div>
       <div class="card-actions">
-        <button class="btn primary" type="submit" [disabled]="busy()">{{ busy() ? 'Saving...' : 'Save' }}</button>
-        <button class="btn" type="button" (click)="cancelled.emit()">Cancel</button>
+        <button class="btn primary" type="submit" [disabled]="busy()">{{ (busy() ? 'Saving...' : 'Save') | t }}</button>
+        <button class="btn" type="button" (click)="cancelled.emit()">{{ 'Cancel' | t }}</button>
       </div>
     </form>
   `
 })
 export class PatientForm implements OnInit {
+  protected readonly i18n = inject(I18n);
   private readonly api = inject(PatientsApi);
   private readonly fb = inject(FormBuilder);
 
@@ -84,7 +86,7 @@ export class PatientForm implements OnInit {
   protected save(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
-      this.error.set('Fill in the name, personal number (new patients), date of birth, a valid phone number and a valid email if given.');
+      this.error.set(this.i18n.t('Fill in the name, personal number (new patients), date of birth, a valid phone number and a valid email if given.'));
       return;
     }
     const v = this.form.getRawValue();

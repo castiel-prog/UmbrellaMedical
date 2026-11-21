@@ -60,6 +60,8 @@ namespace UmbrellaMedical.Infrastructure.Data
         public DbSet<StoreOrderItem> StoreOrderItems => Set<StoreOrderItem>();
         public DbSet<PrescriptionRequest> PrescriptionRequests => Set<PrescriptionRequest>();
         public DbSet<ContactMessage> ContactMessages => Set<ContactMessage>();
+        public DbSet<SupportConversation> SupportConversations => Set<SupportConversation>();
+        public DbSet<SupportMessage> SupportMessages => Set<SupportMessage>();
 
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
@@ -123,6 +125,14 @@ namespace UmbrellaMedical.Infrastructure.Data
             modelBuilder.Entity<StoreOrder>().Property(o => o.ReviewNote).HasMaxLength(500);
             modelBuilder.Entity<StoreOrder>().Property(o => o.CustomerName).HasMaxLength(100);
             modelBuilder.Entity<User>().Property(u => u.PreferredLanguage).HasMaxLength(5);
+            // Support chat
+            modelBuilder.Entity<SupportConversation>().Property(c => c.Subject).HasMaxLength(120);
+            modelBuilder.Entity<SupportConversation>().HasIndex(c => new { c.UserId, c.LastMessageAt });
+            modelBuilder.Entity<SupportConversation>().HasOne(c => c.User).WithMany().HasForeignKey(c => c.UserId).OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<SupportConversation>().HasOne(c => c.ContactMessage).WithMany().HasForeignKey(c => c.ContactMessageId).OnDelete(DeleteBehavior.SetNull);
+            modelBuilder.Entity<SupportMessage>().Property(m => m.Body).HasMaxLength(2000);
+            modelBuilder.Entity<SupportMessage>().HasOne(m => m.Conversation).WithMany(c => c.Messages).HasForeignKey(m => m.ConversationId).OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<SupportMessage>().HasOne(m => m.Sender).WithMany().HasForeignKey(m => m.SenderUserId).OnDelete(DeleteBehavior.Restrict);
             modelBuilder.Entity<User>().Property(u => u.PreferredTheme).HasMaxLength(10);
             modelBuilder.Entity<Notification>().HasIndex(n => n.EmailedAt);
             modelBuilder.Entity<StoreOrder>().Property(o => o.CustomerEmail).HasMaxLength(256);

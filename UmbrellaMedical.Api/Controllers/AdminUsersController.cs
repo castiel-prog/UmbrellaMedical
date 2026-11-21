@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using UmbrellaMedical.Api.Dtos.Admin;
@@ -114,12 +114,14 @@ public class AdminUsersController : ControllerBase
 
             // Tell the account holder. A failed email never undoes the status change; the admin is told instead.
             var name = await FirstNameAsync(id) ?? "there";
+            var l = new Localizer(HttpContext.RequestServices.GetRequiredService<IClinicText>(), user.PreferredLanguage);
             var mail = request.IsActive
-                ? EmailTemplates.AccountReactivated(name)
+                ? EmailTemplates.AccountReactivated(l, name)
                 : EmailTemplates.AccountDeactivated(
+                    l,
                     name,
                     string.Join(' ', request.Reason!.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)).Trim(),
-                    _clock.Now.ToString("d MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture));
+                    l.Date(_clock.Now));
             emailSent = await TrySendAsync(user.Id, user.Email, mail);
         }
 
@@ -157,7 +159,7 @@ public class AdminUsersController : ControllerBase
     {
         try
         {
-            await _email.SendAsync(to, mail.Subject, mail.Body, HttpContext.RequestAborted);
+            await _email.SendAsync(to, mail.Subject, mail.Body, HttpContext.RequestAborted, mail.Lang);
             return true;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

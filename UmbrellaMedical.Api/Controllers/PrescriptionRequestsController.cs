@@ -139,10 +139,13 @@ public class PrescriptionRequestsController : ControllerBase
         await _db.SaveChangesAsync();
 
         var patientName = await _db.Patients.Where(p => p.Id == patientId.Value).Select(p => p.FirstName + " " + p.LastName).FirstAsync();
-        var medicine = request.MedicationId is null ? "" :
-            " for " + await _db.Medications.Where(m => m.Id == request.MedicationId).Select(m => m.Name + " " + m.Strength).FirstAsync();
-        _notifications.Queue(doctor.UserId, "New prescription request",
-            $"{patientName} asked you for a prescription{medicine}: \"{Shorten(entity.Message, 160)}\" Open Prescriptions to answer.");
+        var medicine = request.MedicationId is null ? null :
+            await _db.Medications.Where(m => m.Id == request.MedicationId).Select(m => m.Name + " " + m.Strength).FirstAsync();
+        var shortMessage = Shorten(entity.Message, 160);
+        _notifications.Queue(doctor.UserId, t => (t.T("New prescription request"),
+            medicine is null
+                ? t.T("{patient} asked you for a prescription: \"{message}\" Open Prescriptions to answer.", ("patient", patientName), ("message", shortMessage))
+                : t.T("{patient} asked you for a prescription for {medicine}: \"{message}\" Open Prescriptions to answer.", ("patient", patientName), ("medicine", medicine), ("message", shortMessage))));
         await _db.SaveChangesAsync();
 
         await _audit.LogAsync("RequestedPrescription", nameof(PrescriptionRequest), entity.Id);
@@ -188,10 +191,10 @@ public class PrescriptionRequestsController : ControllerBase
         entity.DecisionNote = prescription.Instructions;
 
         if (entity.Patient.UserId is int patientUserId)
-            _notifications.Queue(patientUserId, "Prescription request approved",
-                $"Dr. {entity.Doctor.FirstName} {entity.Doctor.LastName} approved your request and prescribed {medication.Name} {medication.Strength}. " +
-                $"Your prescription code is {prescription.Code} (valid until {issued.AddDays(request.ValidDays):d MMM yyyy}). " +
-                "Use it in the pharmacy to buy the medicine; you'll also find it under My health > Prescriptions.");
+            _notifications.Queue(patientUserId, t => (t.T("Prescription request approved"),
+                t.T("Dr. {doctor} approved your request and prescribed {medicine}. Your prescription code is {code} (valid until {date}). Use it in the pharmacy to buy the medicine; you'll also find it under My health > Prescriptions.",
+                    ("doctor", $"{entity.Doctor.FirstName} {entity.Doctor.LastName}"), ("medicine", $"{medication.Name} {medication.Strength}"),
+                    ("code", prescription.Code), ("date", t.Date(issued.AddDays(request.ValidDays))))));
 
         await _db.SaveChangesAsync();
         await _audit.LogAsync("ApprovedPrescriptionRequest", nameof(PrescriptionRequest), id, $"PrescriptionId={prescription.Id}");
@@ -213,9 +216,9 @@ public class PrescriptionRequestsController : ControllerBase
         entity.ReviewedAt = _clock.Now;
 
         if (entity.Patient.UserId is int patientUserId)
-            _notifications.Queue(patientUserId, "Prescription request declined",
-                $"Dr. {entity.Doctor.FirstName} {entity.Doctor.LastName} could not approve your prescription request. Reason: {entity.DecisionNote} " +
-                "You can book a visit if you'd like to discuss it.");
+            _notifications.Queue(patientUserId, t => (t.T("Prescription request declined"),
+                t.T("Dr. {doctor} could not approve your prescription request. Reason: {reason} You can book a visit if you'd like to discuss it.",
+                    ("doctor", $"{entity.Doctor.FirstName} {entity.Doctor.LastName}"), ("reason", entity.DecisionNote))));
 
         await _db.SaveChangesAsync();
         await _audit.LogAsync("DeclinedPrescriptionRequest", nameof(PrescriptionRequest), id);

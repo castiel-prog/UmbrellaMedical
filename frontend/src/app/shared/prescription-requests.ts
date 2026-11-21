@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { StoreApi } from '../core/store.api';
@@ -7,21 +6,22 @@ import { DoctorsApi } from '../core/doctors.api';
 import { AppointmentsApi } from '../core/appointments.api';
 import { MedicalApi } from '../core/medical.api';
 import { Appointment, DoctorListItem, Medication, PrescriptionRequestItem } from '../core/model';
+import { I18n, LocalDatePipe, TranslatePipe } from '../core/i18n';
 import { apiErrorMessage } from '../core/api-error';
 
 /** Patients: ask a doctor for a prescription and follow the answers. */
 @Component({
   selector: 'app-prescription-requests',
-  imports: [FormsModule, RouterLink, DatePipe],
+  imports: [LocalDatePipe, TranslatePipe, FormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="card rx-request-card">
       <div class="row-head">
         <div>
-          <h3>Need a prescription?</h3>
-          <p class="muted small">Ask a doctor. When they approve, you get a prescription code to buy the medicine in our pharmacy.</p>
+          <h3>{{ 'Need a prescription?' | t }}</h3>
+          <p class="muted small">{{ 'Ask a doctor. When they approve, you get a prescription code to buy the medicine in our pharmacy.' | t }}</p>
         </div>
-        @if (!formOpen()) { <button class="btn primary small" type="button" (click)="openForm()">Request a prescription</button> }
+        @if (!formOpen()) { <button class="btn primary small" type="button" (click)="openForm()">{{ 'Request a prescription' | t }}</button> }
       </div>
 
       @if (message()) { <p class="alert success" role="status">{{ message() }}</p> }
@@ -31,28 +31,28 @@ import { apiErrorMessage } from '../core/api-error';
         <form class="section-gap" (ngSubmit)="submit()">
           <div class="form-grid">
             <div class="field">
-              <label for="rq-doctor">Doctor</label>
+              <label for="rq-doctor">{{ 'Doctor' | t }}</label>
               <select id="rq-doctor" name="doctor" [ngModel]="doctorId()" (ngModelChange)="chooseDoctor($event)">
-                <option [ngValue]="null" disabled>Choose a doctor</option>
-                @for (d of doctors(); track d.id) { <option [ngValue]="d.id">Dr. {{ d.firstName }} {{ d.lastName }} · {{ d.specialization }}</option> }
+                <option [ngValue]="null" disabled>{{ 'Choose a doctor' | t }}</option>
+                @for (d of doctors(); track d.id) { <option [ngValue]="d.id">{{ 'Dr. {p0} {p1} · {p2}' | t: { p0: (d.firstName), p1: (d.lastName), p2: (d.specialization | t) } }}</option> }
               </select>
             </div>
             <div class="field">
-              <label for="rq-visit">About a visit (optional)</label>
+              <label for="rq-visit">{{ 'About a visit (optional)' | t }}</label>
               <select id="rq-visit" name="visit" [(ngModel)]="appointmentId" [disabled]="visits().length === 0">
-                <option [ngValue]="null">{{ visits().length === 0 ? 'No visits with this doctor' : 'Not about a specific visit' }}</option>
-                @for (a of visits(); track a.id) { <option [ngValue]="a.id">{{ a.startDateTime | date: 'd MMM y' }} · {{ a.serviceName }}</option> }
+                <option [ngValue]="null">{{ (visits().length === 0 ? 'No visits with this doctor' : 'Not about a specific visit') | t }}</option>
+                @for (a of visits(); track a.id) { <option [ngValue]="a.id">{{ a.startDateTime | ldate: 'medium' }} · {{ a.serviceName }}</option> }
               </select>
             </div>
           </div>
 
           <div class="field">
-            <label for="rq-med">Medicine (optional)</label>
+            <label for="rq-med">{{ 'Medicine (optional)' | t }}</label>
             @if (medication(); as m) {
               <div class="picked"><span><strong>{{ m.name }}</strong> {{ m.strength }} {{ m.form }}</span>
-                <button class="btn small" type="button" (click)="medication.set(null)">Change</button></div>
+                <button class="btn small" type="button" (click)="medication.set(null)">{{ 'Change' | t }}</button></div>
             } @else {
-              <input id="rq-med" name="med" type="search" autocomplete="off" placeholder="Search medicines" [ngModel]="medTerm()" (ngModelChange)="searchMedication($event)" />
+              <input id="rq-med" name="med" type="search" autocomplete="off" [placeholder]="'Search medicines' | t" [ngModel]="medTerm()" (ngModelChange)="searchMedication($event)" />
               @if (medResults().length > 0) {
                 <ul class="pick-list">
                   @for (m of medResults(); track m.id) {
@@ -64,37 +64,37 @@ import { apiErrorMessage } from '../core/api-error';
           </div>
 
           <div class="field">
-            <label for="rq-msg">Message to the doctor</label>
+            <label for="rq-msg">{{ 'Message to the doctor' | t }}</label>
             <textarea id="rq-msg" name="msg" rows="3" maxlength="1000" [(ngModel)]="text"
-              placeholder="For example: I take this medicine every day and my last prescription has run out."></textarea>
+              [placeholder]="'For example: I take this medicine every day and my last prescription has run out.' | t"></textarea>
           </div>
-          <p class="muted small">Don't use this for urgent problems. In an emergency call 112.</p>
+          <p class="muted small">{{ 'Don\\'t use this for urgent problems. In an emergency call 112.' | t }}</p>
           <div class="card-actions">
-            <button class="btn primary" type="submit" [disabled]="busy()">{{ busy() ? 'Sending...' : 'Send request' }}</button>
-            <button class="btn" type="button" (click)="formOpen.set(false)">Cancel</button>
+            <button class="btn primary" type="submit" [disabled]="busy()">{{ (busy() ? 'Sending...' : 'Send request') | t }}</button>
+            <button class="btn" type="button" (click)="formOpen.set(false)">{{ 'Cancel' | t }}</button>
           </div>
         </form>
       }
 
       @if (requests().length > 0) {
-        <h4 class="section-gap">Your requests</h4>
+        <h4 class="section-gap">{{ 'Your requests' | t }}</h4>
         <ul class="request-list">
           @for (r of requests(); track r.id) {
             <li>
               <div class="row-head">
                 <div>
-                  <strong>Dr. {{ r.doctorName }}</strong>
+                  <strong>{{ 'Dr. {p0}' | t: { p0: (r.doctorName) } }}</strong>
                   @if (r.medicationName) { <span class="muted"> · {{ r.medicationName }}</span> }
-                  <div class="muted small">{{ r.createdAt | date: 'd MMM y' }}</div>
+                  <div class="muted small">{{ r.createdAt | ldate: 'medium' }}</div>
                 </div>
-                <span [class]="'badge rq-' + r.status.toLowerCase()">{{ r.status === 'Pending' ? 'Waiting for the doctor' : r.status }}</span>
+                <span [class]="'badge rq-' + r.status.toLowerCase()">{{ (r.status === 'Pending' ? 'Waiting for the doctor' : r.status) | t }}</span>
               </div>
               @if (r.status === 'Approved' && r.prescriptionCode) {
-                <p class="small">✓ Your code: <strong class="code-text">{{ r.prescriptionCode }}</strong> · <a routerLink="/pharmacy">use it in the pharmacy</a></p>
+                <p class="small">{{ '✓ Your code:' | t }} <strong class="code-text">{{ r.prescriptionCode }}</strong> · <a routerLink="/pharmacy">{{ 'use it in the pharmacy' | t }}</a></p>
               }
-              @if (r.status === 'Declined' && r.decisionNote) { <p class="small"><span class="muted">Doctor's reply:</span> {{ r.decisionNote }}</p> }
+              @if (r.status === 'Declined' && r.decisionNote) { <p class="small"><span class="muted">{{ 'Doctor\\'s reply:' | t }}</span> {{ r.decisionNote }}</p> }
               @if (r.status === 'Pending') {
-                <button class="link-like small" type="button" (click)="withdraw(r)">Withdraw</button>
+                <button class="link-like small" type="button" (click)="withdraw(r)">{{ 'Withdraw' | t }}</button>
               }
             </li>
           }
@@ -104,6 +104,7 @@ import { apiErrorMessage } from '../core/api-error';
   `
 })
 export class PrescriptionRequests {
+  protected readonly i18n = inject(I18n);
   private readonly api = inject(StoreApi);
   private readonly doctorsApi = inject(DoctorsApi);
   private readonly appointmentsApi = inject(AppointmentsApi);
@@ -175,11 +176,11 @@ export class PrescriptionRequests {
   protected submit(): void {
     const doctorId = this.doctorId();
     if (!doctorId) {
-      this.error.set('Choose the doctor to ask.');
+      this.error.set(this.i18n.t('Choose the doctor to ask.'));
       return;
     }
     if (this.text.trim().length < 10) {
-      this.error.set('Tell the doctor what you need (at least 10 characters).');
+      this.error.set(this.i18n.t('Tell the doctor what you need (at least 10 characters).'));
       return;
     }
     this.busy.set(true);

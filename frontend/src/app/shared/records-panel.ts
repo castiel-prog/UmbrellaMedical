@@ -1,11 +1,11 @@
 import { ChangeDetectionStrategy, Component, effect, inject, input, signal, untracked } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MedicalApi } from '../core/medical.api';
 import { AppointmentsApi } from '../core/appointments.api';
 import { Appointment, Diagnosis, MedicalRecord, MedicalRecordRequest, PagedResult, ToothCondition, ToothRecord, VitalSigns } from '../core/model';
 import { apiErrorMessage } from '../core/api-error';
-import { orNull, splitWords } from '../core/util';
+import { orNull, saveDownload, splitWords } from '../core/util';
+import { I18n, LocalDatePipe, TranslatePipe } from '../core/i18n';
 import { Pager } from './pager';
 
 const TOOTH_CONDITIONS: ToothCondition[] = ['Healthy', 'Cavity', 'Filled', 'Crown', 'RootCanal', 'Implant', 'Missing'];
@@ -28,12 +28,12 @@ function emptyVitals(): VitalSigns {
 
 @Component({
   selector: 'app-records-panel',
-  imports: [FormsModule, DatePipe, Pager],
+  imports: [LocalDatePipe, TranslatePipe, FormsModule, Pager],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (canWrite() && !form()) {
       <div class="toolbar">
-        <button class="btn primary small" type="button" (click)="startNew()">New medical record</button>
+        <button class="btn primary small" type="button" (click)="startNew()">{{ 'New medical record' | t }}</button>
       </div>
     }
 
@@ -42,29 +42,29 @@ function emptyVitals(): VitalSigns {
 
     @if (form(); as f) {
       <form class="card form-card" (ngSubmit)="save()">
-        <h3>{{ editingId() ? 'Edit medical record' : 'New medical record' }}</h3>
+        <h3>{{ (editingId() ? 'Edit medical record' : 'New medical record') | t }}</h3>
 
         @if (!editingId()) {
           <div class="field">
-            <label for="rec-appt">Visit (optional)</label>
+            <label for="rec-appt">{{ 'Visit (optional)' | t }}</label>
             <select id="rec-appt" name="appointmentId" [(ngModel)]="f.appointmentId">
-              <option [ngValue]="null">Not linked to a visit</option>
+              <option [ngValue]="null">{{ 'Not linked to a visit' | t }}</option>
               @for (a of appointments(); track a.id) {
-                <option [ngValue]="a.id">{{ a.startDateTime | date: 'd MMM y, HH:mm' }} · {{ a.serviceName }} ({{ a.status }})</option>
+                <option [ngValue]="a.id">{{ a.startDateTime | ldate: 'mediumTime' }} · {{ a.serviceName }} ({{ a.status | t }})</option>
               }
             </select>
           </div>
         }
 
         <div class="field">
-          <label for="rec-dx">Diagnosis (ICD-10)</label>
+          <label for="rec-dx">{{ 'Diagnosis (ICD-10)' | t }}</label>
           @if (f.diagnosis; as d) {
             <div class="picked">
               <span><strong>{{ d.code }}</strong> {{ d.name }}</span>
-              <button class="btn small" type="button" (click)="f.diagnosis = null">Remove</button>
+              <button class="btn small" type="button" (click)="f.diagnosis = null">{{ 'Remove' | t }}</button>
             </div>
           } @else {
-            <input id="rec-dx" type="search" placeholder="Search by code or name" autocomplete="off"
+            <input id="rec-dx" type="search" [placeholder]="'Search by code or name' | t" autocomplete="off"
               [ngModel]="dxTerm()" name="dxTerm" (ngModelChange)="searchDiagnoses($event)" />
             @if (dxResults().length > 0) {
               <ul class="pick-list">
@@ -78,69 +78,69 @@ function emptyVitals(): VitalSigns {
 
         <div class="form-grid">
           <div class="field">
-            <label for="rec-complaints">Complaints</label>
+            <label for="rec-complaints">{{ 'Complaints' | t }}</label>
             <textarea id="rec-complaints" name="complaints" rows="3" maxlength="2000" [(ngModel)]="f.complaints"></textarea>
           </div>
           <div class="field">
-            <label for="rec-details">Diagnosis details</label>
+            <label for="rec-details">{{ 'Diagnosis details' | t }}</label>
             <textarea id="rec-details" name="diagnosisDetails" rows="3" maxlength="2000" [(ngModel)]="f.diagnosisDetails"></textarea>
           </div>
           <div class="field">
-            <label for="rec-treatment">Treatment</label>
+            <label for="rec-treatment">{{ 'Treatment' | t }}</label>
             <textarea id="rec-treatment" name="treatment" rows="3" maxlength="2000" [(ngModel)]="f.treatment"></textarea>
           </div>
           <div class="field">
-            <label for="rec-recs">Recommendations</label>
+            <label for="rec-recs">{{ 'Recommendations' | t }}</label>
             <textarea id="rec-recs" name="recommendations" rows="3" maxlength="2000" [(ngModel)]="f.recommendations"></textarea>
           </div>
         </div>
         <div class="field">
-          <label for="rec-notes">Notes</label>
+          <label for="rec-notes">{{ 'Notes' | t }}</label>
           <textarea id="rec-notes" name="notes" rows="2" maxlength="4000" [(ngModel)]="f.notes"></textarea>
         </div>
 
         <fieldset class="fieldset">
-          <legend>Vital signs (optional)</legend>
+          <legend>{{ 'Vital signs (optional)' | t }}</legend>
           <div class="vitals-grid">
-            <div class="field"><label for="v-h">Height, cm</label><input id="v-h" name="h" type="number" min="30" max="250" step="0.1" [(ngModel)]="f.vitals.heightCm" /></div>
-            <div class="field"><label for="v-w">Weight, kg</label><input id="v-w" name="w" type="number" min="1" max="400" step="0.1" [(ngModel)]="f.vitals.weightKg" /></div>
-            <div class="field"><label for="v-s">Systolic BP</label><input id="v-s" name="s" type="number" min="50" max="300" [(ngModel)]="f.vitals.systolicBp" /></div>
-            <div class="field"><label for="v-d">Diastolic BP</label><input id="v-d" name="d" type="number" min="30" max="200" [(ngModel)]="f.vitals.diastolicBp" /></div>
-            <div class="field"><label for="v-hr">Heart rate</label><input id="v-hr" name="hr" type="number" min="20" max="300" [(ngModel)]="f.vitals.heartRate" /></div>
-            <div class="field"><label for="v-t">Temperature, °C</label><input id="v-t" name="t" type="number" min="30" max="45" step="0.1" [(ngModel)]="f.vitals.temperatureC" /></div>
+            <div class="field"><label for="v-h">{{ 'Height, cm' | t }}</label><input id="v-h" name="h" type="number" min="30" max="250" step="0.1" [(ngModel)]="f.vitals.heightCm" /></div>
+            <div class="field"><label for="v-w">{{ 'Weight, kg' | t }}</label><input id="v-w" name="w" type="number" min="1" max="400" step="0.1" [(ngModel)]="f.vitals.weightKg" /></div>
+            <div class="field"><label for="v-s">{{ 'Systolic BP' | t }}</label><input id="v-s" name="s" type="number" min="50" max="300" [(ngModel)]="f.vitals.systolicBp" /></div>
+            <div class="field"><label for="v-d">{{ 'Diastolic BP' | t }}</label><input id="v-d" name="d" type="number" min="30" max="200" [(ngModel)]="f.vitals.diastolicBp" /></div>
+            <div class="field"><label for="v-hr">{{ 'Heart rate' | t }}</label><input id="v-hr" name="hr" type="number" min="20" max="300" [(ngModel)]="f.vitals.heartRate" /></div>
+            <div class="field"><label for="v-t">{{ 'Temperature, °C' | t }}</label><input id="v-t" name="t" type="number" min="30" max="45" step="0.1" [(ngModel)]="f.vitals.temperatureC" /></div>
           </div>
         </fieldset>
 
         <fieldset class="fieldset">
-          <legend>Tooth chart (dentists)</legend>
+          <legend>{{ 'Tooth chart (dentists)' | t }}</legend>
           @for (t of f.teeth; track $index; let i = $index) {
             <div class="tooth-row">
-              <div class="field"><label [for]="'t-n' + i">Tooth</label><input [id]="'t-n' + i" [name]="'tn' + i" type="number" min="1" max="32" [(ngModel)]="t.toothNumber" /></div>
+              <div class="field"><label [for]="'t-n' + i">{{ 'Tooth' | t }}</label><input [id]="'t-n' + i" [name]="'tn' + i" type="number" min="1" max="32" [(ngModel)]="t.toothNumber" /></div>
               <div class="field">
-                <label [for]="'t-c' + i">Condition</label>
+                <label [for]="'t-c' + i">{{ 'Condition' | t }}</label>
                 <select [id]="'t-c' + i" [name]="'tc' + i" [(ngModel)]="t.condition">
-                  @for (c of conditions; track c) { <option [value]="c">{{ words(c) }}</option> }
+                  @for (c of conditions; track c) { <option [value]="c">{{ words(c) | t }}</option> }
                 </select>
               </div>
-              <div class="field"><label [for]="'t-t' + i">Treatment</label><input [id]="'t-t' + i" [name]="'tt' + i" maxlength="500" [(ngModel)]="t.treatment" /></div>
-              <button class="btn small danger" type="button" (click)="f.teeth.splice(i, 1)" aria-label="Remove tooth">✕</button>
+              <div class="field"><label [for]="'t-t' + i">{{ 'Treatment' | t }}</label><input [id]="'t-t' + i" [name]="'tt' + i" maxlength="500" [(ngModel)]="t.treatment" /></div>
+              <button class="btn small danger" type="button" (click)="f.teeth.splice(i, 1)" [attr.aria-label]="'Remove tooth' | t">✕</button>
             </div>
           }
-          <button class="btn small" type="button" (click)="f.teeth.push({ toothNumber: 1, condition: 'Healthy', treatment: null, notes: null })">Add tooth</button>
+          <button class="btn small" type="button" (click)="f.teeth.push({ toothNumber: 1, condition: 'Healthy', treatment: null, notes: null })">{{ 'Add tooth' | t }}</button>
         </fieldset>
 
         <div class="card-actions">
-          <button class="btn primary" type="submit" [disabled]="busy()">{{ busy() ? 'Saving...' : 'Save record' }}</button>
-          <button class="btn" type="button" (click)="form.set(null)">Cancel</button>
+          <button class="btn primary" type="submit" [disabled]="busy()">{{ (busy() ? 'Saving...' : 'Save record') | t }}</button>
+          <button class="btn" type="button" (click)="form.set(null)">{{ 'Cancel' | t }}</button>
         </div>
       </form>
     }
 
-    @if (loading() && !result()) { <p class="muted">Loading...</p> }
+    @if (loading() && !result()) { <p class="muted">{{ 'Loading...' | t }}</p> }
 
     @if (result(); as data) {
       @if (data.items.length === 0) {
-        <p class="empty card muted">No medical records yet.</p>
+        <p class="empty card muted">{{ 'No medical records yet.' | t }}</p>
       }
       <ul class="stack" [class.dim]="loading()">
         @for (r of data.items; track r.id) {
@@ -149,45 +149,46 @@ function emptyVitals(): VitalSigns {
               <div>
                 <h3>
                   @if (r.diagnosisCode) { <span class="code">{{ r.diagnosisCode }}</span> }
-                  {{ r.diagnosisName ?? 'Visit record' }}
+                  {{ (r.diagnosisName ?? 'Visit record') | t }}
                 </h3>
-                <p class="muted">{{ r.recordDate | date: 'd MMMM y, HH:mm' }} · Dr. {{ r.doctorName }} · {{ r.specialization }}</p>
+                <p class="muted">{{ r.recordDate | ldate: 'longTime' }} {{ '· Dr.' | t }} {{ r.doctorName }} · {{ r.specialization | t }}</p>
               </div>
               <div class="card-actions tight">
-                <button class="btn small" type="button" (click)="toggle(r.id)">{{ expanded() === r.id ? 'Hide' : 'Details' }}</button>
+                <button class="btn small" type="button" (click)="toggle(r.id)">{{ (expanded() === r.id ? 'Hide' : 'Details') | t }}</button>
+                <button class="btn small" type="button" (click)="downloadPdf(r)" [disabled]="pdfBusy() === r.id">{{ '⬇ PDF' | t }}</button>
                 @if (canWrite()) {
-                  <button class="btn small" type="button" (click)="startEdit(r)">Edit</button>
+                  <button class="btn small" type="button" (click)="startEdit(r)">{{ 'Edit' | t }}</button>
                 }
               </div>
             </div>
 
             @if (expanded() === r.id) {
               <dl class="details">
-                @if (r.complaints) { <dt>Complaints</dt><dd class="pre-line">{{ r.complaints }}</dd> }
-                @if (r.diagnosisDetails) { <dt>Diagnosis</dt><dd class="pre-line">{{ r.diagnosisDetails }}</dd> }
-                @if (r.treatment) { <dt>Treatment</dt><dd class="pre-line">{{ r.treatment }}</dd> }
-                @if (r.recommendations) { <dt>Recommendations</dt><dd class="pre-line">{{ r.recommendations }}</dd> }
-                @if (r.notes) { <dt>Notes</dt><dd class="pre-line">{{ r.notes }}</dd> }
+                @if (r.complaints) { <dt>{{ 'Complaints' | t }}</dt><dd class="pre-line">{{ r.complaints }}</dd> }
+                @if (r.diagnosisDetails) { <dt>{{ 'Diagnosis' | t }}</dt><dd class="pre-line">{{ r.diagnosisDetails }}</dd> }
+                @if (r.treatment) { <dt>{{ 'Treatment' | t }}</dt><dd class="pre-line">{{ r.treatment }}</dd> }
+                @if (r.recommendations) { <dt>{{ 'Recommendations' | t }}</dt><dd class="pre-line">{{ r.recommendations }}</dd> }
+                @if (r.notes) { <dt>{{ 'Notes' | t }}</dt><dd class="pre-line">{{ r.notes }}</dd> }
                 @if (r.vitalSigns; as v) {
-                  <dt>Vital signs</dt>
+                  <dt>{{ 'Vital signs' | t }}</dt>
                   <dd>
-                    @if (v.heightCm) { <span class="chip">{{ v.heightCm }} cm</span> }
-                    @if (v.weightKg) { <span class="chip">{{ v.weightKg }} kg</span> }
-                    @if (v.systolicBp && v.diastolicBp) { <span class="chip">BP {{ v.systolicBp }}/{{ v.diastolicBp }}</span> }
-                    @if (v.heartRate) { <span class="chip">HR {{ v.heartRate }}</span> }
+                    @if (v.heightCm) { <span class="chip">{{ '{p0} cm' | t: { p0: (v.heightCm) } }}</span> }
+                    @if (v.weightKg) { <span class="chip">{{ '{p0} kg' | t: { p0: (v.weightKg) } }}</span> }
+                    @if (v.systolicBp && v.diastolicBp) { <span class="chip">{{ 'BP {p0}/{p1}' | t: { p0: (v.systolicBp), p1: (v.diastolicBp) } }}</span> }
+                    @if (v.heartRate) { <span class="chip">{{ 'HR {p0}' | t: { p0: (v.heartRate) } }}</span> }
                     @if (v.temperatureC) { <span class="chip">{{ v.temperatureC }} °C</span> }
                   </dd>
                 }
                 @if (r.toothRecords.length > 0) {
-                  <dt>Teeth</dt>
+                  <dt>{{ 'Teeth' | t }}</dt>
                   <dd>
                     @for (t of r.toothRecords; track t.toothNumber) {
-                      <span class="chip">#{{ t.toothNumber }} {{ words(t.condition) }}@if (t.treatment) { · {{ t.treatment }} }</span>
+                      <span class="chip">#{{ t.toothNumber }} {{ words(t.condition) | t }}@if (t.treatment) { · {{ t.treatment }} }</span>
                     }
                   </dd>
                 }
-                @if (r.prescriptionIds.length > 0) { <dt>Prescriptions</dt><dd>{{ r.prescriptionIds.length }} linked</dd> }
-                @if (r.documentIds.length > 0) { <dt>Documents</dt><dd>{{ r.documentIds.length }} linked</dd> }
+                @if (r.prescriptionIds.length > 0) { <dt>{{ 'Prescriptions' | t }}</dt><dd>{{ '{p0} linked' | t: { p0: (r.prescriptionIds.length) } }}</dd> }
+                @if (r.documentIds.length > 0) { <dt>{{ 'Documents' | t }}</dt><dd>{{ '{p0} linked' | t: { p0: (r.documentIds.length) } }}</dd> }
               </dl>
             }
           </li>
@@ -200,6 +201,8 @@ function emptyVitals(): VitalSigns {
 export class RecordsPanel {
   private readonly api = inject(MedicalApi);
   private readonly appointmentsApi = inject(AppointmentsApi);
+  private readonly i18n = inject(I18n);
+  protected readonly pdfBusy = signal<number | null>(null);
 
   readonly patientId = input.required<number>();
   readonly canWrite = input(false);
@@ -341,6 +344,22 @@ export class RecordsPanel {
       error: err => {
         this.error.set(apiErrorMessage(err));
         this.loading.set(false);
+      }
+    });
+  }
+
+  /** Downloads the visit summary as a PDF in the language the site is shown in. */
+  protected downloadPdf(r: MedicalRecord): void {
+    this.pdfBusy.set(r.id);
+    this.error.set(null);
+    this.api.recordPdf(r.id, this.i18n.lang()).subscribe({
+      next: response => {
+        this.pdfBusy.set(null);
+        saveDownload(response, `visit-summary-${r.id}.pdf`);
+      },
+      error: err => {
+        this.pdfBusy.set(null);
+        this.error.set(apiErrorMessage(err));
       }
     });
   }

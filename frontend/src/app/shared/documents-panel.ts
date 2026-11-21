@@ -1,9 +1,9 @@
 import { ChangeDetectionStrategy, Component, ElementRef, effect, inject, input, signal, untracked, viewChild } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MedicalApi } from '../core/medical.api';
 import { DocumentType, MedicalDocument } from '../core/model';
 import { apiErrorMessage } from '../core/api-error';
+import { I18n, LocalDatePipe, TranslatePipe } from '../core/i18n';
 import { orNull, saveDownload, splitWords } from '../core/util';
 
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -11,7 +11,7 @@ const TYPES: DocumentType[] = ['LabResult', 'XRay', 'Ultrasound', 'Other'];
 
 @Component({
   selector: 'app-documents-panel',
-  imports: [FormsModule, DatePipe],
+  imports: [LocalDatePipe, TranslatePipe, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (message()) { <p class="alert success" role="status">{{ message() }}</p> }
@@ -19,43 +19,43 @@ const TYPES: DocumentType[] = ['LabResult', 'XRay', 'Ultrasound', 'Other'];
 
     @if (canUpload()) {
       <form class="card form-card" (ngSubmit)="upload()">
-        <h3>Upload a document</h3>
+        <h3>{{ 'Upload a document' | t }}</h3>
         <div class="form-grid">
           <div class="field">
-            <label for="doc-file">File (PDF, PNG or JPG)</label>
+            <label for="doc-file">{{ 'File (PDF, PNG or JPG)' | t }}</label>
             <input #fileInput id="doc-file" type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" (change)="pick($event)" />
           </div>
           <div class="field">
-            <label for="doc-type">Type</label>
+            <label for="doc-type">{{ 'Type' | t }}</label>
             <select id="doc-type" name="type" [(ngModel)]="type">
-              @for (t of types; track t) { <option [value]="t">{{ words(t) }}</option> }
+              @for (t of types; track t) { <option [value]="t">{{ words(t) | t }}</option> }
             </select>
           </div>
         </div>
         <div class="field">
-          <label for="doc-desc">Description (optional)</label>
+          <label for="doc-desc">{{ 'Description (optional)' | t }}</label>
           <input id="doc-desc" name="description" maxlength="500" [(ngModel)]="description" />
         </div>
-        <button class="btn primary" type="submit" [disabled]="!file() || busy()">{{ busy() ? 'Uploading...' : 'Upload' }}</button>
+        <button class="btn primary" type="submit" [disabled]="!file() || busy()">{{ (busy() ? 'Uploading...' : 'Upload') | t }}</button>
       </form>
     }
 
     @if (loading()) {
-      <p class="muted">Loading...</p>
+      <p class="muted">{{ 'Loading...' | t }}</p>
     } @else if (documents().length === 0) {
-      <p class="empty card muted">No documents yet.</p>
+      <p class="empty card muted">{{ 'No documents yet.' | t }}</p>
     } @else {
       <div class="table-wrap">
         <table class="table">
-          <thead><tr><th>File</th><th>Type</th><th>Description</th><th>Uploaded</th><th></th></tr></thead>
+          <thead><tr><th>{{ 'File' | t }}</th><th>{{ 'Type' | t }}</th><th>{{ 'Description' | t }}</th><th>{{ 'Uploaded' | t }}</th><th></th></tr></thead>
           <tbody>
             @for (d of documents(); track d.id) {
               <tr>
                 <td>{{ d.fileName }}</td>
-                <td>{{ words(d.type) }}</td>
+                <td>{{ words(d.type) | t }}</td>
                 <td>{{ d.description ?? '—' }}</td>
-                <td>{{ d.uploadedAt | date: 'd MMM y' }}</td>
-                <td class="right"><button class="btn small" type="button" (click)="download(d)" [disabled]="downloading() === d.id">Download</button></td>
+                <td>{{ d.uploadedAt | ldate: 'medium' }}</td>
+                <td class="right"><button class="btn small" type="button" (click)="download(d)" [disabled]="downloading() === d.id">{{ 'Download' | t }}</button></td>
               </tr>
             }
           </tbody>
@@ -65,6 +65,7 @@ const TYPES: DocumentType[] = ['LabResult', 'XRay', 'Ultrasound', 'Other'];
   `
 })
 export class DocumentsPanel {
+  protected readonly i18n = inject(I18n);
   private readonly api = inject(MedicalApi);
 
   readonly patientId = input.required<number>();
@@ -95,7 +96,7 @@ export class DocumentsPanel {
     const file = input.files?.[0] ?? null;
     this.error.set(null);
     if (file && file.size > MAX_BYTES) {
-      this.error.set('The file is larger than 10 MB.');
+      this.error.set(this.i18n.t('The file is larger than 10 MB.'));
       input.value = '';
       this.file.set(null);
       return;
@@ -116,7 +117,7 @@ export class DocumentsPanel {
         this.description = '';
         const input = this.fileInput()?.nativeElement;
         if (input) input.value = '';
-        this.message.set('The document was uploaded.');
+        this.message.set(this.i18n.t('The document was uploaded.'));
         this.load();
       },
       error: err => {

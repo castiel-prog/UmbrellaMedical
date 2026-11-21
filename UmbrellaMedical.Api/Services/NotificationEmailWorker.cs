@@ -45,6 +45,7 @@ public class NotificationEmailWorker : BackgroundService
         using var scope = _scopes.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<UmbrellaDbContext>();
         var email = scope.ServiceProvider.GetRequiredService<IEmailSender>();
+        var text = scope.ServiceProvider.GetRequiredService<IClinicText>();
 
         var now = DateTime.UtcNow;
         var pending = await db.Notifications
@@ -63,10 +64,10 @@ public class NotificationEmailWorker : BackgroundService
             {
                 try
                 {
+                    var l = new Localizer(text, n.User.PreferredLanguage);
                     await email.SendAsync(n.User.Email, n.Title + " - Umbrella Medical Center",
-                        n.Message + Environment.NewLine + Environment.NewLine +
-                        "You get these emails because you turned on \"Email me my notifications\". You can turn them off in My profile.",
-                        cancellationToken);
+                        n.Message + "\n\n" + l.T("You get these emails because you turned on \"Email me my notifications\". You can turn them off in My profile."),
+                        cancellationToken, l.Lang);
                     sent++;
                 }
                 catch (OperationCanceledException) { throw; }

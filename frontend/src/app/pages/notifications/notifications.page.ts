@@ -1,35 +1,35 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { NotificationsService } from '../../core/notifications.service';
 import { AuthService } from '../../core/auth.service';
 import { AppNotification, PagedResult } from '../../core/model';
 import { apiErrorMessage } from '../../core/api-error';
+import { LocalDatePipe, TranslatePipe } from '../../core/i18n';
 import { Pager } from '../../shared/pager';
 
 @Component({
   selector: 'app-notifications',
-  imports: [DatePipe, RouterLink, Pager],
+  imports: [LocalDatePipe, TranslatePipe, RouterLink, Pager],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page-head">
-      <h1>Notifications</h1>
-      <button class="btn small" type="button" (click)="markAll()" [disabled]="notifications.unread() === 0 || busy()">Mark all as read</button>
+      <h1>{{ 'Notifications' | t }}</h1>
+      <button class="btn small" type="button" (click)="markAll()" [disabled]="notifications.unread() === 0 || busy()">{{ 'Mark all as read' | t }}</button>
     </div>
 
     <div class="tabs" role="tablist">
-      <button type="button" role="tab" [class.active]="!unreadOnly()" [attr.aria-selected]="!unreadOnly()" (click)="filter(false)">All</button>
+      <button type="button" role="tab" [class.active]="!unreadOnly()" [attr.aria-selected]="!unreadOnly()" (click)="filter(false)">{{ 'All' | t }}</button>
       <button type="button" role="tab" [class.active]="unreadOnly()" [attr.aria-selected]="unreadOnly()" (click)="filter(true)">
-        Unread @if (notifications.unread() > 0) { <span class="count-pill">{{ notifications.unread() }}</span> }
+        {{ 'Unread' | t }} @if (notifications.unread() > 0) { <span class="count-pill">{{ notifications.unread() }}</span> }
       </button>
     </div>
 
     @if (error()) { <p class="alert error" role="alert">{{ error() }}</p> }
-    @if (loading() && !result()) { <p class="muted">Loading...</p> }
+    @if (loading() && !result()) { <p class="muted">{{ 'Loading...' | t }}</p> }
 
     @if (result(); as data) {
       @if (data.items.length === 0) {
-        <p class="empty card muted">{{ unreadOnly() ? 'You are all caught up.' : 'No notifications yet.' }}</p>
+        <p class="empty card muted">{{ (unreadOnly() ? 'You are all caught up.' : 'No notifications yet.') | t }}</p>
       }
       <ul class="stack" [class.dim]="loading()">
         @for (n of data.items; track n.id) {
@@ -37,18 +37,18 @@ import { Pager } from '../../shared/pager';
             <div class="row-head">
               <div>
                 <h3>{{ n.title }}</h3>
-                <p class="muted">{{ n.createdAt | date: 'd MMM y, HH:mm' }}</p>
+                <p class="muted">{{ n.createdAt | ldate: 'mediumTime' }}</p>
               </div>
               @if (!n.isRead) {
-                <button class="btn small" type="button" (click)="markRead(n)">Mark as read</button>
+                <button class="btn small" type="button" (click)="markRead(n)">{{ 'Mark as read' | t }}</button>
               }
             </div>
             <p class="pre-line">{{ n.message }}</p>
             @if (n.appointmentId) {
               @if (isPatient()) {
-                <a routerLink="/appointments">View my appointments</a>
+                <a routerLink="/appointments">{{ 'View my appointments' | t }}</a>
               } @else if (isStaff()) {
-                <a routerLink="/desk">{{ isDoctor() ? 'Open my schedule' : 'Open appointments' }}</a>
+                <a routerLink="/desk">{{ (isDoctor() ? 'Open my schedule' : 'Open appointments') | t }}</a>
               }
             }
           </li>

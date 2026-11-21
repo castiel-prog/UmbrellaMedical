@@ -68,6 +68,27 @@ export class I18n {
   }
 }
 
+// Some browsers ship without Georgian date data and quietly fall back to English; Georgian month and weekday
+// names are filled in here in that case (day-month-year order, as in Georgia).
+const KA_MONTHS = ['იანვარი', 'თებერვალი', 'მარტი', 'აპრილი', 'მაისი', 'ივნისი', 'ივლისი', 'აგვისტო', 'სექტემბერი', 'ოქტომბერი', 'ნოემბერი', 'დეკემბერი'];
+const KA_MONTHS_SHORT = ['იან', 'თებ', 'მარ', 'აპრ', 'მაი', 'ივნ', 'ივლ', 'აგვ', 'სექ', 'ოქტ', 'ნოე', 'დეკ'];
+const KA_DAYS = ['კვირა', 'ორშაბათი', 'სამშაბათი', 'ოთხშაბათი', 'ხუთშაბათი', 'პარასკევი', 'შაბათი'];
+const KA_DAYS_SHORT = ['კვ', 'ორშ', 'სამ', 'ოთხ', 'ხუთ', 'პარ', 'შაბ'];
+
+/** Like new Intl.DateTimeFormat(locale, options), in the site language, with a Georgian fallback. */
+export function dateFormatter(i18n: I18n, options: Intl.DateTimeFormatOptions): { format(date: Date): string } {
+  const native = new Intl.DateTimeFormat(i18n.locale(), options);
+  if (i18n.lang() !== 'ka' || native.resolvedOptions().locale.startsWith('ka')) return native;
+  const en = new Intl.DateTimeFormat('en-GB', options);
+  return {
+    format: (date: Date) => en.formatToParts(date).map(p =>
+      p.type === 'month' && (options.month === 'long' || options.month === 'short') ? (options.month === 'long' ? KA_MONTHS : KA_MONTHS_SHORT)[date.getMonth()]
+      : p.type === 'weekday' ? (options.weekday === 'long' ? KA_DAYS : KA_DAYS_SHORT)[date.getDay()]
+      : p.type === 'literal' && p.value.trim() === 'at' ? ', '
+      : p.value).join('')
+  };
+}
+
 const DATE_FORMATS: Record<string, Intl.DateTimeFormatOptions> = {
   weekday: { weekday: 'short' },
   day: { day: 'numeric' },
@@ -78,7 +99,14 @@ const DATE_FORMATS: Record<string, Intl.DateTimeFormatOptions> = {
   time: { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' },
   dayTime: { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' },
   full: { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' },
-  mediumTime: { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }
+  mediumTime: { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' },
+  longTime: { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' },
+  weekdayMediumTime: { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' },
+  dayMonth: { day: 'numeric', month: 'short' },
+  dayMonthTime: { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' },
+  weekdayDay: { weekday: 'short', day: 'numeric' },
+  weekdayDayMonth: { weekday: 'short', day: 'numeric', month: 'short' },
+  fullDate: { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }
 };
 
 /** Dates in the chosen language: {{ value | ldate: 'medium' }}. Accepts Date, ISO strings and "YYYY-MM-DD". */
@@ -91,7 +119,7 @@ export class LocalDatePipe implements PipeTransform {
       ? (/^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(value + 'T00:00:00') : new Date(value))
       : value;
     if (isNaN(date.getTime())) return '';
-    return new Intl.DateTimeFormat(this.i18n.locale(), DATE_FORMATS[format] ?? DATE_FORMATS['medium']).format(date);
+    return dateFormatter(this.i18n, DATE_FORMATS[format] ?? DATE_FORMATS['medium']).format(date);
   }
 }
 

@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
@@ -239,13 +239,10 @@ public class TimeOffController : ControllerBase
 
             // Visits paid online are refunded in full.
             var refunded = await _prepaid.RefundForCancelledVisitAsync(appointment.Id, HttpContext.RequestAborted);
-            var refundText = refunded > 0 ? $" Your payment of {CardValidation.Money(refunded)} GEL was refunded to your card." : "";
-
             if (appointment.Patient.UserId is int patientUserId)
-                _notifications.Queue(
-                    patientUserId,
-                    "Appointment cancelled",
-                    $"Your appointment on {NotificationText.When(appointment.StartDateTime)} was cancelled because the doctor is on leave. Please book a new time.{refundText}",
+                _notifications.Queue(patientUserId, t => (t.T("Appointment cancelled"),
+                    t.T("Your appointment on {when} was cancelled because the doctor is on leave. Please book a new time.", ("when", t.When(appointment.StartDateTime)))
+                    + (refunded > 0 ? " " + t.T("Your payment of {amount} was refunded to your card.", ("amount", t.Money(refunded))) : "")),
                     appointment.Id);
         }
 
@@ -254,10 +251,8 @@ public class TimeOffController : ControllerBase
             .Select(d => d.UserId)
             .FirstAsync();
 
-        _notifications.Queue(
-            doctorUserId,
-            "Time off approved",
-            $"Your time off from {NotificationText.When(start)} to {NotificationText.When(end)} was approved.");
+        _notifications.Queue(doctorUserId, t => (t.T("Time off approved"),
+            t.T("Your time off from {from} to {to} was approved.", ("from", t.When(start)), ("to", t.When(end)))));
 
         timeOff.Status = TimeOffStatus.Approved;
         timeOff.DeclineReason = null;
@@ -288,10 +283,9 @@ public class TimeOffController : ControllerBase
             .Select(d => d.UserId)
             .FirstAsync();
 
-        _notifications.Queue(
-            doctorUserId,
-            "Time off declined",
-            $"Your time off from {NotificationText.When(timeOff.StartDateTime)} to {NotificationText.When(timeOff.EndDateTime)} was declined. Reason: {request.Reason.Trim()}");
+        var declineReason = request.Reason.Trim();
+        _notifications.Queue(doctorUserId, t => (t.T("Time off declined"),
+            t.T("Your time off from {from} to {to} was declined. Reason: {reason}", ("from", t.When(timeOff.StartDateTime)), ("to", t.When(timeOff.EndDateTime)), ("reason", declineReason))));
 
         timeOff.Status = TimeOffStatus.Declined;
         timeOff.DeclineReason = request.Reason.Trim();

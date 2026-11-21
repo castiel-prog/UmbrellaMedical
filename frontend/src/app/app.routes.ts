@@ -137,6 +137,14 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/prescriptions/prescriptions.page').then(m => m.PrescriptionsPage)
   },
 
+  // Support chat between people and the clinic's admins
+  {
+    path: 'support',
+    title: title('Support chat'),
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/support/support.page').then(m => m.SupportPage)
+  },
+
   // Admin
   {
     path: 'admin',

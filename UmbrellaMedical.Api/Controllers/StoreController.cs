@@ -31,11 +31,12 @@ public class StoreController : ControllerBase
     private readonly IClinicClock _clock;
     private readonly IFileStorage _storage;
     private readonly IEmailSender _email;
+    private readonly IClinicText _text;
     private readonly ILogger<StoreController> _logger;
 
     public StoreController(
         UmbrellaDbContext db, ICurrentUser current, IPaymentGateway gateway, INotificationService notifications,
-        IAuditService audit, IClinicClock clock, IFileStorage storage, IEmailSender email, ILogger<StoreController> logger)
+        IAuditService audit, IClinicClock clock, IFileStorage storage, IEmailSender email, IClinicText text, ILogger<StoreController> logger)
     {
         _db = db;
         _current = current;
@@ -45,6 +46,7 @@ public class StoreController : ControllerBase
         _clock = clock;
         _storage = storage;
         _email = email;
+        _text = text;
         _logger = logger;
     }
 
@@ -403,10 +405,11 @@ public class StoreController : ControllerBase
             order.OrderNumber = $"ORD-{now.Year}-{order.Id:D6}";
 
             if (notifyUserId is int userId)
-                _notifications.Queue(userId, needsReview ? "Order received: prescription check" : "Order ready for pickup",
-                needsReview
-                    ? $"Thank you! Order {order.OrderNumber} ({Money(total)}) is paid. Our staff are checking your prescription; we'll tell you when it's ready to collect. If it can't be accepted, you'll get a full refund."
-                    : $"Thank you! Order {order.OrderNumber} ({Money(total)}) is paid and ready to collect at the clinic pharmacy desk. Please bring a photo ID.");
+                _notifications.Queue(userId, t => needsReview
+                    ? (t.T("Order received: prescription check"),
+                       t.T("Thank you! Order {number} ({total}) is paid. Our staff are checking your prescription; we'll tell you when it's ready to collect. If it can't be accepted, you'll get a full refund.", ("number", order.OrderNumber), ("total", t.Money(total))))
+                    : (t.T("Order ready for pickup"),
+                       t.T("Thank you! Order {number} ({total}) is paid and ready to collect at the clinic pharmacy desk. Please bring a photo ID.", ("number", order.OrderNumber), ("total", t.Money(total)))));
 
             await _db.SaveChangesAsync();
             await tx.CommitAsync();
@@ -426,8 +429,14 @@ public class StoreController : ControllerBase
         await _audit.LogAsync("PlacedStoreOrder", nameof(StoreOrder), orderId);
         var placed = await LoadOrderAsync(orderId);
         if (customer is not null)
-            await EmailCustomerAsync(customer.Email.Trim(), $"Your Umbrella pharmacy order {placed.OrderNumber}",
-                $"Hello {customer.Name.Trim()},\n\nThank you for your order {placed.OrderNumber} ({Money(placed.Total)}). It is paid and ready to collect at the clinic pharmacy desk, 12 Shota Rustaveli Avenue, Tbilisi. We are open 24/7. Please bring a photo ID and your order number.\n\nUmbrella Medical Center");
+        {
+            // Written in the language of the person who placed the order.
+            var l = _current.UserId is int buyer ? _notifications.For(buyer) : new Localizer(_text, null);
+            await EmailCustomerAsync(customer.Email.Trim(), l.Lang, l.T("Your Umbrella pharmacy order {number}", ("number", placed.OrderNumber)),
+                l.T("Hello {name},", ("name", customer.Name.Trim())) + "\n\n" +
+                l.T("Thank you for your order {number} ({total}). It is paid and ready to collect at the clinic pharmacy desk, 12 Shota Rustaveli Avenue, Tbilisi. We are open 24/7. Please bring a photo ID and your order number.", ("number", placed.OrderNumber), ("total", l.Money(placed.Total))) +
+                "\n\nUmbrella Medical Center");
+        }
         return Ok(placed);
     }
 
@@ -491,8 +500,8 @@ public class StoreController : ControllerBase
         order.ReviewNote = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim();
         order.ReviewedAt = _clock.Now;
         order.ReviewedByUserId = _current.UserId;
-        NotifyPatient(order, "Prescription accepted: order ready",
-            $"Your prescription for order {order.OrderNumber} was accepted. The order is ready to collect at the clinic pharmacy desk. Please bring a photo ID.");
+        NotifyPatient(order, t => (t.T("Prescription accepted: order ready"),
+            t.T("Your prescription for order {number} was accepted. The order is ready to collect at the clinic pharmacy desk. Please bring a photo ID.", ("number", order.OrderNumber))));
 
         await _db.SaveChangesAsync();
         await _audit.LogAsync("ApprovedStoreOrder", nameof(StoreOrder), id);
@@ -513,9 +522,9 @@ public class StoreController : ControllerBase
         order.ReviewNote = request.Reason.Trim();
         order.ReviewedAt = _clock.Now;
         order.ReviewedByUserId = _current.UserId;
-        NotifyPatient(order, "Prescription not accepted: refunded",
-            $"We couldn't accept the prescription for order {order.OrderNumber}. Reason: {order.ReviewNote} " +
-            $"Your payment of {Money(order.Total)} was refunded to your card. You can request a prescription from a doctor and order again.");
+        NotifyPatient(order, t => (t.T("Prescription not accepted: refunded"),
+            t.T("We couldn't accept the prescription for order {number}. Reason: {reason} Your payment of {total} was refunded to your card. You can request a prescription from a doctor and order again.",
+                ("number", order.OrderNumber), ("reason", order.ReviewNote), ("total", t.Money(order.Total)))));
 
         await _db.SaveChangesAsync();
         await _audit.LogAsync("RejectedStoreOrder", nameof(StoreOrder), id, order.ReviewNote);
@@ -552,8 +561,8 @@ public class StoreController : ControllerBase
         await RefundAndRestockAsync(order);
         order.Status = StoreOrderStatus.Cancelled;
         order.ReviewedAt = _clock.Now;
-        NotifyPatient(order, "Order cancelled: refunded",
-            $"Order {order.OrderNumber} was cancelled and {Money(order.Total)} was refunded to your card.");
+        NotifyPatient(order, t => (t.T("Order cancelled: refunded"),
+            t.T("Order {number} was cancelled and {total} was refunded to your card.", ("number", order.OrderNumber), ("total", t.Money(order.Total)))));
 
         await _db.SaveChangesAsync();
         await _audit.LogAsync("CancelledStoreOrder", nameof(StoreOrder), id);
@@ -617,16 +626,21 @@ public class StoreController : ControllerBase
             item.Product.Stock += item.Quantity;
     }
 
-    private void NotifyPatient(StoreOrder order, string title, string message)
+    private void NotifyPatient(StoreOrder order, Func<Localizer, (string Title, string Message)> build)
     {
-        if (order.Patient?.UserId is int userId) _notifications.Queue(userId, title, message);
-        else if (order.CustomerEmail is not null) _ = EmailCustomerAsync(order.CustomerEmail, title, message);
+        if (order.Patient?.UserId is int userId) _notifications.Queue(userId, build);
+        else if (order.CustomerEmail is not null)
+        {
+            var l = _current.UserId is int staff ? _notifications.For(staff) : new Localizer(_text, null);
+            var (title, message) = build(l);
+            _ = EmailCustomerAsync(order.CustomerEmail, l.Lang, title, message);
+        }
     }
 
-    /// <summary>Order emails to buyers without an account. A mail problem never fails the order.</summary>
-    private async Task EmailCustomerAsync(string to, string subject, string body)
+    /// <summary>Order emails to buyers without a patient account. A mail problem never fails the order.</summary>
+    private async Task EmailCustomerAsync(string to, string lang, string subject, string body)
     {
-        try { await _email.SendAsync(to, subject, body, CancellationToken.None); }
+        try { await _email.SendAsync(to, subject, body, CancellationToken.None, lang); }
         catch (Exception ex) { _logger.LogWarning(ex, "Could not email pharmacy order details to the customer."); }
     }
 

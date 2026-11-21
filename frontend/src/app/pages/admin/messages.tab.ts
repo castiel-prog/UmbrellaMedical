@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { PagedResult } from '../../core/model';
 import { apiErrorMessage } from '../../core/api-error';
-import { LocalDatePipe } from '../../core/i18n';
+import { LocalDatePipe, TranslatePipe } from '../../core/i18n';
 
 interface ContactMessage {
   id: number; name: string; email: string; phone: string; topic: string; message: string;
@@ -11,25 +11,28 @@ interface ContactMessage {
 }
 
 /** Messages from the public contact form: read, reply by email or phone, mark as handled. */
+import { Router } from '@angular/router';
+import { SupportService } from '../../core/support.service';
+
 @Component({
   selector: 'app-admin-messages',
-  imports: [FormsModule, LocalDatePipe],
+  imports: [TranslatePipe, FormsModule, LocalDatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="toolbar">
       <div class="field">
-        <label for="msg-filter">Show</label>
+        <label for="msg-filter">{{ 'Show' | t }}</label>
         <select id="msg-filter" [ngModel]="filter()" (ngModelChange)="filter.set($event); page.set(1); load()">
-          <option value="open">Open messages</option>
-          <option value="handled">Handled</option>
-          <option value="all">All</option>
+          <option value="open">{{ 'Open messages' | t }}</option>
+          <option value="handled">{{ 'Handled' | t }}</option>
+          <option value="all">{{ 'All' | t }}</option>
         </select>
       </div>
-      <span class="muted small">{{ total() }} message(s)</span>
+      <span class="muted small">{{ '{p0} message(s)' | t: { p0: (total()) } }}</span>
     </div>
 
     @if (error()) { <p class="alert error" role="alert">{{ error() }}</p> }
-    @if (!loading() && items().length === 0) { <p class="empty card muted">No messages here.</p> }
+    @if (!loading() && items().length === 0) { <p class="empty card muted">{{ 'No messages here.' | t }}</p> }
 
     <ul class="message-list">
       @for (m of items(); track m.id) {
@@ -40,30 +43,33 @@ interface ContactMessage {
               <div class="muted small">{{ m.createdAt + 'Z' | ldate: 'mediumTime' }}</div>
             </div>
             <div class="message-actions">
-              <a class="btn small" [href]="'mailto:' + m.email + '?subject=' + encode('Re: ' + m.topic + ' — Umbrella Medical Center')">Reply by email</a>
-              <a class="btn small" [href]="'tel:' + m.phone">Call</a>
+              <a class="btn small" [href]="'mailto:' + m.email + '?subject=' + encode('Re: ' + m.topic + ' — Umbrella Medical Center')">{{ 'Reply by email' | t }}</a>
+              <button class="btn small" type="button" (click)="chat(m)" [disabled]="chatBusy() === m.id">💬 {{ 'Reply in chat' | t }}</button>
               <button class="btn small" [class.primary]="!m.isHandled" type="button" (click)="toggle(m)">
-                {{ m.isHandled ? 'Reopen' : 'Mark handled' }}
+                {{ (m.isHandled ? 'Reopen' : 'Mark handled') | t }}
               </button>
             </div>
           </div>
           <p class="pre-line">{{ m.message }}</p>
-          <p class="muted small">{{ m.email }} · {{ m.phone }}@if (m.handledAt) { · handled {{ m.handledAt + 'Z' | ldate: 'mediumTime' }} }</p>
+          <p class="muted small">{{ m.email }} · {{ m.phone }}@if (m.handledAt) { {{ '· handled' | t }} {{ m.handledAt + 'Z' | ldate: 'mediumTime' }} }</p>
         </li>
       }
     </ul>
 
     @if (total() > pageSize) {
-      <nav class="pager" aria-label="Pages">
-        <button class="btn small" type="button" (click)="page.set(page() - 1); load()" [disabled]="page() <= 1">Previous</button>
-        <span>Page {{ page() }}</span>
-        <button class="btn small" type="button" (click)="page.set(page() + 1); load()" [disabled]="page() * pageSize >= total()">Next</button>
+      <nav class="pager" [attr.aria-label]="'Pages' | t">
+        <button class="btn small" type="button" (click)="page.set(page() - 1); load()" [disabled]="page() <= 1">{{ 'Previous' | t }}</button>
+        <span>{{ 'Page {p0}' | t: { p0: (page()) } }}</span>
+        <button class="btn small" type="button" (click)="page.set(page() + 1); load()" [disabled]="page() * pageSize >= total()">{{ 'Next' | t }}</button>
       </nav>
     }
   `
 })
 export class AdminMessagesTab {
   private readonly http = inject(HttpClient);
+  private readonly support = inject(SupportService);
+  private readonly router = inject(Router);
+  protected readonly chatBusy = signal<number | null>(null);
 
   protected readonly pageSize = 20;
   protected readonly items = signal<ContactMessage[]>([]);
@@ -95,5 +101,15 @@ export class AdminMessagesTab {
 
   protected encode(s: string): string {
     return encodeURIComponent(s);
+  }
+
+  /** Opens (or reuses) a support chat with the person who sent this message. */
+  protected chat(m: ContactMessage): void {
+    this.chatBusy.set(m.id);
+    this.error.set(null);
+    this.support.startFromContact(m.id).subscribe({
+      next: c => { this.chatBusy.set(null); void this.router.navigate(['/support'], { queryParams: { c: c.id } }); },
+      error: err => { this.chatBusy.set(null); this.error.set(apiErrorMessage(err)); }
+    });
   }
 }

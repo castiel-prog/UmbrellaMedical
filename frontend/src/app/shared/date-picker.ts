@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, forwardRef, inject, input, signal } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { Icon } from './icon';
-import { I18n, TranslatePipe } from '../core/i18n';
+import { dateFormatter, I18n, TranslatePipe } from '../core/i18n';
 
 type View = 'days' | 'months' | 'years';
 interface Ymd { y: number; m: number; d: number; } // m is 1-12
@@ -127,16 +127,16 @@ export class DatePicker implements ControlValueAccessor {
 
   /** Month and weekday names in the chosen language, from the browser's locale data. */
   private readonly longMonths = computed(() => {
-    const f = new Intl.DateTimeFormat(this.i18n.locale(), { month: 'long' });
+    const f = dateFormatter(this.i18n, { month: 'long' });
     return MONTHS.map((_, i) => capitalize(f.format(new Date(2023, i, 1))));
   });
   protected readonly shortMonths = computed(() => {
-    const f = new Intl.DateTimeFormat(this.i18n.locale(), { month: 'short' });
+    const f = dateFormatter(this.i18n, { month: 'short' });
     return MONTHS.map((_, i) => capitalize(f.format(new Date(2023, i, 1)).replace('.', '')));
   });
   // 2 January 2023 was a Monday.
   protected readonly weekdays = computed(() => {
-    const f = new Intl.DateTimeFormat(this.i18n.locale(), { weekday: 'short' });
+    const f = dateFormatter(this.i18n, { weekday: 'short' });
     return WEEKDAYS.map((_, i) => capitalize(f.format(new Date(2023, 0, 2 + i)).replace('.', '')));
   });
   protected readonly todayKey = keyOf(fromDate(new Date()));
@@ -149,7 +149,7 @@ export class DatePicker implements ControlValueAccessor {
 
   protected readonly label = computed(() => {
     const v = this.selected();
-    return v ? new Intl.DateTimeFormat(this.i18n.locale(), { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(v.y, v.m - 1, v.d)) : this.i18n.t(this.placeholder());
+    return v ? dateFormatter(this.i18n, { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(v.y, v.m - 1, v.d)) : this.i18n.t(this.placeholder());
   });
 
   protected readonly age = computed(() => {
@@ -196,7 +196,7 @@ export class DatePicker implements ControlValueAccessor {
   protected monthName(m: number): string { return this.longMonths()[m - 1]; }
   protected ariaDate(key: string): string {
     const v = parse(key)!;
-    return new Intl.DateTimeFormat(this.i18n.locale(), { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(v.y, v.m - 1, v.d));
+    return dateFormatter(this.i18n, { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(v.y, v.m - 1, v.d));
   }
   protected isSelectedMonth(m: number): boolean {
     const s = this.selected();

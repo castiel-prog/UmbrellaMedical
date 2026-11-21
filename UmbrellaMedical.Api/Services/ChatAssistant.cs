@@ -20,7 +20,8 @@ public interface IChatAssistant
     /// <summary>"ai" for the Claude assistant, "faq" for the built-in one.</summary>
     string Mode { get; }
     bool IsConfigured { get; }
-    Task<ChatAnswer> ReplyAsync(IReadOnlyList<ChatTurn> conversation, CancellationToken cancellationToken);
+    /// <summary>Answers the conversation; <paramref name="lang"/> is the site language the visitor is using.</summary>
+    Task<ChatAnswer> ReplyAsync(IReadOnlyList<ChatTurn> conversation, string? lang, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -43,18 +44,18 @@ public class ChatAssistantRouter : IChatAssistant
     public string Mode => _ai.IsConfigured ? _ai.Mode : _rules.Mode;
     public bool IsConfigured => true;
 
-    public async Task<ChatAnswer> ReplyAsync(IReadOnlyList<ChatTurn> conversation, CancellationToken cancellationToken)
+    public async Task<ChatAnswer> ReplyAsync(IReadOnlyList<ChatTurn> conversation, string? lang, CancellationToken cancellationToken)
     {
-        if (!_ai.IsConfigured) return await _rules.ReplyAsync(conversation, cancellationToken);
+        if (!_ai.IsConfigured) return await _rules.ReplyAsync(conversation, lang, cancellationToken);
 
         try
         {
-            return await _ai.ReplyAsync(conversation, cancellationToken);
+            return await _ai.ReplyAsync(conversation, lang, cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogWarning(ex, "The AI assistant failed; answering with the built-in assistant.");
-            return await _rules.ReplyAsync(conversation, cancellationToken);
+            return await _rules.ReplyAsync(conversation, lang, cancellationToken);
         }
     }
 }
@@ -122,7 +123,8 @@ public class ClaudeChatAssistant : IChatAssistant
     public string Mode => "ai";
     public bool IsConfigured => _client is not null;
 
-    public async Task<ChatAnswer> ReplyAsync(IReadOnlyList<ChatTurn> conversation, CancellationToken cancellationToken)
+    /// <summary>Claude already answers in the language the visitor writes in, so <paramref name="lang"/> is not needed.</summary>
+    public async Task<ChatAnswer> ReplyAsync(IReadOnlyList<ChatTurn> conversation, string? lang, CancellationToken cancellationToken)
     {
         if (_client is null) throw new InvalidOperationException("The AI assistant is not configured.");
 

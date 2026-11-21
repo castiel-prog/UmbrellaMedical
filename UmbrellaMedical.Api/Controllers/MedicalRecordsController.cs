@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
@@ -125,6 +125,23 @@ public class MedicalRecordsController : ControllerBase
             await _audit.LogAsync("ViewedMedicalRecord", nameof(MedicalRecord), id);
 
         return Ok(await LoadDtoAsync(id));
+    }
+
+    /// <summary>The visit summary as a PDF, with labels in the reader's language (?lang=ka). Same access as the record.</summary>
+    [HttpGet("medical-records/{id:int}/summary.pdf")]
+    [Authorize(Roles = "Admin,Doctor,Patient")]
+    public async Task<IActionResult> SummaryPdf(int id, [FromQuery] string? lang, [FromServices] IVisitSummaryPdf pdf, CancellationToken cancellationToken)
+    {
+        var patientId = await _db.MedicalRecords.AsNoTracking().Where(r => r.Id == id).Select(r => (int?)r.PatientId).FirstOrDefaultAsync(cancellationToken);
+        if (patientId is null) return NotFound();
+        if (!await _access.CanAccessAsync(patientId.Value)) return Forbid();
+
+        var result = await pdf.BuildAsync(id, lang, cancellationToken);
+        if (result is null) return NotFound();
+        if (_current.Role != "Patient") await _audit.LogAsync("DownloadedVisitSummary", nameof(MedicalRecord), id);
+
+        Response.Headers.CacheControl = "private, no-store";
+        return File(result.Value.Pdf, "application/pdf", result.Value.FileName);
     }
 
     [HttpPost("patients/{patientId:int}/medical-records")]

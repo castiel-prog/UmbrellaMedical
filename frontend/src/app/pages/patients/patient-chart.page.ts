@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { CurrencyPipe, DatePipe } from '@angular/common';
+import { CurrencyPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { PatientsApi } from '../../core/patients.api';
@@ -15,6 +15,7 @@ import { DocumentsPanel } from '../../shared/documents-panel';
 import { InsurancePanel } from '../../shared/insurance-panel';
 import { InvoiceList } from '../../shared/invoice-list';
 import { PatientForm } from '../../shared/patient-form';
+import { I18n, LocalDatePipe, TranslatePipe } from '../../core/i18n';
 import { Avatar } from '../../shared/avatar';
 
 type Tab = 'overview' | 'appointments' | 'records' | 'prescriptions' | 'documents' | 'insurance' | 'invoices';
@@ -32,12 +33,12 @@ const TABS: { id: Tab; label: string; roles: Role[] }[] = [
 @Component({
   selector: 'app-patient-chart',
   imports: [
-    FormsModule, RouterLink, DatePipe, CurrencyPipe, AllergiesPanel, RecordsPanel, PrescriptionsPanel,
+    LocalDatePipe, TranslatePipe, FormsModule, RouterLink, CurrencyPipe, AllergiesPanel, RecordsPanel, PrescriptionsPanel,
     DocumentsPanel, InsurancePanel, InvoiceList, PatientForm, Avatar
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <a class="back" routerLink="/patients">← Patients</a>
+    <a class="back" routerLink="/patients">{{ '← Patients' | t }}</a>
 
     @if (error()) { <p class="alert error" role="alert">{{ error() }}</p> }
 
@@ -47,27 +48,27 @@ const TABS: { id: Tab; label: string; roles: Role[] }[] = [
           <app-avatar size="big" [url]="p.photoUrl" [name]="p.firstName + ' ' + p.lastName" />
           <div>
             <h1>{{ p.firstName }} {{ p.lastName }}</h1>
-            <p class="muted">{{ p.personalNumber }} · {{ p.gender }} · born {{ p.dateOfBirth | date: 'd MMM y' }} ({{ age(p.dateOfBirth) }} years)</p>
+            <p class="muted">{{ p.personalNumber }} · {{ p.gender | t }} {{ '· born' | t }} {{ p.dateOfBirth | ldate: 'medium' }} ({{ age(p.dateOfBirth) }} {{ 'years)' | t }}</p>
             @if (p.allergies.length > 0) {
-              <p class="allergy-flag">⚠ Allergies: @for (a of p.allergies; track a.allergyId; let last = $last) { {{ a.name }} ({{ a.severity }})@if (!last) {, } }</p>
+              <p class="allergy-flag">{{ '⚠ Allergies:' | t }} @for (a of p.allergies; track a.allergyId; let last = $last) { {{ a.name }} ({{ a.severity | t }})@if (!last) {, } }</p>
             }
           </div>
         </div>
         @if (canBook()) {
           <div class="booking-box">
-            <label for="book-doctor" class="sr-only">Doctor</label>
+            <label for="book-doctor" class="sr-only">{{ 'Doctor' | t }}</label>
             <select id="book-doctor" [(ngModel)]="bookDoctorId">
-              <option [ngValue]="null">Book with doctor…</option>
-              @for (d of doctors(); track d.id) { <option [ngValue]="d.id">Dr. {{ d.firstName }} {{ d.lastName }} · {{ d.specialization }}</option> }
+              <option [ngValue]="null">{{ 'Book with doctor…' | t }}</option>
+              @for (d of doctors(); track d.id) { <option [ngValue]="d.id">{{ 'Dr. {p0} {p1} · {p2}' | t: { p0: (d.firstName), p1: (d.lastName), p2: (d.specialization | t) } }}</option> }
             </select>
-            <button class="btn primary small" type="button" [disabled]="!bookDoctorId" (click)="book(p)">Book</button>
+            <button class="btn primary small" type="button" [disabled]="!bookDoctorId" (click)="book(p)">{{ 'Book' | t }}</button>
           </div>
         }
       </div>
 
       <div class="tabs scroll" role="tablist">
         @for (t of tabs(); track t.id) {
-          <button type="button" role="tab" [class.active]="tab() === t.id" [attr.aria-selected]="tab() === t.id" (click)="select(t.id)">{{ t.label }}</button>
+          <button type="button" role="tab" [class.active]="tab() === t.id" [attr.aria-selected]="tab() === t.id" (click)="select(t.id)">{{ t.label | t }}</button>
         }
       </div>
 
@@ -79,25 +80,25 @@ const TABS: { id: Tab; label: string; roles: Role[] }[] = [
           } @else {
             <div class="two-col">
               <section class="card">
-                <h3>Contact</h3>
+                <h3>{{ 'Contact' | t }}</h3>
                 <dl class="details">
-                  <dt>Phone</dt><dd>{{ p.phone ?? '—' }}</dd>
-                  <dt>Email</dt><dd>{{ p.email ?? '—' }}</dd>
-                  <dt>Address</dt><dd>{{ p.address ?? '—' }}</dd>
-                  <dt>Registered</dt><dd>{{ p.createdAt | date: 'd MMM y' }}</dd>
+                  <dt>{{ 'Phone' | t }}</dt><dd>{{ p.phone ?? '—' }}</dd>
+                  <dt>{{ 'Email' | t }}</dt><dd>{{ p.email ?? '—' }}</dd>
+                  <dt>{{ 'Address' | t }}</dt><dd>{{ p.address ?? '—' }}</dd>
+                  <dt>{{ 'Registered' | t }}</dt><dd>{{ p.createdAt | ldate: 'medium' }}</dd>
                 </dl>
                 @if (canEditPatient()) {
-                  <button class="btn small" type="button" (click)="editing.set(true)">Edit details</button>
+                  <button class="btn small" type="button" (click)="editing.set(true)">{{ 'Edit details' | t }}</button>
                 }
               </section>
               <section class="card">
-                <h3>Allergies</h3>
+                <h3>{{ 'Allergies' | t }}</h3>
                 <app-allergies-panel [patientId]="p.id" [allergies]="p.allergies" [canEdit]="canEditAllergies()" (changed)="patient.set({ ...p, allergies: $event })" />
               </section>
             </div>
             @if (p.medicalHistory) {
               <section class="card section-gap">
-                <h3>Medical history</h3>
+                <h3>{{ 'Medical history' | t }}</h3>
                 <p class="pre-line">{{ p.medicalHistory }}</p>
               </section>
             }
@@ -105,27 +106,27 @@ const TABS: { id: Tab; label: string; roles: Role[] }[] = [
         }
         @case ('appointments') {
           @if (appointments() === null) {
-            <p class="muted">Loading...</p>
+            <p class="muted">{{ 'Loading...' | t }}</p>
           } @else if (appointments()!.length === 0) {
-            <p class="empty card muted">No appointments.</p>
+            <p class="empty card muted">{{ 'No appointments.' | t }}</p>
           } @else {
             <div class="table-wrap">
               <table class="table">
-                <thead><tr><th>When</th><th>Doctor</th><th>Service</th><th class="right">Price</th><th>Status</th></tr></thead>
+                <thead><tr><th>{{ 'When' | t }}</th><th>{{ 'Doctor' | t }}</th><th>{{ 'Service' | t }}</th><th class="right">{{ 'Price' | t }}</th><th>{{ 'Status' | t }}</th></tr></thead>
                 <tbody>
                   @for (a of appointments(); track a.id) {
                     <tr>
-                      <td>{{ a.startDateTime | date: 'd MMM y, HH:mm' }}</td>
-                      <td>Dr. {{ a.doctorName }}</td>
+                      <td>{{ a.startDateTime | ldate: 'mediumTime' }}</td>
+                      <td>{{ 'Dr. {p0}' | t: { p0: (a.doctorName) } }}</td>
                       <td>{{ a.serviceName }}</td>
                       <td class="right">{{ a.price | currency: 'GEL' : 'symbol-narrow' }}</td>
-                      <td><span [class]="'badge status-' + a.status.toLowerCase()">{{ a.status === 'NoShow' ? 'Missed' : a.status }}</span></td>
+                      <td><span [class]="'badge status-' + a.status.toLowerCase()">{{ (a.status === 'NoShow' ? 'Missed' : a.status) | t }}</span></td>
                     </tr>
                   }
                 </tbody>
               </table>
             </div>
-            <p class="muted small">Showing the latest 50. Manage visits on the <a routerLink="/desk">Appointments</a> page.</p>
+            <p class="muted small">{{ 'Showing the latest 50. Manage visits on the' | t }} <a routerLink="/desk">{{ 'Appointments' | t }}</a> {{ 'page.' | t }}</p>
           }
         }
         @case ('records') { <app-records-panel [patientId]="p.id" [canWrite]="isDoctor()" /> }
@@ -135,11 +136,12 @@ const TABS: { id: Tab; label: string; roles: Role[] }[] = [
         @case ('invoices') { <app-invoice-list [patientId]="p.id" /> }
       }
     } @else if (!error()) {
-      <p class="muted">Loading...</p>
+      <p class="muted">{{ 'Loading...' | t }}</p>
     }
   `
 })
 export class PatientChartPage {
+  protected readonly i18n = inject(I18n);
   private readonly api = inject(PatientsApi);
   private readonly appointmentsApi = inject(AppointmentsApi);
   private readonly doctorsApi = inject(DoctorsApi);
@@ -198,7 +200,7 @@ export class PatientChartPage {
   protected saved(p: PatientDetails): void {
     this.patient.set(p);
     this.editing.set(false);
-    this.message.set('The patient was updated.');
+    this.message.set(this.i18n.t('The patient was updated.'));
   }
 
   protected book(p: PatientDetails): void {

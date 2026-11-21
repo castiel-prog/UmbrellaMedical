@@ -31,7 +31,32 @@ public static class DemoReviewsSeeder
         new("Nikoloz", "Japaridze", Gender.Male, 1972, "60001000112"),
         new("Elene", "Khutsishvili", Gender.Female, 1989, "60001000113"),
         new("Sandro", "Papava", Gender.Male, 1999, "60001000114"),
-        new("Natia", "Toidze", Gender.Female, 1983, "60001000115")
+        new("Natia", "Toidze", Gender.Female, 1983, "60001000115"),
+        new("Archil", "Kavtaradze", Gender.Male, 1961, "60001000116"),
+        new("Lika", "Dadiani", Gender.Female, 2003, "60001000117"),
+        new("Beka", "Nozadze", Gender.Male, 1994, "60001000118"),
+        new("Maka", "Gvaramia", Gender.Female, 1977, "60001000119"),
+        new("Gela", "Tabatadze", Gender.Male, 1958, "60001000120"),
+        new("Tako", "Mikadze", Gender.Female, 1991, "60001000121"),
+        new("Saba", "Kurashvili", Gender.Male, 2005, "60001000122"),
+        new("Nana", "Kobiashvili", Gender.Female, 1966, "60001000123"),
+        new("Temo", "Jgerenaia", Gender.Male, 1988, "60001000124"),
+        new("Eka", "Kipshidze", Gender.Female, 1980, "60001000125"),
+        new("Rati", "Tvaladze", Gender.Male, 1997, "60001000126"),
+        new("Mzia", "Gotsiridze", Gender.Female, 1954, "60001000127"),
+        new("Dato", "Chikhladze", Gender.Male, 1976, "60001000128"),
+        new("Ninia", "Vashakidze", Gender.Female, 2000, "60001000129"),
+        new("Avtandil", "Jincharadze", Gender.Male, 1963, "60001000130"),
+        new("Sofia", "Rcheulishvili", Gender.Female, 1993, "60001000131"),
+        new("Zurab", "Melikidze", Gender.Male, 1984, "60001000132"),
+        new("Khatuna", "Bolkvadze", Gender.Female, 1972, "60001000133"),
+        new("Giorgi", "Shonia", Gender.Male, 2002, "60001000134"),
+        new("Marina", "Esakia", Gender.Female, 1969, "60001000135"),
+        new("Alexander", "Datuashvili", Gender.Male, 1990, "60001000136"),
+        new("Tinatin", "Khachidze", Gender.Female, 1986, "60001000137"),
+        new("Nodar", "Sikharulidze", Gender.Male, 1959, "60001000138"),
+        new("Anano", "Gegechkori", Gender.Female, 1996, "60001000139"),
+        new("Vakhtang", "Beradze", Gender.Male, 1981, "60001000140")
     };
 
     private static readonly string[] FiveStar =

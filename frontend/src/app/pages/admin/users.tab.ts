@@ -1,35 +1,35 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminApi } from '../../core/admin.api';
 import { PagedResult, Role, UserListItem } from '../../core/model';
 import { apiErrorMessage } from '../../core/api-error';
 import { orNull } from '../../core/util';
+import { I18n, LocalDatePipe, TranslatePipe } from '../../core/i18n';
 import { Pager } from '../../shared/pager';
 
 @Component({
   selector: 'app-admin-users',
-  imports: [FormsModule, DatePipe, Pager],
+  imports: [LocalDatePipe, TranslatePipe, FormsModule, Pager],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <form class="filters" (ngSubmit)="reload()">
-      <div class="field"><label for="u-search">Search</label><input id="u-search" name="search" type="search" placeholder="Email or name" [(ngModel)]="search" /></div>
+      <div class="field"><label for="u-search">{{ 'Search' | t }}</label><input id="u-search" name="search" type="search" [placeholder]="'Email or name' | t" [(ngModel)]="search" /></div>
       <div class="field">
-        <label for="u-role">Role</label>
+        <label for="u-role">{{ 'Role' | t }}</label>
         <select id="u-role" name="role" [(ngModel)]="role" (ngModelChange)="reload()">
-          <option [ngValue]="null">All</option>
-          <option value="Patient">Patient</option>
-          <option value="Doctor">Doctor</option>
-          <option value="Receptionist">Receptionist</option>
-          <option value="Admin">Admin</option>
+          <option [ngValue]="null">{{ 'All' | t }}</option>
+          <option value="Patient">{{ 'Patient' | t }}</option>
+          <option value="Doctor">{{ 'Doctor' | t }}</option>
+          <option value="Receptionist">{{ 'Receptionist' | t }}</option>
+          <option value="Admin">{{ 'Admin' | t }}</option>
         </select>
       </div>
       <div class="field">
-        <label for="u-active">Status</label>
+        <label for="u-active">{{ 'Status' | t }}</label>
         <select id="u-active" name="active" [(ngModel)]="isActive" (ngModelChange)="reload()">
-          <option [ngValue]="null">All</option>
-          <option [ngValue]="true">Active</option>
-          <option [ngValue]="false">Deactivated</option>
+          <option [ngValue]="null">{{ 'All' | t }}</option>
+          <option [ngValue]="true">{{ 'Active' | t }}</option>
+          <option [ngValue]="false">{{ 'Deactivated' | t }}</option>
         </select>
       </div>
     </form>
@@ -40,20 +40,20 @@ import { Pager } from '../../shared/pager';
     @if (result(); as data) {
       <div class="table-wrap" [class.dim]="loading()">
         <table class="table">
-          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>{{ 'Name' | t }}</th><th>{{ 'Email' | t }}</th><th>{{ 'Role' | t }}</th><th>{{ 'Joined' | t }}</th><th>{{ 'Status' | t }}</th><th></th></tr></thead>
           <tbody>
             @for (u of data.items; track u.id) {
               <tr>
                 <td>{{ u.fullName ?? '—' }}</td>
-                <td>{{ u.email }} @if (!u.emailConfirmed) { <span class="badge warn">unconfirmed</span> }</td>
-                <td>{{ u.role }}</td>
-                <td>{{ u.createdAt | date: 'd MMM y' }}</td>
-                <td><span class="badge" [class.ok]="u.isActive" [class.muted-badge]="!u.isActive">{{ u.isActive ? 'Active' : 'Deactivated' }}</span></td>
+                <td>{{ u.email }} @if (!u.emailConfirmed) { <span class="badge warn">{{ 'unconfirmed' | t }}</span> }</td>
+                <td>{{ u.role | t }}</td>
+                <td>{{ u.createdAt | ldate: 'medium' }}</td>
+                <td><span class="badge" [class.ok]="u.isActive" [class.muted-badge]="!u.isActive">{{ (u.isActive ? 'Active' : 'Deactivated') | t }}</span></td>
                 <td class="right">
                   @if (u.isActive) {
-                    <button class="btn small danger" type="button" (click)="startDeactivate(u)">Deactivate</button>
+                    <button class="btn small danger" type="button" (click)="startDeactivate(u)">{{ 'Deactivate' | t }}</button>
                   } @else {
-                    <button class="btn small" type="button" (click)="setStatus(u, true)" [disabled]="busy()">Activate</button>
+                    <button class="btn small" type="button" (click)="setStatus(u, true)" [disabled]="busy()">{{ 'Activate' | t }}</button>
                   }
                 </td>
               </tr>
@@ -61,33 +61,32 @@ import { Pager } from '../../shared/pager';
                 <tr>
                   <td colspan="6">
                     <div class="inline-panel">
-                      <p><strong>Deactivate {{ u.fullName ?? u.email }}</strong> ({{ u.role }})</p>
+                      <p><strong>{{ 'Deactivate {p0}' | t: { p0: (u.fullName ?? u.email) } }}</strong> ({{ u.role | t }})</p>
                       <p class="muted small">
-                        They will be logged out and can no longer sign in. They receive an email with the reason below,
-                        asking them to visit or contact the clinic for a review. Their records are kept.
+                        {{ 'They will be logged out and can no longer sign in. They receive an email with the reason below, asking them to visit or contact the clinic for a review. Their records are kept.' | t }}
                       </p>
                       <div class="form-grid">
                         <div class="field">
-                          <label [for]="'cause-' + u.id">Probable cause</label>
+                          <label [for]="'cause-' + u.id">{{ 'Probable cause' | t }}</label>
                           <select [id]="'cause-' + u.id" [(ngModel)]="cause">
-                            <option value="" disabled>Choose a reason</option>
+                            <option value="" disabled>{{ 'Choose a reason' | t }}</option>
                             @for (c of causes; track c) { <option [value]="c">{{ c }}</option> }
                           </select>
                         </div>
                         <div class="field">
-                          <label [for]="'details-' + u.id">Details (sent to the account holder)</label>
+                          <label [for]="'details-' + u.id">{{ 'Details (sent to the account holder)' | t }}</label>
                           <textarea [id]="'details-' + u.id" rows="2" maxlength="400" [(ngModel)]="details"
-                            placeholder="For example: three missed appointments in October without cancelling."></textarea>
+                            [placeholder]="'For example: three missed appointments in October without cancelling.' | t"></textarea>
                         </div>
                       </div>
                       @if (fullReason(); as r) {
-                        <p class="muted small">Email will say: <em>Reason: {{ r }}</em></p>
+                        <p class="muted small">{{ 'Email will say:' | t }} <em>{{ 'Reason: {p0}' | t: { p0: (r) } }}</em></p>
                       }
                       <div class="card-actions">
                         <button class="btn small danger" type="button" (click)="setStatus(u, false)" [disabled]="busy() || !canDeactivate()">
-                          Deactivate and send email
+                          {{ 'Deactivate and send email' | t }}
                         </button>
-                        <button class="btn small" type="button" (click)="openId.set(null)">Cancel</button>
+                        <button class="btn small" type="button" (click)="openId.set(null)">{{ 'Cancel' | t }}</button>
                       </div>
                     </div>
                   </td>
@@ -99,11 +98,12 @@ import { Pager } from '../../shared/pager';
       </div>
       <app-pager [page]="page()" [pageSize]="pageSize" [totalCount]="data.totalCount" [disabled]="loading()" (pageChange)="page.set($event); load()" />
     } @else if (loading()) {
-      <p class="muted">Loading...</p>
+      <p class="muted">{{ 'Loading...' | t }}</p>
     }
   `
 })
 export class AdminUsersTab {
+  protected readonly i18n = inject(I18n);
   private readonly api = inject(AdminApi);
 
   protected readonly pageSize = 20;
@@ -169,7 +169,7 @@ export class AdminUsersTab {
   protected setStatus(u: UserListItem, isActive: boolean): void {
     const reason = isActive ? null : orNull(this.fullReason());
     if (!isActive && !this.canDeactivate()) {
-      this.error.set('Choose a probable cause and describe it in a few words.');
+      this.error.set(this.i18n.t('Choose a probable cause and describe it in a few words.'));
       return;
     }
 

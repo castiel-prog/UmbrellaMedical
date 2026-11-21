@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { CurrencyPipe, DatePipe } from '@angular/common';
+import { CurrencyPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
@@ -11,6 +11,7 @@ import { Appointment, AppointmentStatus, DoctorListItem, PagedResult } from '../
 import { apiErrorMessage } from '../../core/api-error';
 import { addDays, orNull, toDateInput } from '../../core/util';
 import { Pager } from '../../shared/pager';
+import { I18n, LocalDatePipe, TranslatePipe } from '../../core/i18n';
 import { SlotPicker } from '../../shared/slot-picker';
 
 type Mode = 'complete' | 'cancel' | 'reschedule' | 'invoice';
@@ -19,44 +20,44 @@ interface ExtraItem { description: string; quantity: number; unitPrice: number; 
 
 @Component({
   selector: 'app-appointments-desk',
-  imports: [FormsModule, RouterLink, DatePipe, CurrencyPipe, Pager, SlotPicker],
+  imports: [LocalDatePipe, TranslatePipe, FormsModule, RouterLink, CurrencyPipe, Pager, SlotPicker],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page-head">
-      <h1>{{ isDoctor() ? 'My schedule' : 'Appointments' }}</h1>
+      <h1>{{ (isDoctor() ? 'My schedule' : 'Appointments') | t }}</h1>
       @if (canBook()) {
-        <a class="btn primary" routerLink="/doctors">Book a visit</a>
+        <a class="btn primary" routerLink="/doctors">{{ 'Book a visit' | t }}</a>
       }
     </div>
 
     <div class="toolbar">
-      <div class="card-actions tight" role="group" aria-label="Quick date ranges">
+      <div class="card-actions tight" role="group" [attr.aria-label]="'Quick date ranges' | t">
         @for (p of presets; track p.id) {
           <button class="btn small" type="button" [class.primary]="activePreset() === p.id"
-            [attr.aria-pressed]="activePreset() === p.id" (click)="preset(p.id)">{{ p.label }}</button>
+            [attr.aria-pressed]="activePreset() === p.id" (click)="preset(p.id)">{{ p.label | t }}</button>
         }
       </div>
     </div>
 
     <div class="filters">
-      <div class="field"><label for="ad-from">From</label><input id="ad-from" type="date" [(ngModel)]="from" (change)="customRange()" /></div>
-      <div class="field"><label for="ad-to">To (empty = no end)</label><input id="ad-to" type="date" [(ngModel)]="to" (change)="customRange()" /></div>
+      <div class="field"><label for="ad-from">{{ 'From' | t }}</label><input id="ad-from" type="date" [(ngModel)]="from" (change)="customRange()" /></div>
+      <div class="field"><label for="ad-to">{{ 'To (empty = no end)' | t }}</label><input id="ad-to" type="date" [(ngModel)]="to" (change)="customRange()" /></div>
       <div class="field">
-        <label for="ad-status">Status</label>
+        <label for="ad-status">{{ 'Status' | t }}</label>
         <select id="ad-status" [(ngModel)]="status" (ngModelChange)="reload()">
-          <option [ngValue]="null">All</option>
-          <option value="Scheduled">Scheduled</option>
-          <option value="Completed">Completed</option>
-          @if (isAdmin()) { <option value="Cancelled">Cancelled</option> }
-          <option value="NoShow">Missed</option>
+          <option [ngValue]="null">{{ 'All' | t }}</option>
+          <option value="Scheduled">{{ 'Scheduled' | t }}</option>
+          <option value="Completed">{{ 'Completed' | t }}</option>
+          @if (isAdmin()) { <option value="Cancelled">{{ 'Cancelled' | t }}</option> }
+          <option value="NoShow">{{ 'Missed' | t }}</option>
         </select>
       </div>
       @if (!isDoctor()) {
         <div class="field">
-          <label for="ad-doctor">Doctor</label>
+          <label for="ad-doctor">{{ 'Doctor' | t }}</label>
           <select id="ad-doctor" [(ngModel)]="doctorId" (ngModelChange)="reload()">
-            <option [ngValue]="null">All doctors</option>
-            @for (d of doctors(); track d.id) { <option [ngValue]="d.id">Dr. {{ d.firstName }} {{ d.lastName }}</option> }
+            <option [ngValue]="null">{{ 'All doctors' | t }}</option>
+            @for (d of doctors(); track d.id) { <option [ngValue]="d.id">{{ 'Dr. {p0} {p1}' | t: { p0: (d.firstName), p1: (d.lastName) } }}</option> }
           </select>
         </div>
       }
@@ -64,56 +65,56 @@ interface ExtraItem { description: string; quantity: number; unitPrice: number; 
 
     @if (message()) { <p class="alert success" role="status">{{ message() }}</p> }
     @if (error()) { <p class="alert error" role="alert">{{ error() }}</p> }
-    @if (loading() && !result()) { <p class="muted">Loading...</p> }
+    @if (loading() && !result()) { <p class="muted">{{ 'Loading...' | t }}</p> }
 
     @if (result(); as data) {
       @if (data.items.length === 0) {
         <p class="empty card muted">
-          No appointments in this period.
-          @if (activePreset() !== 'upcoming') { <button class="btn small" type="button" (click)="preset('upcoming')">Show all upcoming</button> }
+          {{ 'No appointments in this period.' | t }}
+          @if (activePreset() !== 'upcoming') { <button class="btn small" type="button" (click)="preset('upcoming')">{{ 'Show all upcoming' | t }}</button> }
         </p>
       }
       <ul class="appt-list" [class.dim]="loading()">
         @for (a of data.items; track a.id) {
           <li class="card appt">
             <div class="appt-date">
-              <strong>{{ a.startDateTime | date: 'd' }}</strong>
-              <span>{{ a.startDateTime | date: 'MMM' }}</span>
-              <small>{{ a.startDateTime | date: 'HH:mm' }}</small>
+              <strong>{{ a.startDateTime | ldate: 'day' }}</strong>
+              <span>{{ a.startDateTime | ldate: 'month' }}</span>
+              <small>{{ a.startDateTime | ldate: 'time' }}</small>
             </div>
             <div class="appt-body">
               <div class="appt-title">
                 <h3><a class="plain" [routerLink]="['/patients', a.patientId]">{{ a.patientName }}</a></h3>
-                <span [class]="'badge status-' + a.status.toLowerCase()">{{ a.status === 'NoShow' ? 'Missed' : a.status }}</span>
+                <span [class]="'badge status-' + a.status.toLowerCase()">{{ (a.status === 'NoShow' ? 'Missed' : a.status) | t }}</span>
               </div>
               <p>
                 {{ a.serviceName }}
-                @if (!isDoctor()) { · Dr. {{ a.doctorName }} <span class="muted">({{ a.specialization }})</span> }
+                @if (!isDoctor()) { {{ '· Dr. {p0}' | t: { p0: (a.doctorName) } }} <span class="muted">({{ a.specialization | t }})</span> }
               </p>
               <p class="muted">
-                {{ a.startDateTime | date: 'EEE d MMM' }}, {{ a.startDateTime | date: 'HH:mm' }}–{{ a.endDateTime | date: 'HH:mm' }}
+                {{ a.startDateTime | ldate: 'weekdayDayMonth' }}, {{ a.startDateTime | ldate: 'time' }}–{{ a.endDateTime | ldate: 'time' }}
                 · {{ a.price | currency: 'GEL' : 'symbol-narrow' }}
-                @if (a.amountPaid > 0 && a.status !== 'Cancelled') { · <span class="badge ok">Paid {{ a.amountPaid | currency: 'GEL' : 'symbol-narrow' }}</span> }
+                @if (a.amountPaid > 0 && a.status !== 'Cancelled') { · <span class="badge ok">{{ 'Paid' | t }} {{ a.amountPaid | currency: 'GEL' : 'symbol-narrow' }}</span> }
               </p>
-              @if (a.reason) { <p><span class="muted">Reason:</span> {{ a.reason }}</p> }
-              @if (a.notes) { <p class="pre-line"><span class="muted">Notes:</span> {{ a.notes }}</p> }
-              @if (a.cancellationReason) { <p><span class="muted">Cancelled:</span> {{ a.cancellationReason }}</p> }
+              @if (a.reason) { <p><span class="muted">{{ 'Reason:' | t }}</span> {{ a.reason }}</p> }
+              @if (a.notes) { <p class="pre-line"><span class="muted">{{ 'Notes:' | t }}</span> {{ a.notes }}</p> }
+              @if (a.cancellationReason) { <p><span class="muted">{{ 'Cancelled:' | t }}</span> {{ a.cancellationReason }}</p> }
 
               @if (!isOpen(a.id)) {
                 <div class="card-actions">
                   @if (a.status === 'Scheduled') {
-                    @if (canComplete()) { <button class="btn small primary" type="button" (click)="open(a, 'complete')">Complete</button> }
-                    <button class="btn small" type="button" (click)="noShow(a)" [disabled]="busy()">Mark missed</button>
-                    @if (canBook()) { <button class="btn small" type="button" (click)="open(a, 'reschedule')">Reschedule</button> }
-                    <button class="btn small danger" type="button" (click)="open(a, 'cancel')">Cancel</button>
+                    @if (canComplete()) { <button class="btn small primary" type="button" (click)="open(a, 'complete')">{{ 'Complete' | t }}</button> }
+                    <button class="btn small" type="button" (click)="noShow(a)" [disabled]="busy()">{{ 'Mark missed' | t }}</button>
+                    @if (canBook()) { <button class="btn small" type="button" (click)="open(a, 'reschedule')">{{ 'Reschedule' | t }}</button> }
+                    <button class="btn small danger" type="button" (click)="open(a, 'cancel')">{{ 'Cancel' | t }}</button>
                   }
                   @if (isDoctor() && a.status !== 'Cancelled') {
-                    <a class="btn small" [routerLink]="['/patients', a.patientId]" [queryParams]="{ tab: 'records' }">Medical record</a>
+                    <a class="btn small" [routerLink]="['/patients', a.patientId]" [queryParams]="{ tab: 'records' }">{{ 'Medical record' | t }}</a>
                   }
                   @if (canBill() && a.invoiceId) {
-                    <a class="btn small" [routerLink]="['/invoices', a.invoiceId]">View invoice</a>
+                    <a class="btn small" [routerLink]="['/invoices', a.invoiceId]">{{ 'View invoice' | t }}</a>
                   } @else if (canBill() && a.status === 'Completed') {
-                    <button class="btn small primary" type="button" (click)="open(a, 'invoice')">Create invoice</button>
+                    <button class="btn small primary" type="button" (click)="open(a, 'invoice')">{{ 'Create invoice' | t }}</button>
                   }
                 </div>
               }
@@ -121,12 +122,12 @@ interface ExtraItem { description: string; quantity: number; unitPrice: number; 
               @if (isOpen(a.id, 'complete')) {
                 <div class="inline-panel">
                   <div class="field">
-                    <label [for]="'notes-' + a.id">Visit notes (optional)</label>
+                    <label [for]="'notes-' + a.id">{{ 'Visit notes (optional)' | t }}</label>
                     <textarea [id]="'notes-' + a.id" rows="3" maxlength="4000" [(ngModel)]="text"></textarea>
                   </div>
                   <div class="card-actions">
-                    <button class="btn small primary" type="button" (click)="complete(a)" [disabled]="busy()">Mark as completed</button>
-                    <button class="btn small" type="button" (click)="close()">Back</button>
+                    <button class="btn small primary" type="button" (click)="complete(a)" [disabled]="busy()">{{ 'Mark as completed' | t }}</button>
+                    <button class="btn small" type="button" (click)="close()">{{ 'Back' | t }}</button>
                   </div>
                 </div>
               }
@@ -134,12 +135,12 @@ interface ExtraItem { description: string; quantity: number; unitPrice: number; 
               @if (isOpen(a.id, 'cancel')) {
                 <div class="inline-panel">
                   <div class="field">
-                    <label [for]="'cancel-' + a.id">Reason (optional)</label>
+                    <label [for]="'cancel-' + a.id">{{ 'Reason (optional)' | t }}</label>
                     <textarea [id]="'cancel-' + a.id" rows="2" maxlength="500" [(ngModel)]="text"></textarea>
                   </div>
                   <div class="card-actions">
-                    <button class="btn small danger" type="button" (click)="cancel(a)" [disabled]="busy()">Cancel the visit</button>
-                    <button class="btn small" type="button" (click)="close()">Keep it</button>
+                    <button class="btn small danger" type="button" (click)="cancel(a)" [disabled]="busy()">{{ 'Cancel the visit' | t }}</button>
+                    <button class="btn small" type="button" (click)="close()">{{ 'Keep it' | t }}</button>
                   </div>
                 </div>
               }
@@ -148,8 +149,8 @@ interface ExtraItem { description: string; quantity: number; unitPrice: number; 
                 <div class="inline-panel">
                   <app-slot-picker [doctorId]="a.doctorId" [serviceId]="a.serviceId" (picked)="newStart.set($event)" />
                   <div class="card-actions">
-                    <button class="btn small primary" type="button" (click)="reschedule(a)" [disabled]="!newStart() || busy()">Move the visit</button>
-                    <button class="btn small" type="button" (click)="close()">Back</button>
+                    <button class="btn small primary" type="button" (click)="reschedule(a)" [disabled]="!newStart() || busy()">{{ 'Move the visit' | t }}</button>
+                    <button class="btn small" type="button" (click)="close()">{{ 'Back' | t }}</button>
                   </div>
                 </div>
               }
@@ -157,21 +158,21 @@ interface ExtraItem { description: string; quantity: number; unitPrice: number; 
               @if (isOpen(a.id, 'invoice')) {
                 <div class="inline-panel">
                   <label class="check">
-                    <input type="checkbox" [(ngModel)]="useInsurance" /> Apply the patient's valid insurance (if any)
+                    <input type="checkbox" [(ngModel)]="useInsurance" /> {{ 'Apply the patient\\'s valid insurance (if any)' | t }}
                   </label>
-                  <p class="muted">The visit's service ({{ a.serviceName }}, {{ a.price | currency: 'GEL' : 'symbol-narrow' }}) is added automatically. Extra items:</p>
+                  <p class="muted">{{ 'The visit\\'s service (' | t }}{{ a.serviceName }}, {{ a.price | currency: 'GEL' : 'symbol-narrow' }}{{ ') is added automatically. Extra items:' | t }}</p>
                   @for (x of extras(); track $index; let i = $index) {
                     <div class="tooth-row">
-                      <div class="field"><label [for]="'x-d' + i">Description</label><input [id]="'x-d' + i" maxlength="200" [(ngModel)]="x.description" /></div>
-                      <div class="field"><label [for]="'x-q' + i">Qty</label><input [id]="'x-q' + i" type="number" min="1" max="100" [(ngModel)]="x.quantity" /></div>
-                      <div class="field"><label [for]="'x-p' + i">Unit price</label><input [id]="'x-p' + i" type="number" min="0.01" step="0.01" [(ngModel)]="x.unitPrice" /></div>
-                      <button class="btn small danger" type="button" aria-label="Remove item" (click)="removeExtra(i)">✕</button>
+                      <div class="field"><label [for]="'x-d' + i">{{ 'Description' | t }}</label><input [id]="'x-d' + i" maxlength="200" [(ngModel)]="x.description" /></div>
+                      <div class="field"><label [for]="'x-q' + i">{{ 'Qty' | t }}</label><input [id]="'x-q' + i" type="number" min="1" max="100" [(ngModel)]="x.quantity" /></div>
+                      <div class="field"><label [for]="'x-p' + i">{{ 'Unit price' | t }}</label><input [id]="'x-p' + i" type="number" min="0.01" step="0.01" [(ngModel)]="x.unitPrice" /></div>
+                      <button class="btn small danger" type="button" [attr.aria-label]="'Remove item' | t" (click)="removeExtra(i)">✕</button>
                     </div>
                   }
                   <div class="card-actions">
-                    <button class="btn small" type="button" (click)="extras.set([...extras(), { description: '', quantity: 1, unitPrice: 0 }])">Add item</button>
-                    <button class="btn small primary" type="button" (click)="invoice(a)" [disabled]="busy()">Create invoice</button>
-                    <button class="btn small" type="button" (click)="close()">Back</button>
+                    <button class="btn small" type="button" (click)="extras.set([...extras(), { description: '', quantity: 1, unitPrice: 0 }])">{{ 'Add item' | t }}</button>
+                    <button class="btn small primary" type="button" (click)="invoice(a)" [disabled]="busy()">{{ 'Create invoice' | t }}</button>
+                    <button class="btn small" type="button" (click)="close()">{{ 'Back' | t }}</button>
                   </div>
                 </div>
               }
@@ -184,6 +185,7 @@ interface ExtraItem { description: string; quantity: number; unitPrice: number; 
   `
 })
 export class AppointmentsDeskPage {
+  protected readonly i18n = inject(I18n);
   private readonly api = inject(AppointmentsApi);
   private readonly billing = inject(BillingApi);
   private readonly doctorsApi = inject(DoctorsApi);
@@ -300,7 +302,7 @@ export class AppointmentsDeskPage {
   protected invoice(a: Appointment): void {
     const extras = this.extras();
     if (extras.some(x => !x.description.trim() || !(Number(x.unitPrice) > 0) || !(Number(x.quantity) >= 1))) {
-      this.error.set('Each extra item needs a description, a quantity and a price.');
+      this.error.set(this.i18n.t('Each extra item needs a description, a quantity and a price.'));
       return;
     }
     this.busy.set(true);

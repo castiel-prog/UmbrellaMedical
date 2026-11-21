@@ -6,6 +6,7 @@ import { DoctorsApi } from '../../core/doctors.api';
 import { AuthService } from '../../core/auth.service';
 import { DayOfWeekName, DoctorListItem, ScheduleItem } from '../../core/model';
 import { apiErrorMessage } from '../../core/api-error';
+import { I18n, TranslatePipe } from '../../core/i18n';
 import { DAYS_OF_WEEK } from '../../core/util';
 
 interface Shift { start: string; end: string; isActive: boolean; }
@@ -17,51 +18,51 @@ function emptyWeek(): Week {
 
 @Component({
   selector: 'app-working-hours',
-  imports: [FormsModule],
+  imports: [TranslatePipe, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page-head">
-      <h1>Working hours</h1>
+      <h1>{{ 'Working hours' | t }}</h1>
       @if (doctorId()) {
-        <button class="btn primary" type="button" (click)="save()" [disabled]="busy()">{{ busy() ? 'Saving...' : 'Save hours' }}</button>
+        <button class="btn primary" type="button" (click)="save()" [disabled]="busy()">{{ (busy() ? 'Saving...' : 'Save hours') | t }}</button>
       }
     </div>
 
     @if (isAdmin()) {
       <div class="field narrow">
-        <label for="wh-doctor">Doctor</label>
+        <label for="wh-doctor">{{ 'Doctor' | t }}</label>
         <select id="wh-doctor" [ngModel]="doctorId()" (ngModelChange)="chooseDoctor($event)">
-          <option [ngValue]="null" disabled>Choose a doctor</option>
-          @for (d of doctors(); track d.id) { <option [ngValue]="d.id">Dr. {{ d.firstName }} {{ d.lastName }} · {{ d.specialization }}</option> }
+          <option [ngValue]="null" disabled>{{ 'Choose a doctor' | t }}</option>
+          @for (d of doctors(); track d.id) { <option [ngValue]="d.id">{{ 'Dr. {p0} {p1} · {p2}' | t: { p0: (d.firstName), p1: (d.lastName), p2: (d.specialization | t) } }}</option> }
         </select>
       </div>
     } @else {
-      <p class="muted">These hours decide when patients can book you. Visits already booked are not moved.</p>
+      <p class="muted">{{ 'These hours decide when patients can book you. Visits already booked are not moved.' | t }}</p>
     }
 
     @if (message()) { <p class="alert success" role="status">{{ message() }}</p> }
     @if (error()) { <p class="alert error" role="alert">{{ error() }}</p> }
 
     @if (loading()) {
-      <p class="muted">Loading...</p>
+      <p class="muted">{{ 'Loading...' | t }}</p>
     } @else if (doctorId()) {
       <div class="week">
         @for (day of days; track day) {
           <section class="card day-card">
             <div class="row-head">
-              <h3>{{ day }}</h3>
-              <button class="btn small" type="button" (click)="addShift(day)">Add hours</button>
+              <h3>{{ day | t }}</h3>
+              <button class="btn small" type="button" (click)="addShift(day)">{{ 'Add hours' | t }}</button>
             </div>
             @if (week()[day].length === 0) {
-              <p class="muted">Day off</p>
+              <p class="muted">{{ 'Day off' | t }}</p>
             }
             @for (s of week()[day]; track $index; let i = $index) {
               <div class="shift" [class.dim]="!s.isActive">
                 <input type="time" step="900" [attr.aria-label]="day + ' start ' + (i + 1)" [(ngModel)]="s.start" />
                 <span>–</span>
                 <input type="time" step="900" [attr.aria-label]="day + ' end ' + (i + 1)" [(ngModel)]="s.end" />
-                <label class="check"><input type="checkbox" [(ngModel)]="s.isActive" /> Active</label>
-                <button class="btn small danger" type="button" aria-label="Remove hours" (click)="removeShift(day, i)">✕</button>
+                <label class="check"><input type="checkbox" [(ngModel)]="s.isActive" /> {{ 'Active' | t }}</label>
+                <button class="btn small danger" type="button" [attr.aria-label]="'Remove hours' | t" (click)="removeShift(day, i)">✕</button>
               </div>
             }
           </section>
@@ -71,6 +72,7 @@ function emptyWeek(): Week {
   `
 })
 export class WorkingHoursPage {
+  protected readonly i18n = inject(I18n);
   private readonly api = inject(StaffApi);
   private readonly doctorsApi = inject(DoctorsApi);
   private readonly auth = inject(AuthService);
@@ -148,7 +150,7 @@ export class WorkingHoursPage {
       next: saved => {
         this.busy.set(false);
         this.apply(saved);
-        this.message.set('Working hours saved.');
+        this.message.set(this.i18n.t('Working hours saved.'));
       },
       error: err => {
         this.busy.set(false);
