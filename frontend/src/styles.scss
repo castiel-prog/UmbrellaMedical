@@ -1412,3 +1412,38 @@ h1, h2 { text-wrap: balance; }
   .shop-sort select { flex: 1; }
   .switch { margin-left: 0; }
 }
+
+/* ---------- Pharmacy delivery ---------- */
+.order-sums { display: grid; gap: 0.35rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
+.order-sums p { display: flex; justify-content: space-between; margin: 0; }
+.order-sums .cart-total { margin-top: 0.35rem; padding-top: 0.5rem; border-top: 1px dashed var(--border); }
+.free-tag { color: #1f9d55; }
+.fulfil-options { display: grid; grid-template-columns: 1fr; gap: 0.6rem; }
+.fulfil-option { position: relative; display: flex; align-items: center; gap: 0.75rem; padding: 0.9rem 1rem; margin: 0; border: 1.5px solid var(--border); border-radius: 14px; background: var(--bg); cursor: pointer; transition: border-color .15s, box-shadow .15s; min-width: 0; }
+.fulfil-option:hover { border-color: var(--primary); }
+.fulfil-option.on { border-color: var(--primary); box-shadow: 0 0 0 3px rgb(200 16 46 / 0.15); background: var(--surface); }
+.fulfil-option input { position: absolute; opacity: 0; pointer-events: none; }
+.fulfil-option:focus-within { outline: 3px solid var(--primary); outline-offset: 2px; }
+.fulfil-icon { font-size: 1.8rem; line-height: 1; flex: 0 0 auto; }
+.fulfil-text { display: grid; gap: 0.1rem; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.fulfil-price { font-weight: 700; white-space: nowrap; }
+.free-hint { margin: 0.75rem 0 0; padding: 0.5rem 0.75rem; border-radius: 10px; background: var(--error-bg); color: var(--primary); font-weight: 600; }
+.delivery-form { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+.delivery-to { font-weight: 600; }
+.order-badges { display: inline-flex; flex-wrap: wrap; gap: 0.35rem; justify-content: flex-end; }
+.badge.ord-delivery { background: #e8f1fb; color: #1168bd; }
+.badge.ord-outfordelivery { background: #fff4d6; color: #8a5a00; }
+.delivery-box { margin: 0.5rem 0; padding: 0.6rem 0.8rem; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); }
+.delivery-box p { margin: 0.1rem 0; overflow-wrap: anywhere; }
+.track { list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0.75rem 0; padding: 0; counter-reset: none; }
+.track li { position: relative; display: grid; justify-items: center; gap: 0.3rem; text-align: center; color: var(--muted); font-size: 0.8rem; min-width: 0; }
+.track li::before { content: ''; position: absolute; top: 0.8rem; left: calc(-50% + 0.9rem); right: calc(50% + 0.9rem); height: 3px; background: var(--border); border-radius: 2px; }
+.track li:first-child::before { display: none; }
+.track li.done::before, .track li.now::before { background: var(--primary); }
+.track-dot { width: 1.7rem; height: 1.7rem; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 0.8rem; background: var(--surface); border: 2px solid var(--border); position: relative; z-index: 1; }
+.track li.done .track-dot { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.track li.now .track-dot { border-color: var(--primary); color: var(--primary); box-shadow: 0 0 0 4px rgb(200 16 46 / 0.15); }
+.track li.now, .track li.done { color: var(--text); font-weight: 600; }
+.track-label { overflow-wrap: normal; word-break: keep-all; line-height: 1.25; }
+@media (max-width: 480px) { .track li { font-size: 0.72rem; } }
+

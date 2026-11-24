@@ -207,7 +207,7 @@ const PRICE_BANDS: { id: PriceBand; label: string; price: string; min: number; m
           }
 
         }
-        <p class="muted small pickup-note">📍 {{ 'Collect your order at the clinic pharmacy desk. Bring a photo ID.' | t }}</p>
+        <p class="muted small pickup-note">🚚 {{ 'Home delivery in Tbilisi, free from {amount}.' | t: { amount: '₾50' } }}<br />📍 {{ 'Or collect your order at the clinic pharmacy desk.' | t }}</p>
       </aside>
     </div>
   `

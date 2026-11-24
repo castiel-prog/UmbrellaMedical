@@ -21,7 +21,18 @@ namespace UmbrellaMedical.Domain.Enums
         /// <summary>The uploaded prescription was not accepted; refunded.</summary>
         Rejected = 4,
         /// <summary>Cancelled by the patient or staff before pickup; refunded.</summary>
-        Cancelled = 5
+        Cancelled = 5,
+        /// <summary>A home-delivery order handed to the courier.</summary>
+        OutForDelivery = 6
+    }
+
+    /// <summary>How the customer receives a pharmacy order.</summary>
+    public enum FulfilmentMethod
+    {
+        /// <summary>Collected at the clinic pharmacy desk (free).</summary>
+        Pickup = 1,
+        /// <summary>Brought to the customer's address by courier.</summary>
+        Delivery = 2
     }
 
     public enum PrescriptionRequestStatus

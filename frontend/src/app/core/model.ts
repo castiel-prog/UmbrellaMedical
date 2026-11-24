@@ -364,7 +364,16 @@ export interface ClinicService {
 
 // ---------- Store ----------
 export type ProductCategory = 'Medicines' | 'Vitamins' | 'PersonalCare' | 'Hygiene' | 'FirstAid' | 'Devices';
-export type StoreOrderStatus = 'AwaitingReview' | 'ReadyForPickup' | 'Completed' | 'Rejected' | 'Cancelled';
+export type StoreOrderStatus = 'AwaitingReview' | 'ReadyForPickup' | 'OutForDelivery' | 'Completed' | 'Rejected' | 'Cancelled';
+export type FulfilmentMethod = 'Pickup' | 'Delivery';
+
+/** Home delivery terms (GET /api/store/delivery). */
+export interface DeliveryInfo {
+  fee: number;
+  freeFrom: number;
+  cities: string[];
+  withinHours: number;
+}
 export type PrescriptionRequestStatus = 'Pending' | 'Approved' | 'Declined' | 'Withdrawn';
 
 export interface Product {
@@ -433,6 +442,13 @@ export interface StoreOrder {
   reviewNote: string | null;
   reviewedAt: string | null;
   completedAt: string | null;
+  fulfilment: FulfilmentMethod;
+  deliveryFee: number;
+  deliveryAddress: string | null;
+  deliveryCity: string | null;
+  deliveryPhone: string | null;
+  deliveryNotes: string | null;
+  dispatchedAt: string | null;
   items: StoreOrderItem[];
 }
 
@@ -442,6 +458,9 @@ export interface CreateStoreOrder {
   card: PaymentCard;
   /** Buyers without a patient account (visitors and staff). */
   customer?: { name: string; email: string; phone: string; personalNumber: string | null } | null;
+  fulfilment: FulfilmentMethod;
+  /** Required for home delivery. */
+  delivery?: { address: string; city: string; phone: string; notes: string | null } | null;
 }
 
 export interface PrescriptionRequestItem {

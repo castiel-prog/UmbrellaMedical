@@ -88,6 +88,13 @@ public class StoreController : ControllerBase
         ReviewNote = o.ReviewNote,
         ReviewedAt = o.ReviewedAt,
         CompletedAt = o.CompletedAt,
+        Fulfilment = o.Fulfilment,
+        DeliveryFee = o.DeliveryFee,
+        DeliveryAddress = o.DeliveryAddress,
+        DeliveryCity = o.DeliveryCity,
+        DeliveryPhone = o.DeliveryPhone,
+        DeliveryNotes = o.DeliveryNotes,
+        DispatchedAt = o.DispatchedAt,
         Items = o.Items.Select(i => new StoreOrderItemDto
         {
             ProductId = i.ProductId,
@@ -257,6 +264,17 @@ public class StoreController : ControllerBase
 
     // ---------------------------------------------------------------- orders
 
+    /// <summary>Home delivery terms: fee, free-delivery threshold, cities and delivery time.</summary>
+    [HttpGet("delivery")]
+    [AllowAnonymous]
+    public ActionResult<DeliveryInfoDto> DeliveryInfo() => Ok(new DeliveryInfoDto
+    {
+        Fee = DeliveryRules.Fee,
+        FreeFrom = DeliveryRules.FreeFrom,
+        Cities = DeliveryRules.Cities.ToList(),
+        WithinHours = DeliveryRules.WithinHours
+    });
+
     /// <summary>
     /// Places and pays an order. Requires an account: patients order on their own account; staff accounts give contact
     /// details, and prescription-only items then need a prescription code plus the patient's personal number.
@@ -274,6 +292,17 @@ public class StoreController : ControllerBase
             return Invalid("customer", "Enter the buyer's name, email and phone so we can tell them when the order is ready.");
         if (!isPatient && request.PrescriptionDocumentId is not null)
             return Invalid(nameof(request.PrescriptionDocumentId), "Uploading a prescription needs a patient account. Use the prescription code instead.");
+
+        // Home delivery needs an address in a city we deliver to.
+        var delivers = request.Fulfilment == FulfilmentMethod.Delivery;
+        string? deliveryCity = null;
+        if (delivers)
+        {
+            if (request.Delivery is null) return Invalid("delivery.address", "Enter the delivery address.");
+            deliveryCity = DeliveryRules.NormalizeCity(request.Delivery.City);
+            if (deliveryCity is null)
+                return Invalid("delivery.city", $"We deliver only in {string.Join(", ", DeliveryRules.Cities)}. Choose pickup at the clinic instead.");
+        }
 
         if (request.Items.Select(i => i.ProductId).Distinct().Count() != request.Items.Count)
             return Invalid("items", "Each product can appear only once; change the quantity instead.");
@@ -345,7 +374,9 @@ public class StoreController : ControllerBase
             });
         }
 
-        var total = lines.Sum(l => l.LineTotal);
+        var itemsTotal = lines.Sum(l => l.LineTotal);
+        var deliveryFee = delivers ? DeliveryRules.FeeFor(itemsTotal) : 0m;
+        var total = itemsTotal + deliveryFee;
         if (request.Card is null) return Invalid("card", "Please pay for the order to complete it.");
 
         // The order belongs to the buyer's patient account, or to the patient whose prescription was used.
@@ -396,7 +427,13 @@ public class StoreController : ControllerBase
                 CustomerName = customer?.Name.Trim(),
                 CustomerEmail = customer?.Email.Trim(),
                 CustomerPhone = customer?.Phone.Trim(),
-                PrescriptionDocumentId = needsReview ? request.PrescriptionDocumentId : null
+                PrescriptionDocumentId = needsReview ? request.PrescriptionDocumentId : null,
+                Fulfilment = delivers ? FulfilmentMethod.Delivery : FulfilmentMethod.Pickup,
+                DeliveryFee = deliveryFee,
+                DeliveryAddress = delivers ? request.Delivery!.Address.Trim() : null,
+                DeliveryCity = deliveryCity,
+                DeliveryPhone = delivers ? request.Delivery!.Phone.Trim() : null,
+                DeliveryNotes = delivers && !string.IsNullOrWhiteSpace(request.Delivery!.Notes) ? request.Delivery.Notes.Trim() : null
             };
             foreach (var line in lines) order.Items.Add(line);
 
@@ -407,9 +444,14 @@ public class StoreController : ControllerBase
             if (notifyUserId is int userId)
                 _notifications.Queue(userId, t => needsReview
                     ? (t.T("Order received: prescription check"),
-                       t.T("Thank you! Order {number} ({total}) is paid. Our staff are checking your prescription; we'll tell you when it's ready to collect. If it can't be accepted, you'll get a full refund.", ("number", order.OrderNumber), ("total", t.Money(total))))
-                    : (t.T("Order ready for pickup"),
-                       t.T("Thank you! Order {number} ({total}) is paid and ready to collect at the clinic pharmacy desk. Please bring a photo ID.", ("number", order.OrderNumber), ("total", t.Money(total)))));
+                       delivers
+                           ? t.T("Thank you! Order {number} ({total}) is paid. Our staff are checking your prescription; once it is accepted we'll deliver the order to {address}. If it can't be accepted, you'll get a full refund.", ("number", order.OrderNumber), ("total", t.Money(total)), ("address", order.DeliveryAddress))
+                           : t.T("Thank you! Order {number} ({total}) is paid. Our staff are checking your prescription; we'll tell you when it's ready to collect. If it can't be accepted, you'll get a full refund.", ("number", order.OrderNumber), ("total", t.Money(total))))
+                    : delivers
+                        ? (t.T("Order received: home delivery"),
+                           t.T("Thank you! Order {number} ({total}) is paid. We're preparing it and will deliver it to {address} within 24 hours. The courier will call you before arriving.", ("number", order.OrderNumber), ("total", t.Money(total)), ("address", order.DeliveryAddress)))
+                        : (t.T("Order ready for pickup"),
+                           t.T("Thank you! Order {number} ({total}) is paid and ready to collect at the clinic pharmacy desk. Please bring a photo ID.", ("number", order.OrderNumber), ("total", t.Money(total)))));
 
             await _db.SaveChangesAsync();
             await tx.CommitAsync();
@@ -434,7 +476,9 @@ public class StoreController : ControllerBase
             var l = _current.UserId is int buyer ? _notifications.For(buyer) : new Localizer(_text, null);
             await EmailCustomerAsync(customer.Email.Trim(), l.Lang, l.T("Your Umbrella pharmacy order {number}", ("number", placed.OrderNumber)),
                 l.T("Hello {name},", ("name", customer.Name.Trim())) + "\n\n" +
-                l.T("Thank you for your order {number} ({total}). It is paid and ready to collect at the clinic pharmacy desk, 12 Shota Rustaveli Avenue, Tbilisi. We are open 24/7. Please bring a photo ID and your order number.", ("number", placed.OrderNumber), ("total", l.Money(placed.Total))) +
+                (delivers
+                    ? l.T("Thank you for your order {number} ({total}). It is paid, and we will deliver it to {address} within 24 hours. The courier will call {phone} before arriving.", ("number", placed.OrderNumber), ("total", l.Money(placed.Total)), ("address", $"{placed.DeliveryAddress}, {placed.DeliveryCity}"), ("phone", placed.DeliveryPhone))
+                    : l.T("Thank you for your order {number} ({total}). It is paid and ready to collect at the clinic pharmacy desk, 12 Shota Rustaveli Avenue, Tbilisi. We are open 24/7. Please bring a photo ID and your order number.", ("number", placed.OrderNumber), ("total", l.Money(placed.Total)))) +
                 "\n\nUmbrella Medical Center");
         }
         return Ok(placed);
@@ -470,7 +514,7 @@ public class StoreController : ControllerBase
 
         var total = await query.CountAsync();
         var items = await query
-            .OrderBy(o => o.Status == StoreOrderStatus.AwaitingReview ? 0 : o.Status == StoreOrderStatus.ReadyForPickup ? 1 : 2)
+            .OrderBy(o => o.Status == StoreOrderStatus.AwaitingReview ? 0 : o.Status == StoreOrderStatus.ReadyForPickup ? 1 : o.Status == StoreOrderStatus.OutForDelivery ? 2 : 3)
             .ThenByDescending(o => o.CreatedAt)
             .Skip((page - 1) * pageSize).Take(pageSize)
             .Select(OrderProjection)
@@ -500,8 +544,11 @@ public class StoreController : ControllerBase
         order.ReviewNote = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim();
         order.ReviewedAt = _clock.Now;
         order.ReviewedByUserId = _current.UserId;
-        NotifyPatient(order, t => (t.T("Prescription accepted: order ready"),
-            t.T("Your prescription for order {number} was accepted. The order is ready to collect at the clinic pharmacy desk. Please bring a photo ID.", ("number", order.OrderNumber))));
+        NotifyPatient(order, t => order.Fulfilment == FulfilmentMethod.Delivery
+            ? (t.T("Prescription accepted: preparing delivery"),
+               t.T("Your prescription for order {number} was accepted. We're preparing the order and will deliver it to {address} within 24 hours.", ("number", order.OrderNumber), ("address", order.DeliveryAddress)))
+            : (t.T("Prescription accepted: order ready"),
+               t.T("Your prescription for order {number} was accepted. The order is ready to collect at the clinic pharmacy desk. Please bring a photo ID.", ("number", order.OrderNumber))));
 
         await _db.SaveChangesAsync();
         await _audit.LogAsync("ApprovedStoreOrder", nameof(StoreOrder), id);
@@ -531,19 +578,47 @@ public class StoreController : ControllerBase
         return Ok(await LoadOrderAsync(id));
     }
 
-    /// <summary>The patient collected the order at the desk.</summary>
+    /// <summary>A home-delivery order is packed and handed to the courier.</summary>
+    [HttpPost("orders/{id:int}/dispatch")]
+    [Authorize(Roles = "Admin,Receptionist")]
+    public async Task<ActionResult<StoreOrderDto>> Dispatch(int id)
+    {
+        var order = await _db.StoreOrders.Include(o => o.Patient).FirstOrDefaultAsync(o => o.Id == id);
+        if (order is null) return NotFound();
+        if (order.Fulfilment != FulfilmentMethod.Delivery) return WrongStatus("This order is collected at the clinic, not delivered.");
+        if (order.Status != StoreOrderStatus.ReadyForPickup) return WrongStatus("Only paid orders that are ready can be sent out for delivery.");
+
+        order.Status = StoreOrderStatus.OutForDelivery;
+        order.DispatchedAt = _clock.Now;
+        NotifyPatient(order, t => (t.T("Your order is on its way"),
+            t.T("Order {number} is out for delivery to {address}. The courier will call {phone} before arriving.",
+                ("number", order.OrderNumber), ("address", order.DeliveryAddress), ("phone", order.DeliveryPhone))));
+
+        await _db.SaveChangesAsync();
+        await _audit.LogAsync("DispatchedStoreOrder", nameof(StoreOrder), id);
+        return Ok(await LoadOrderAsync(id));
+    }
+
+    /// <summary>The patient collected the order at the desk, or the courier delivered it.</summary>
     [HttpPost("orders/{id:int}/complete")]
     [Authorize(Roles = "Admin,Receptionist")]
     public async Task<ActionResult<StoreOrderDto>> Complete(int id)
     {
-        var order = await _db.StoreOrders.FirstOrDefaultAsync(o => o.Id == id);
+        var order = await _db.StoreOrders.Include(o => o.Patient).FirstOrDefaultAsync(o => o.Id == id);
         if (order is null) return NotFound();
-        if (order.Status != StoreOrderStatus.ReadyForPickup) return WrongStatus("Only orders that are ready for pickup can be handed over.");
+        var delivered = order.Fulfilment == FulfilmentMethod.Delivery;
+        if (delivered && order.Status != StoreOrderStatus.OutForDelivery)
+            return WrongStatus("Send the order out for delivery first.");
+        if (!delivered && order.Status != StoreOrderStatus.ReadyForPickup)
+            return WrongStatus("Only orders that are ready for pickup can be handed over.");
 
         order.Status = StoreOrderStatus.Completed;
         order.CompletedAt = _clock.Now;
+        if (delivered)
+            NotifyPatient(order, t => (t.T("Order delivered"),
+                t.T("Order {number} was delivered. Thank you for choosing the Umbrella pharmacy!", ("number", order.OrderNumber))));
         await _db.SaveChangesAsync();
-        await _audit.LogAsync("CompletedStoreOrder", nameof(StoreOrder), id);
+        await _audit.LogAsync(delivered ? "DeliveredStoreOrder" : "CompletedStoreOrder", nameof(StoreOrder), id);
         return Ok(await LoadOrderAsync(id));
     }
 

@@ -7,7 +7,7 @@ import { StoreApi } from '../../core/store.api';
 import { CartLine, CartService } from '../../core/cart.service';
 import { MedicalApi } from '../../core/medical.api';
 import { PatientsApi } from '../../core/patients.api';
-import { CreateStoreOrder, MedicalDocument, StoreOrder, UsablePrescription } from '../../core/model';
+import { CreateStoreOrder, DeliveryInfo, FulfilmentMethod, MedicalDocument, StoreOrder, UsablePrescription } from '../../core/model';
 import { apiErrorMessage } from '../../core/api-error';
 import { CardFields, emptyCard, readCard } from '../../shared/card-fields';
 import { ProductImage } from '../../shared/product-image';
@@ -26,12 +26,19 @@ const MAX_FILE_BYTES = 10 * 1024 * 1024;
   template: `
     @if (placed(); as o) {
       <section class="card success-card">
-        <h1>{{ (o.status === 'AwaitingReview' ? 'Order received' : 'Order ready for pickup') | t }}</h1>
+        <h1>{{ (o.status === 'AwaitingReview' ? 'Order received' : o.fulfilment === 'Delivery' ? 'Order placed for delivery' : 'Order ready for pickup') | t }}</h1>
         <p class="lead">{{ 'Order {number} · {total} paid' | t: { number: o.orderNumber, total: (o.total | currency: 'GEL' : 'symbol-narrow') } }}</p>
         @if (o.status === 'AwaitingReview') {
-          <p>{{ 'Our pharmacist will check your prescription, usually within a working day. You\\'ll get a notification when your order is ready to collect. If it can\\'t be accepted, you\\'ll be refunded in full.' | t }}</p>
+          <p>{{ (o.fulfilment === 'Delivery'
+            ? 'Our pharmacist will check your prescription, usually within a working day. Once it is accepted, we\\'ll deliver your order. If it can\\'t be accepted, you\\'ll be refunded in full.'
+            : 'Our pharmacist will check your prescription, usually within a working day. You\\'ll get a notification when your order is ready to collect. If it can\\'t be accepted, you\\'ll be refunded in full.') | t }}</p>
+        } @else if (o.fulfilment === 'Delivery') {
+          <p>{{ 'We\\'re preparing your order and will deliver it within {hours} hours. The courier will call you before arriving.' | t: { hours: delivery()?.withinHours ?? 24 } }}</p>
         } @else {
           <p>{{ 'Collect it at the clinic pharmacy desk. Please bring a photo ID.' | t }}</p>
+        }
+        @if (o.fulfilment === 'Delivery') {
+          <p class="delivery-to">🚚 {{ o.deliveryAddress }}, {{ o.deliveryCity | t }} · ☎ {{ o.deliveryPhone }}</p>
         }
         @if (!isPatient() && o.customerEmail) {
           <p class="muted">{{ 'We emailed the order details to {email}. Show your order number at the pharmacy desk.' | t: { email: o.customerEmail } }}</p>
@@ -64,7 +71,70 @@ const MAX_FILE_BYTES = 10 * 1024 * 1024;
                   </li>
                 }
               </ul>
-              <p class="cart-total"><span>{{ 'Total' | t }}</span><strong>{{ cart.total() | currency: 'GEL' : 'symbol-narrow' }}</strong></p>
+              <div class="order-sums">
+                <p><span>{{ 'Items' | t }}</span><span>{{ cart.total() | currency: 'GEL' : 'symbol-narrow' }}</span></p>
+                <p><span>{{ 'Delivery' | t }}</span>
+                  <span>@if (method() === 'Pickup') { {{ 'Free (pickup)' | t }} } @else if (fee() === 0) { <strong class="free-tag">{{ 'Free' | t }}</strong> } @else { {{ fee() | currency: 'GEL' : 'symbol-narrow' }} }</span></p>
+                <p class="cart-total"><span>{{ 'Total' | t }}</span><strong>{{ grandTotal() | currency: 'GEL' : 'symbol-narrow' }}</strong></p>
+              </div>
+            </section>
+
+            <!-- How the order reaches the customer -->
+            <section class="card section-gap">
+              <h3>{{ 'How do you want to get your order?' | t }}</h3>
+              <div class="fulfil-options" role="radiogroup" [attr.aria-label]="'How do you want to get your order?' | t">
+                <label class="fulfil-option" [class.on]="method() === 'Pickup'">
+                  <input type="radio" name="fulfilment" value="Pickup" [checked]="method() === 'Pickup'" (change)="method.set('Pickup')" />
+                  <span class="fulfil-icon" aria-hidden="true">🏥</span>
+                  <span class="fulfil-text">
+                    <strong>{{ 'Pick up at the clinic' | t }}</strong>
+                    <span class="muted small">{{ '12 Shota Rustaveli Avenue, Tbilisi · open 24/7' | t }}</span>
+                  </span>
+                  <span class="fulfil-price">{{ 'Free' | t }}</span>
+                </label>
+                <label class="fulfil-option" [class.on]="method() === 'Delivery'">
+                  <input type="radio" name="fulfilment" value="Delivery" [checked]="method() === 'Delivery'" (change)="method.set('Delivery')" />
+                  <span class="fulfil-icon" aria-hidden="true">🚚</span>
+                  <span class="fulfil-text">
+                    <strong>{{ 'Home delivery' | t }}</strong>
+                    <span class="muted small">{{ 'Tbilisi, within {hours} hours' | t: { hours: delivery()?.withinHours ?? 24 } }}</span>
+                  </span>
+                  <span class="fulfil-price">@if (feeFor(cart.total()) === 0) { {{ 'Free' | t }} } @else { {{ feeFor(cart.total()) | currency: 'GEL' : 'symbol-narrow' }} }</span>
+                </label>
+              </div>
+              @if (delivery(); as d) {
+                @if (cart.total() < d.freeFrom) {
+                  <p class="free-hint small">🎁 {{ 'Add {amount} more for free delivery.' | t: { amount: (d.freeFrom - cart.total() | currency: 'GEL' : 'symbol-narrow') } }}</p>
+                }
+              }
+
+              @if (method() === 'Delivery') {
+                <div class="delivery-form">
+                  <div class="field">
+                    <label for="dl-address">{{ 'Street address' | t }}</label>
+                    <input id="dl-address" name="address" autocomplete="street-address" maxlength="200" [placeholder]="'Street, building, flat' | t" [(ngModel)]="address.address" />
+                  </div>
+                  <div class="form-grid">
+                    <div class="field">
+                      <label for="dl-city">{{ 'City' | t }}</label>
+                      <select id="dl-city" name="city" [(ngModel)]="address.city">
+                        @for (c of delivery()?.cities ?? ['Tbilisi']; track c) { <option [value]="c">{{ c | t }}</option> }
+                      </select>
+                    </div>
+                    <div class="field">
+                      <label for="dl-phone">{{ 'Phone for the courier' | t }}</label>
+                      <input id="dl-phone" name="phone" type="tel" autocomplete="tel" maxlength="30" placeholder="+995 5XX XX XX XX" [(ngModel)]="address.phone" />
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label for="dl-notes">{{ 'Notes for the courier (optional)' | t }}</label>
+                    <input id="dl-notes" name="notes" maxlength="300" [placeholder]="'Entrance, floor, door code...' | t" [(ngModel)]="address.notes" />
+                  </div>
+                  @if (rxLines().length > 0) {
+                    <p class="muted small">℞ {{ 'Prescription medicines are handed over only to the person named on the order. The courier may ask for a photo ID.' | t }}</p>
+                  }
+                </div>
+              }
             </section>
 
             @if (!isPatient()) {
@@ -155,10 +225,14 @@ const MAX_FILE_BYTES = 10 * 1024 * 1024;
             <app-card-fields [card]="card" />
             @if (error()) { <p class="alert error" role="alert">{{ error() }}</p> }
             <button class="btn primary block" type="button" (click)="placeOrder()" [disabled]="busy()">
-              {{ busy() ? ('Processing...' | t) : ('Pay {amount}' | t: { amount: (cart.total() | currency: 'GEL' : 'symbol-narrow') }) }}
+              {{ busy() ? ('Processing...' | t) : ('Pay {amount}' | t: { amount: (grandTotal() | currency: 'GEL' : 'symbol-narrow') }) }}
             </button>
             <p class="muted small center">🔒 {{ 'Secure payment. Card details are never stored.' | t }}</p>
-            <p class="muted small center">📍 {{ 'Collect your order at the clinic pharmacy desk. Bring a photo ID.' | t }}</p>
+            @if (method() === 'Delivery') {
+              <p class="muted small center">🚚 {{ 'Delivered to your door in Tbilisi within {hours} hours.' | t: { hours: delivery()?.withinHours ?? 24 } }}</p>
+            } @else {
+              <p class="muted small center">📍 {{ 'Collect your order at the clinic pharmacy desk. Bring a photo ID.' | t }}</p>
+            }
           </section>
         </div>
       }
@@ -186,12 +260,34 @@ export class CheckoutPage {
   protected readonly rxLines = computed(() => this.cart.lines().filter(l => l.product.requiresPrescription));
   protected readonly anyUpload = computed(() => Object.values(this.choices()).some(c => c.method === 'upload'));
 
+  /** Pickup at the clinic or home delivery, and the delivery terms from the server. */
+  protected readonly method = signal<FulfilmentMethod>('Pickup');
+  protected readonly delivery = signal<DeliveryInfo | null>(null);
+  protected address = { address: '', city: 'Tbilisi', phone: '', notes: '' };
+  protected readonly fee = computed(() => this.method() === 'Delivery' ? this.feeFor(this.cart.total()) : 0);
+  protected readonly grandTotal = computed(() => Math.round((this.cart.total() + this.fee()) * 100) / 100);
+
   constructor() {
     // Refresh stock and prices, then look up the patient's prescriptions for each prescription-only item.
     this.api.products().subscribe({ next: list => {
       this.cart.sync(list);
       this.loadChoices();
     } });
+    this.api.deliveryInfo().subscribe({ next: d => this.delivery.set(d) });
+    // Patients: start from the address and phone on their profile.
+    if (this.isPatient()) {
+      this.patients.me().subscribe({ next: me => {
+        if (!this.address.address && me.address) this.address.address = me.address;
+        if (!this.address.phone && me.phone) this.address.phone = me.phone;
+      } });
+    }
+  }
+
+  /** Same rule as the server: free from the threshold, otherwise the flat fee. */
+  protected feeFor(itemsTotal: number): number {
+    const d = this.delivery();
+    if (!d) return 5;
+    return itemsTotal >= d.freeFrom ? 0 : d.fee;
   }
 
   protected setMethod(line: CartLine, method: RxMethod): void {
@@ -246,6 +342,14 @@ export class CheckoutPage {
       customer = c;
     }
 
+    let delivery: CreateStoreOrder['delivery'] = null;
+    if (this.method() === 'Delivery') {
+      const a = { address: this.address.address.trim(), city: this.address.city, phone: this.address.phone.trim(), notes: this.address.notes.trim() || null };
+      if (a.address.length < 5) { this.error.set(this.i18n.t('Enter the street, building and flat number.')); return; }
+      if (a.phone.replace(/\D/g, '').length < 6) { this.error.set(this.i18n.t('Enter a phone number for the courier.')); return; }
+      delivery = a;
+    }
+
     if (this.anyUpload() && !this.file()) {
       this.error.set(this.i18n.t('Choose the prescription file to upload.'));
       return;
@@ -265,7 +369,7 @@ export class CheckoutPage {
       : of(null);
 
     upload$.pipe(
-      switchMap(doc => this.api.placeOrder({ items, prescriptionDocumentId: doc?.id ?? null, card: cardResult.card, customer }))
+      switchMap(doc => this.api.placeOrder({ items, prescriptionDocumentId: doc?.id ?? null, card: cardResult.card, customer, fulfilment: this.method(), delivery }))
     ).subscribe({
       next: order => {
         this.busy.set(false);

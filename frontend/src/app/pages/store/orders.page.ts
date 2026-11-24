@@ -14,10 +14,14 @@ import { I18n, LocalDatePipe, TranslatePipe } from '../../core/i18n';
 const STATUS_LABEL: Record<StoreOrderStatus, string> = {
   AwaitingReview: 'Checking prescription',
   ReadyForPickup: 'Ready for pickup',
+  OutForDelivery: 'On its way',
   Completed: 'Collected',
   Rejected: 'Rejected · refunded',
   Cancelled: 'Cancelled · refunded'
 };
+
+/** Steps of a home delivery, shown as a progress tracker. */
+const DELIVERY_STEPS = ['Paid', 'Preparing', 'On its way', 'Delivered'];
 
 /** Patients: "My orders". Reception and admins: every order, with prescription checks and handover. */
 @Component({
@@ -69,8 +73,22 @@ const STATUS_LABEL: Record<StoreOrderStatus, string> = {
                   }
                 </p>
               </div>
-              <span [class]="'badge ord-' + o.status.toLowerCase()">{{ label(o.status) | t }}</span>
+              <span class="order-badges">
+                @if (o.fulfilment === 'Delivery') { <span class="badge ord-delivery">🚚 {{ 'Delivery' | t }}</span> }
+                <span [class]="'badge ord-' + o.status.toLowerCase()">{{ label(o) | t }}</span>
+              </span>
             </div>
+
+            @if (o.fulfilment === 'Delivery' && o.status !== 'Cancelled' && o.status !== 'Rejected') {
+              <ol class="track" [attr.aria-label]="'Delivery progress' | t">
+                @for (s of deliverySteps; track s; let i = $index) {
+                  <li [class.done]="i < step(o)" [class.now]="i === step(o)" [attr.aria-current]="i === step(o) ? 'step' : null">
+                    <span class="track-dot" aria-hidden="true">{{ i < step(o) ? '✓' : i + 1 }}</span>
+                    <span class="track-label">{{ s | t }}</span>
+                  </li>
+                }
+              </ol>
+            }
 
             <ul class="order-items">
               @for (i of o.items; track i.productId) {
@@ -92,8 +110,21 @@ const STATUS_LABEL: Record<StoreOrderStatus, string> = {
               </p>
             }
             @if (o.reviewNote) { <p class="small"><span class="muted">{{ (o.status === 'Rejected' ? 'Reason' : 'Note') | t }}:</span> {{ o.reviewNote }}</p> }
-            @if (o.status === 'ReadyForPickup' && !isStaff()) {
+            @if (o.fulfilment === 'Delivery') {
+              <div class="delivery-box small">
+                <p><strong>🚚 {{ o.deliveryAddress }}, {{ o.deliveryCity | t }}</strong></p>
+                <p class="muted">☎ {{ o.deliveryPhone }}@if (o.deliveryNotes) { · {{ o.deliveryNotes }} }</p>
+                <p class="muted">{{ 'Delivery' | t }}: @if (o.deliveryFee > 0) { {{ o.deliveryFee | currency: 'GEL' : 'symbol-narrow' }} } @else { {{ 'Free' | t }} }
+                  @if (o.dispatchedAt) { · {{ 'sent out {time}' | t: { time: (o.dispatchedAt + 'Z' | ldate: 'dayMonthTime') } }} }
+                  @if (o.completedAt && o.status === 'Completed') { · {{ 'delivered {time}' | t: { time: (o.completedAt + 'Z' | ldate: 'dayMonthTime') } }} }
+                </p>
+              </div>
+            }
+            @if (o.status === 'ReadyForPickup' && o.fulfilment === 'Pickup' && !isStaff()) {
               <p class="small">📍 {{ 'Collect your order at the clinic pharmacy desk. Bring a photo ID.' | t }}</p>
+            }
+            @if (o.status === 'OutForDelivery' && !isStaff()) {
+              <p class="small">🚚 {{ 'Your order is on its way. The courier will call you before arriving.' | t }}</p>
             }
 
             @if (openId() !== o.id) {
@@ -102,8 +133,14 @@ const STATUS_LABEL: Record<StoreOrderStatus, string> = {
                   <button class="btn small primary" type="button" (click)="open(o.id, 'approve')">{{ 'Accept prescription' | t }}</button>
                   <button class="btn small danger" type="button" (click)="open(o.id, 'reject')">{{ 'Reject…' | t }}</button>
                 }
-                @if (isStaff() && o.status === 'ReadyForPickup') {
+                @if (isStaff() && o.status === 'ReadyForPickup' && o.fulfilment === 'Pickup') {
                   <button class="btn small primary" type="button" (click)="run(api.completeOrder(o.id), 'The order was handed over.')" [disabled]="busy()">{{ 'Handed over' | t }}</button>
+                }
+                @if (isStaff() && o.status === 'ReadyForPickup' && o.fulfilment === 'Delivery') {
+                  <button class="btn small primary" type="button" (click)="run(api.dispatchOrder(o.id), 'The order was sent out for delivery. The patient was told it is on its way.')" [disabled]="busy()">🚚 {{ 'Send out for delivery' | t }}</button>
+                }
+                @if (isStaff() && o.status === 'OutForDelivery') {
+                  <button class="btn small primary" type="button" (click)="run(api.completeOrder(o.id), 'The order was marked as delivered.')" [disabled]="busy()">✓ {{ 'Mark delivered' | t }}</button>
                 }
                 @if (o.status === 'AwaitingReview' || o.status === 'ReadyForPickup') {
                   <button class="btn small" type="button" (click)="open(o.id, 'cancel')">{{ 'Cancel order' | t }}</button>
@@ -154,8 +191,9 @@ export class OrdersPage {
   protected readonly filters: { label: string; value: StoreOrderStatus | null }[] = [
     { label: 'All', value: null },
     { label: 'Checking prescription', value: 'AwaitingReview' },
-    { label: 'Ready for pickup', value: 'ReadyForPickup' },
-    { label: 'Collected', value: 'Completed' },
+    { label: 'Ready', value: 'ReadyForPickup' },
+    { label: 'Out for delivery', value: 'OutForDelivery' },
+    { label: 'Completed', value: 'Completed' },
     { label: 'Rejected', value: 'Rejected' },
     { label: 'Cancelled', value: 'Cancelled' }
   ];
@@ -177,8 +215,26 @@ export class OrdersPage {
     this.load();
   }
 
-  protected label(status: StoreOrderStatus): string {
-    return STATUS_LABEL[status] ?? splitWords(status);
+  protected readonly deliverySteps = DELIVERY_STEPS;
+
+  /** Status text; delivery orders read "Preparing" and "Delivered" instead of pickup wording. */
+  protected label(o: StoreOrder): string {
+    if (o.fulfilment === 'Delivery') {
+      if (o.status === 'ReadyForPickup') return 'Preparing for delivery';
+      if (o.status === 'Completed') return 'Delivered';
+    }
+    return STATUS_LABEL[o.status] ?? splitWords(o.status);
+  }
+
+  /** Index of the current step in the delivery tracker. */
+  protected step(o: StoreOrder): number {
+    switch (o.status) {
+      case 'AwaitingReview': return 0;
+      case 'ReadyForPickup': return 1;
+      case 'OutForDelivery': return 2;
+      case 'Completed': return 4;
+      default: return 0;
+    }
   }
 
   protected open(id: number, mode: 'approve' | 'reject' | 'cancel'): void {

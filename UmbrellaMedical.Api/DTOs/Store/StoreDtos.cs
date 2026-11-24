@@ -77,6 +77,38 @@ public class CreateStoreOrderRequest
 
     /// <summary>Contact details: required when the buyer has no patient account (a visitor or a staff member).</summary>
     public CheckoutCustomerRequest? Customer { get; set; }
+
+    /// <summary>Pickup at the clinic (default) or home delivery.</summary>
+    [EnumDataType(typeof(FulfilmentMethod))]
+    public FulfilmentMethod Fulfilment { get; set; } = FulfilmentMethod.Pickup;
+
+    /// <summary>Where to deliver: required for home delivery.</summary>
+    public DeliveryAddressRequest? Delivery { get; set; }
+}
+
+public class DeliveryAddressRequest
+{
+    [Required(ErrorMessage = "Enter the delivery address."), StringLength(200, MinimumLength = 5, ErrorMessage = "Enter the street, building and flat number.")]
+    public string Address { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Choose the city."), StringLength(60)]
+    public string City { get; set; } = "Tbilisi";
+
+    [Required(ErrorMessage = "Enter a phone number for the courier."), StringLength(30, MinimumLength = 6, ErrorMessage = "Enter a valid phone number.")]
+    public string Phone { get; set; } = string.Empty;
+
+    /// <summary>For the courier: entrance, floor, door code...</summary>
+    [StringLength(300)]
+    public string? Notes { get; set; }
+}
+
+/// <summary>Delivery terms shown at checkout.</summary>
+public class DeliveryInfoDto
+{
+    public decimal Fee { get; set; }
+    public decimal FreeFrom { get; set; }
+    public List<string> Cities { get; set; } = new();
+    public int WithinHours { get; set; }
 }
 
 public class CheckoutCustomerRequest
@@ -126,6 +158,13 @@ public class StoreOrderDto
     public string? ReviewNote { get; set; }
     public DateTime? ReviewedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
+    public FulfilmentMethod Fulfilment { get; set; }
+    public decimal DeliveryFee { get; set; }
+    public string? DeliveryAddress { get; set; }
+    public string? DeliveryCity { get; set; }
+    public string? DeliveryPhone { get; set; }
+    public string? DeliveryNotes { get; set; }
+    public DateTime? DispatchedAt { get; set; }
     public List<StoreOrderItemDto> Items { get; set; } = new();
 }
 

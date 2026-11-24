@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpResponse } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import {
-  ApprovePrescriptionRequestBody, CreatePrescriptionRequestBody, CreateStoreOrder, PagedResult, Prescription,
+  ApprovePrescriptionRequestBody, CreatePrescriptionRequestBody, CreateStoreOrder, DeliveryInfo, PagedResult, Prescription,
   PrescriptionRequestItem, PrescriptionRequestStatus, Product, ProductCategory, ProductRequest, StoreOrder,
   StoreOrderStatus, UsablePrescription
 } from './model';
@@ -47,6 +47,13 @@ export class StoreApi {
   }
   rejectOrder(id: number, reason: string): Observable<StoreOrder> {
     return this.http.post<StoreOrder>(`/api/store/orders/${id}/reject`, { reason });
+  }
+  /** Terms for home delivery: fee, free-delivery threshold, cities. */
+  deliveryInfo(): Observable<DeliveryInfo> {
+    return this.http.get<DeliveryInfo>('/api/store/delivery');
+  }
+  dispatchOrder(id: number): Observable<StoreOrder> {
+    return this.http.post<StoreOrder>(`/api/store/orders/${id}/dispatch`, {});
   }
   completeOrder(id: number): Observable<StoreOrder> {
     return this.http.post<StoreOrder>(`/api/store/orders/${id}/complete`, {});

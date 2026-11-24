@@ -47,6 +47,18 @@ namespace UmbrellaMedical.Domain.Entities
         public DateTime? ReviewedAt { get; set; }
         public DateTime? CompletedAt { get; set; }
 
+        /// <summary>Pickup at the clinic, or home delivery.</summary>
+        public FulfilmentMethod Fulfilment { get; set; } = FulfilmentMethod.Pickup;
+        /// <summary>Delivery charge included in <see cref="Total"/> (0 for pickup or free delivery).</summary>
+        public decimal DeliveryFee { get; set; }
+        public string? DeliveryAddress { get; set; }
+        public string? DeliveryCity { get; set; }
+        /// <summary>Phone number the courier calls on arrival.</summary>
+        public string? DeliveryPhone { get; set; }
+        public string? DeliveryNotes { get; set; }
+        /// <summary>When the order was handed to the courier.</summary>
+        public DateTime? DispatchedAt { get; set; }
+
         /// <summary>The patient the order belongs to; null for an order placed without a patient account (guest or staff).</summary>
         public int? PatientId { get; set; }
         public Patient? Patient { get; set; }
