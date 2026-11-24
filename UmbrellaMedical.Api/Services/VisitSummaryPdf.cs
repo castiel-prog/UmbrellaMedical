@@ -46,7 +46,7 @@ public sealed class VisitSummaryPdf : IVisitSummaryPdf
         foreach (var file in Directory.GetFiles(folder, "*.ttf"))
         {
             using var stream = File.OpenRead(file);
-            QuestPDF.Drawing.FontManager.RegisterFont(stream);
+            QuestPDF.Drawing.FontManager.RegisterFontFromStream(stream);
         }
     }
 

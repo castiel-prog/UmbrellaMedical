@@ -1,26 +1,50 @@
-   name: CI
+name: CI
 
-   on:
-     push:
-       branches: [ main, master ]
-     pull_request:
-       branches: [ main, master ]
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
 
-   jobs:
-     build-and-test:
-       runs-on: ubuntu-latest
-       steps:
-         - uses: actions/checkout@v4
+jobs:
+  # ASP.NET Core API, domain and infrastructure: build and run the unit tests.
+  backend:
+    name: API (.NET) – build and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-         - uses: actions/setup-dotnet@v4
-           with:
-             dotnet-version: 10.0.x
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
 
-         - name: Restore
-           run: dotnet restore UmbrellaMedical.slnx
+      - name: Restore
+        run: dotnet restore UmbrellaMedical.slnx
 
-         - name: Build
-           run: dotnet build UmbrellaMedical.slnx --configuration Release --no-restore
+      - name: Build
+        run: dotnet build UmbrellaMedical.slnx --configuration Release --no-restore
 
-         - name: Test
-           run: dotnet test UmbrellaMedical.slnx --configuration Release --no-build --verbosity normal
+      - name: Test
+        run: dotnet test UmbrellaMedical.slnx --configuration Release --no-build --verbosity normal
+
+  # Angular site: install the exact locked packages and make a production build.
+  frontend:
+    name: Website (Angular) – production build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install packages
+        run: npm ci
+
+      - name: Build
+        run: npx ng build --configuration production

@@ -8,6 +8,11 @@
 		reverse_proxy api:8080
 	}
 
+	# Health checks, public for monitoring: /health/live (the API runs) and /health/ready (it also reaches the database).
+	handle /health/* {
+		reverse_proxy api:8080
+	}
+
 	# Public API documentation (Swagger UI and the OpenAPI file).
 	redir /swagger /swagger/ 308
 	handle /swagger/* {
