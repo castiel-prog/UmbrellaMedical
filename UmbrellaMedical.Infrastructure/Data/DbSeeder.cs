@@ -122,6 +122,7 @@ public static class DbSeeder
         }
 
         await EnsureMedicationsAsync(db);
+        await EnsureDiagnosesAsync(db);
         await EnsureStoreAsync(db);
         await EnsurePrescriptionCodesAsync(db);
     }
@@ -335,8 +336,39 @@ public static class DbSeeder
         new("Endocrinologist", "Hormones, diabetes and thyroid", "Endocrinology",
             new[] { ("Endocrinology consultation", 85m, 30), ("Thyroid ultrasound", 80m, 30) }),
         new("Urologist", "Kidneys, bladder and men's health", "Urology",
-            new[] { ("Urology consultation", 80m, 30), ("Urinary tract ultrasound", 85m, 30) })
+            new[] { ("Urology consultation", 80m, 30), ("Urinary tract ultrasound", 85m, 30) }),
+        new("Gastroenterologist", "Stomach, bowel and liver", "Gastroenterology",
+            new[] { ("Gastroenterology consultation", 85m, 30), ("H. pylori breath test", 60m, 20) }),
+        new("Pulmonologist", "Lungs, breathing, asthma and chronic cough", "Pulmonology",
+            new[] { ("Pulmonology consultation", 85m, 30), ("Spirometry", 60m, 20) }),
+        new("Allergist", "Allergies, hay fever and the immune system", "Allergology",
+            new[] { ("Allergy consultation", 75m, 30), ("Skin prick allergy test", 95m, 45) }),
+        new("Rheumatologist", "Joint inflammation, arthritis and autoimmune diseases", "Rheumatology",
+            new[] { ("Rheumatology consultation", 90m, 30), ("Joint ultrasound", 80m, 30) }),
+        new("Physiotherapist", "Rehabilitation after injury, back and neck pain", "Physiotherapy",
+            new[] { ("Physiotherapy assessment", 60m, 45), ("Physiotherapy session", 50m, 45) }),
+        new("Nutritionist", "Healthy eating, weight and diet plans", "Nutrition",
+            new[] { ("Nutrition consultation", 60m, 45), ("Body composition analysis", 40m, 20) })
     };
+
+    /// <summary>Diagnosis codes added after the first release (ICD-10), added by code when missing.</summary>
+    private static readonly (string Code, string Name)[] ExtraDiagnoses =
+    {
+        ("K21.9", "Gastro-oesophageal reflux disease without oesophagitis"),
+        ("J44.9", "Chronic obstructive pulmonary disease, unspecified"),
+        ("J30.1", "Allergic rhinitis due to pollen"),
+        ("M06.9", "Rheumatoid arthritis, unspecified"),
+        ("M54.5", "Low back pain"),
+        ("E66.9", "Obesity, unspecified")
+    };
+
+    private static async Task EnsureDiagnosesAsync(UmbrellaDbContext db)
+    {
+        var existing = (await db.Diagnoses.Select(d => d.Code).ToListAsync()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var (code, name) in ExtraDiagnoses.Where(d => !existing.Contains(d.Code)))
+            db.Diagnoses.Add(new Diagnosis { Code = code, Name = name });
+        if (db.ChangeTracker.HasChanges()) await db.SaveChangesAsync();
+    }
 
     /// <summary>Adds any missing specialization, department or service by name. Existing rows are left alone.</summary>
     private static async Task EnsureCatalogAsync(UmbrellaDbContext db)

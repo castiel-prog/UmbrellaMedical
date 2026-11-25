@@ -119,6 +119,12 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/store/checkout.page').then(m => m.CheckoutPage)
   },
   {
+    // One product: photo, price, prescription and delivery details (after 'pharmacy/checkout', so that wins).
+    path: 'pharmacy/:id',
+    title: title('Pharmacy'),
+    loadComponent: () => import('./pages/store/product.page').then(m => m.ProductPage)
+  },
+  {
     path: 'orders',
     title: title('My orders'),
     canActivate: [roleGuard('Patient')],

@@ -89,7 +89,7 @@ type Menu = 'work' | 'user' | 'lang' | null;
           }
 
           <div class="menu-wrap">
-            <button type="button" class="icon-btn lang-btn" aria-haspopup="menu" [attr.aria-expanded]="openMenu() === 'lang'"
+            <button type="button" class="icon-btn lang-btn header-lang" aria-haspopup="menu" [attr.aria-expanded]="openMenu() === 'lang'"
               [attr.aria-label]="'Language' | t" [title]="'Language' | t" (click)="toggle('lang', $event)">
               <app-icon name="globe" [size]="19" />
               <span class="lang-code">{{ currentLang().short }}</span>
@@ -107,7 +107,7 @@ type Menu = 'work' | 'user' | 'lang' | null;
             }
           </div>
 
-          <button type="button" class="icon-btn" (click)="toggleTheme()"
+          <button type="button" class="icon-btn header-theme" (click)="toggleTheme()"
             [attr.aria-label]="(theme.theme() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme') | t"
             [title]="(theme.theme() === 'dark' ? 'Light theme' : 'Dark theme') | t">
             <app-icon [name]="theme.theme() === 'dark' ? 'sun' : 'moon'" [size]="20" />
@@ -179,6 +179,9 @@ type Menu = 'work' | 'user' | 'lang' | null;
                 [attr.aria-pressed]="l.code === i18n.lang()" (click)="setLang(l.code)">{{ l.name }}</button>
             }
           </div>
+          <button type="button" class="mobile-item mobile-theme" (click)="toggleTheme()">
+            <app-icon [name]="theme.theme() === 'dark' ? 'sun' : 'moon'" [size]="18" /> {{ (theme.theme() === 'dark' ? 'Light theme' : 'Dark theme') | t }}
+          </button>
           <div class="mobile-sep"></div>
           @if (auth.isLoggedIn()) {
             <a class="mobile-item" routerLink="/account" (click)="mobileOpen.set(false)"><app-icon name="user" [size]="18" /> {{ 'My profile' | t }}</a>

@@ -56,7 +56,25 @@ public static class DemoVisitRecordsSeeder
             "The results were sent to the referring doctor."),
         ["Urologist"] = new("Burning when passing urine for two days.", null,
             "Uncomplicated urinary tract infection.", "A short antibiotic course and plenty of fluids.",
-            "Come back if you get a fever or back pain.", new("Amoxicillin", "1 capsule", "3 times a day", 5))
+            "Come back if you get a fever or back pain.", new("Amoxicillin", "1 capsule", "3 times a day", 5)),
+        ["Gastroenterologist"] = new("Burning behind the breastbone after meals and at night for a month.", "K21.9",
+            "Gastro-oesophageal reflux without signs of complications.", "Omeprazole before breakfast for four weeks.",
+            "Smaller evening meals, no food two hours before bed and raise the head of the bed.", new("Omeprazole", "1 capsule", "Once a day, before breakfast", 28)),
+        ["Pulmonologist"] = new("Shortness of breath on stairs and a morning cough; smoker for 20 years.", "J44.9",
+            "Mild COPD; spirometry shows mild airflow limitation.", "Reliever inhaler when needed and a stop-smoking plan.",
+            "Stopping smoking is the most important step. Repeat spirometry in six months.", new("Salbutamol", "2 puffs", "When needed, up to 4 times a day", 30)),
+        ["Allergist"] = new("Sneezing, runny nose and itchy eyes every spring.", "J30.1",
+            "Seasonal allergic rhinitis; skin prick test positive for grass pollen.", "Daily antihistamine during the pollen season.",
+            "Keep windows closed on windy days and shower after being outdoors.", new("Cetirizine", "1 tablet", "Once a day", 30)),
+        ["Rheumatologist"] = new("Morning stiffness and swelling in the finger joints for three months.", "M06.9",
+            "Early rheumatoid arthritis. Blood tests ordered.", "Ibuprofen for pain while waiting for the test results.",
+            "Follow-up visit with the blood test results in two weeks.", new("Ibuprofen", "1 tablet", "Up to 3 times a day after food", 14)),
+        ["Physiotherapist"] = new("Lower back pain after long hours at the desk.", "M54.5",
+            "Mechanical low back pain; weak core muscles, no nerve symptoms.", "Six physiotherapy sessions and a daily home exercise programme.",
+            "Stand up and stretch every hour. Keep doing the exercises after the sessions end."),
+        ["Nutritionist"] = new("Wants to lose weight; little time for cooking.", "E66.9",
+            "BMI 31. Body composition analysis done.", "A personal meal plan with simple recipes, aiming for 0.5 kg a week.",
+            "Keep a food diary and come back in four weeks to review progress.")
     };
 
     public static async Task SeedAsync(UmbrellaDbContext db)

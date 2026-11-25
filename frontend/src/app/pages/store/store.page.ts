@@ -142,10 +142,12 @@ const PRICE_BANDS: { id: PriceBand; label: string; price: string; min: number; m
         <div class="product-grid">
           @for (p of paged(); track p.id) {
             <article class="product-card card">
-              <app-product-image class="product-pic" [attr.data-cat]="p.category"
-                [name]="p.name" [category]="p.category" [imageUrl]="p.imageUrl" [rx]="p.requiresPrescription" />
+              <a class="product-pic-link" [routerLink]="['/pharmacy', p.id]" [attr.aria-label]="'Details: {name}' | t: { name: p.name }">
+                <app-product-image class="product-pic" [attr.data-cat]="p.category"
+                  [name]="p.name" [category]="p.category" [imageUrl]="p.imageUrl" [rx]="p.requiresPrescription" />
+              </a>
               <div class="product-body">
-                <h3>{{ p.name }}</h3>
+                <h3><a class="product-name-link" [routerLink]="['/pharmacy', p.id]">{{ p.name }}</a></h3>
                 <p class="muted small">{{ p.unit }}</p>
                 @if (p.requiresPrescription) {
                   <span class="badge rx-badge" [title]="'You need a valid prescription to buy this' | t">℞ {{ 'Prescription needed' | t }}</span>
