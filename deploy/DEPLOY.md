@@ -52,6 +52,20 @@ docker compose ps
 docker compose logs -f api
 ```
 
+## Updating
+
+Upload a fresh `umbrella-deploy.tar.gz` (step 3), unpack it over `/opt/umbrella` (keep `deploy/.env`), then run step 5 again.
+New database migrations are applied automatically when the API starts.
+
+## Monitoring
+
+Caddy forwards the API's health checks, so they can be opened from anywhere:
+
+- `https://<your-domain>/health/live`: `Healthy` when the API is running
+- `https://<your-domain>/health/ready`: `Healthy` when the API can also reach the database
+
+`docker compose ps` shows both containers and how long they have been up; `docker compose logs api` shows the API log.
+
 ## Email
 
 DigitalOcean blocks outgoing SMTP on new accounts. Ask support to unblock it, or use a provider on

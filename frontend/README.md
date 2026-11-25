@@ -1,59 +1,31 @@
-# UmbrellaWeb
+# Umbrella Medical Center: website
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.29.
+The Angular 21 front-end of Umbrella Medical Center. See the [main README](../README.md) for the whole system.
 
-## Development server
-
-To start a local development server, run:
-
+## Run
 ```bash
-ng serve
+npm ci
+npm start        # http://localhost:4200 — /api is proxied to the API at https://localhost:7128 (proxy.conf.json)
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
+## Build
 ```bash
-ng generate component component-name
+npx ng build     # production build into dist/umbrella-web/browser
 ```
+The `Dockerfile` builds the site and serves it with **Caddy** (`Caddyfile`): HTTPS, `/api`, `/swagger` and `/health` forwarded to the API container, every other path falls back to `index.html`.
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+## Where things are
+| Folder | What |
+|---|---|
+| `src/app/pages/` | One folder per page (doctors, booking, health, pharmacy, admin, reports, support chat…) |
+| `src/app/core/` | API services, models, auth, cart, notifications, presence, i18n |
+| `src/app/core/i18n/` | Translations: `ka.ts`, `de.ts`, `fr.ts`, `it.ts`, `es.ts`, `ru.ts` (English is the source text) |
+| `src/app/shared/` | Reusable components: icons, date picker, card fields, product image, pager, avatar |
+| `src/styles.scss` | Global styles, light/dark themes, responsive rules |
+| `public/` | Static files: logo, favicon, photo credits page |
 
-```bash
-ng generate --help
-```
-
-## Building
-
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+## Conventions
+- Standalone components with signals and `OnPush` change detection.
+- Every visible text goes through the `t` pipe (`{{ 'Book a visit' | t }}`), or `i18n.t()` in code. Add the text to all six dictionaries.
+- Dates use the `ldate` pipe so they follow the chosen language.
+- Layouts must fit a 320px-wide phone: grids use `minmax(min(Npx, 100%), 1fr)`, and tab rows scroll sideways on phones.
