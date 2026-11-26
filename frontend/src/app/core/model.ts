@@ -23,6 +23,8 @@ export interface RegisterRequest {
   dateOfBirth: string;
   gender: Gender;
   phone: string | null;
+  /** Site language at sign-up: e-mails go out in it. */
+  language?: string;
 }
 
 export interface PagedResult<T> {
@@ -212,6 +214,8 @@ export interface PatientListItem {
   dateOfBirth: string;
   gender: Gender;
   phone: string | null;
+  /** Site language at sign-up: e-mails go out in it. */
+  language?: string;
 }
 
 export interface PatientAllergy {

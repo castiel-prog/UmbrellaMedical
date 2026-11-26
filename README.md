@@ -36,9 +36,9 @@ The site works in **7 languages** (English, Georgian, German, French, Italian, S
 - **Pharmacy:** 95 products with real photos in 6 categories. Filters by category (with live counts), price range, prescription and stock, plus search, sorting and a **details page** for every product.
   - **Prescription-only medicines** need a valid prescription code from a doctor, or an uploaded prescription that the pharmacist checks.
   - **Pickup at the clinic** (free, 24/7) or **home delivery in Tbilisi** (₾5, free from ₾50, within 24 hours), with a delivery tracker: paid → preparing → on its way → delivered.
-- **Support chat** with the clinic's staff, with online / away / offline status for both sides and "seen" receipts.
+- **Support chat** with the clinic's staff, **in real time (SignalR)**: messages arrive instantly, with a "typing…" indicator, "seen" receipts and online / away / offline status for both sides.
 - **Help chat ("Ask us")** that answers questions about doctors, services, prices and booking in the visitor's language (see [Help chat](#help-chat)).
-- **Notifications** in the site and by e-mail (optional), in the patient's own language; appointment reminders 24 hours before a visit.
+- **Notifications** pushed to the site the moment they are created (SignalR) and by e-mail (optional), in the patient's own language; appointment reminders 24 hours before a visit.
 - **Profile settings:** personal details, preferred language and theme, e-mail notification preferences.
 
 ### For clinic staff
@@ -63,6 +63,7 @@ The site works in **7 languages** (English, Georgian, German, French, Italian, S
 | Database | **PostgreSQL** with Entity Framework Core 10 (Npgsql), code-first migrations |
 | Front-end | **Angular 21** (standalone components, signals), TypeScript, SCSS |
 | Authentication | JWT bearer tokens, BCrypt password hashing, role-based authorization, e-mail verification codes |
+| Real-time | **ASP.NET Core SignalR** over WebSockets (@microsoft/signalr in the browser) |
 | PDF | QuestPDF (visit summaries, with Georgian fonts) |
 | E-mail | MailKit over SMTP |
 | AI (optional) | Anthropic Claude API for the help chat |
@@ -78,6 +79,7 @@ The architecture is documented with the **C4 model** in [`docs/architecture`](do
 - The **Angular single-page application** runs in the browser.
 - **Caddy** serves the app over HTTPS and forwards `/api`, `/swagger` and `/health` to the API.
 - The **ASP.NET Core API** holds all the business logic and runs background jobs for reminders and notification e-mails.
+- A **SignalR hub** (/api/hubs/realtime) pushes support chat messages, typing indicators, read receipts, presence changes and new notifications to every open tab over a WebSocket. See [Real-time updates](#real-time-updates).
 - Data lives in **PostgreSQL**; uploaded files live in a Docker volume.
 
 ```
@@ -112,7 +114,7 @@ The dependency direction is Api → Infrastructure → Domain.
    ```bash
    cd frontend
    npm ci
-   npm start            # http://localhost:4200, /api is proxied to the API
+   npm start            # http://localhost:4200, /api (including the SignalR WebSocket) is proxied to the API
    ```
 
 In Development without SMTP settings, e-mails are written to the API console instead of being sent.
@@ -121,6 +123,19 @@ In Development without SMTP settings, e-mails are written to the API console ins
 The "Ask us" chat answers questions about doctors, services, prices, booking, payments and using the site, in the visitor's language. It never gives diagnoses or medicine advice, points emergencies to 112, and only uses public clinic facts (never patient data).
 - **Default:** the built-in assistant (`RuleBasedChatAssistant`) recognises questions by keywords in all 7 languages, maps everyday symptoms to the right specialty ("toothache" → dentist, "heartburn" → gastroenterologist), and answers from the live database. It's free, instant and works offline.
 - **With a Claude API key (optional):** free-form answers by Claude (`claude-opus-5-5`), falling back to the built-in assistant if a request fails. Set `Anthropic:ApiKey`.
+
+### Real-time updates
+UmbrellaMedical.Api/Hubs/RealtimeHub.cs is a **SignalR hub** at /api/hubs/realtime. It accepts logged-in users only (the JWT is passed as ccess_token for this path, because browsers can't send headers on WebSockets).
+- **Groups:** each connection joins its user's group (user-{id}); admins also join the support team's group.
+- **Pushed events:**
+  - support:message, support:read, support:changed, support:typing: the support chat.
+  - presence: someone went online, away or offline.
+  - 
+otification: a new notification was created.
+- **Notifications from anywhere:** an EF Core save interceptor (NotificationPushInterceptor) announces every new notification after it is saved, wherever in the code it was created (bookings, orders, prescriptions, the reminder job).
+- **Presence follows the connection:** a person is online while a tab is connected, away after 2 idle minutes, and offline as soon as their last tab closes.
+- **Fallback:** if the WebSocket can't connect (e.g. a blocking proxy), the website falls back to polling automatically, and a badge on the Support chat page shows **● Live** or **Reconnecting…**.
+- **Scaling:** one API instance needs nothing more. Several instances would need a SignalR backplane (Redis or Azure SignalR Service).
 
 ## Demo accounts and test card
 Demo data is created in Development, and on a server when `Seed:DemoPatients=true` and `Seed:DemoStaffPassword` is set. **Logging in needs the e-mail, first name, last name and password.**
@@ -165,7 +180,7 @@ In production, set these as environment variables with a double underscore, e.g.
 ```bash
 dotnet test
 ```
-71 unit tests cover:
+78 unit tests cover:
 - free-slot calculation
 - billing and insurance maths
 - delivery fees and cities
@@ -173,6 +188,7 @@ dotnet test
 - registration age rules
 - verification codes and tokens
 - the reminder job
+- presence (online, away, offline across tabs)
 - localized account e-mails
 
 **GitHub Actions** ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on every push and pull request to `master`/`main`, with two parallel jobs:
@@ -203,6 +219,7 @@ Step-by-step setup is in [`deploy/DEPLOY.md`](deploy/DEPLOY.md).
 ## Security
 - Passwords hashed with BCrypt. Verification codes are stored only as keyed hashes; they expire after 10 minutes, work once and lock after 5 wrong tries.
 - Short-lived JWTs; deactivated accounts are rejected on the next request.
+- **Patients must confirm their e-mail** before they can book a visit or buy something. Registration sends a 6-digit code at once, and the API enforces it with `[RequireConfirmedEmail]` (403 `email_not_confirmed`); the website shows a confirm-code box in place of the pay button.
 - **Ownership checks** on every endpoint that takes an id. Receptionists can't read medical records. Prescription codes can't be probed (the same answer for "not found" and "someone else's").
 - **Payments and prices are computed on the server**: order totals, delivery fees and insurance shares are never taken from the browser.
 - Rate limiting, security headers, HTTPS only.

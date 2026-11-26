@@ -1,3 +1,4 @@
+using UmbrellaMedical.Api.Hubs;
 using System.Diagnostics;
 using System.Security.Claims;
 using System.Text;
@@ -68,8 +69,14 @@ namespace UmbrellaMedical.Api
                 });
             });
 
-            builder.Services.AddDbContext<UmbrellaDbContext>(options =>
-                options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+            // Real-time updates (SignalR): the notifier pushes events; the interceptor announces new notifications after each save.
+            builder.Services.AddSignalR();
+            builder.Services.AddSingleton<IRealtimeNotifier, RealtimeNotifier>();
+            builder.Services.AddSingleton<NotificationPushInterceptor>();
+
+            builder.Services.AddDbContext<UmbrellaDbContext>((sp, options) =>
+                options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
+                       .AddInterceptors(sp.GetRequiredService<NotificationPushInterceptor>()));
 
             builder.Services.AddHttpContextAccessor();
             builder.Services.AddProblemDetails();
@@ -137,6 +144,15 @@ namespace UmbrellaMedical.Api
 
                     options.Events = new JwtBearerEvents
                     {
+                        // Browsers can't send headers when opening a WebSocket, so the real-time hub takes the token
+                        // from the query string, for that path only.
+                        OnMessageReceived = context =>
+                        {
+                            var token = context.Request.Query["access_token"];
+                            if (!string.IsNullOrEmpty(token) && context.HttpContext.Request.Path.StartsWithSegments(RealtimeHub.Path))
+                                context.Token = token;
+                            return Task.CompletedTask;
+                        },
                         OnTokenValidated = async context =>
                         {
                             var idClaim = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -316,6 +332,7 @@ namespace UmbrellaMedical.Api
             app.UseAuthorization();
 
             app.MapControllers();
+            app.MapHub<RealtimeHub>(RealtimeHub.Path);
 
             app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
             app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") });

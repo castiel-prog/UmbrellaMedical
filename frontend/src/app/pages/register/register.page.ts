@@ -13,7 +13,7 @@ import { apiErrorMessage } from '../../core/api-error';
 import { Gender } from '../../core/model';
 import { PHONE_PATTERN, safeReturnUrl, toDateInput } from '../../core/util';
 import { DatePicker } from '../../shared/date-picker';
-import { TranslatePipe } from '../../core/i18n';
+import { I18n, TranslatePipe } from '../../core/i18n';
 
 const MINIMUM_AGE = 18;
 
@@ -171,6 +171,7 @@ const passwordsMatch: ValidatorFn = (group: AbstractControl): ValidationErrors |
 })
 export class RegisterPage {
   private readonly fb = inject(FormBuilder);
+  private readonly i18n = inject(I18n);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
@@ -225,7 +226,8 @@ export class RegisterPage {
         gender: value.gender as Gender,
         phone: value.phone.trim(),
         email: value.email.trim(),
-        password: value.password
+        password: value.password,
+        language: this.i18n.lang()
       })
       .subscribe({
         next: () => {

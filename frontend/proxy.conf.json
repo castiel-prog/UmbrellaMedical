@@ -1,7 +1,8 @@
-   {
-     "/api": {
-       "target": "https://localhost:7128",
-       "secure": false,
-       "changeOrigin": true
-     }
-   }
+{
+    "/api":  {
+                 "target":  "https://localhost:7128",
+                 "secure":  false,
+                 "changeOrigin":  true,
+                 "ws":  true
+             }
+}

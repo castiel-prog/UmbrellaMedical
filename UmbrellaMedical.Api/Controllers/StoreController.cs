@@ -281,6 +281,7 @@ public class StoreController : ControllerBase
     /// </summary>
     [HttpPost("orders")]
     [EnableRateLimiting("auth")]
+    [RequireConfirmedEmail]
     public async Task<ActionResult<StoreOrderDto>> CreateOrder(CreateStoreOrderRequest request)
     {
         var isPatient = _current.Role == "Patient";

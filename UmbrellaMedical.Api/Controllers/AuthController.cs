@@ -1,9 +1,10 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using UmbrellaMedical.Api.DTOs.Auth;
 using UmbrellaMedical.Api.Services;
 using UmbrellaMedical.Domain.Entities;
+using UmbrellaMedical.Domain.Enums;
 using UmbrellaMedical.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.RateLimiting;
@@ -21,12 +22,21 @@ namespace UmbrellaMedical.Api.Controllers
             private readonly UmbrellaDbContext _db;
             private readonly IJwtTokenService _tokenService;
             private readonly IClinicClock _clock;
+            private readonly IUserTokenService _codes;
+            private readonly IEmailSender _email;
+            private readonly IClinicText _text;
+            private readonly ILogger<AuthController> _logger;
 
-            public AuthController(UmbrellaDbContext db, IJwtTokenService tokenService, IClinicClock clock)
+            public AuthController(UmbrellaDbContext db, IJwtTokenService tokenService, IClinicClock clock,
+                IUserTokenService codes, IEmailSender email, IClinicText text, ILogger<AuthController> logger)
             {
                 _db = db;
                 _tokenService = tokenService;
                 _clock = clock;
+                _codes = codes;
+                _email = email;
+                _text = text;
+                _logger = logger;
             }
 
 
@@ -56,7 +66,8 @@ namespace UmbrellaMedical.Api.Controllers
                 {
                     Email = email,
                     PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
-                    RoleId = patientRole.Id
+                    RoleId = patientRole.Id,
+                    PreferredLanguage = string.IsNullOrWhiteSpace(request.Language) ? null : _text.Normalize(request.Language)
                 };
 
                 var patient = new Patient
@@ -71,8 +82,11 @@ namespace UmbrellaMedical.Api.Controllers
                     User = user
                 };
 
-                _db.Patients.Add(patient);   
+                _db.Patients.Add(patient);
                 await _db.SaveChangesAsync();
+
+                // Booking and buying need a confirmed e-mail, so the code goes out right away (in the sign-up language).
+                await SendVerificationCodeAsync(user);
 
                 user.Role = patientRole;
                 return Ok(BuildResponse(user));
@@ -143,6 +157,22 @@ namespace UmbrellaMedical.Api.Controllers
                            "A parent or guardian can register a child as a patient at the clinic's reception desk.";
 
                 return null;
+            }
+
+            /// <summary>A mail problem never fails the registration: the person can ask for a new code later.</summary>
+            private async Task SendVerificationCodeAsync(User user)
+            {
+                try
+                {
+                    var code = await _codes.IssueAsync(user.Id, UserTokenPurpose.EmailVerification);
+                    if (code is null) return;
+                    var mail = EmailTemplates.VerificationCode(new Localizer(_text, user.PreferredLanguage), code);
+                    await _email.SendAsync(user.Email, mail.Subject, mail.Body, HttpContext.RequestAborted, mail.Lang);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Could not send the confirmation code after registration.");
+                }
             }
 
             private AuthResponse BuildResponse(User user) => new()

@@ -217,7 +217,8 @@ namespace UmbrellaMedical.Api.Controllers
 
         [HttpPost]
         [Authorize(Roles = "Admin,Receptionist,Patient")]
-        public async Task<ActionResult<AppointmentDto>> Create(CreateAppointmentRequest request)
+        [RequireConfirmedEmail]
+    public async Task<ActionResult<AppointmentDto>> Create(CreateAppointmentRequest request)
         {
             int patientId;
             if (_current.Role == "Patient")

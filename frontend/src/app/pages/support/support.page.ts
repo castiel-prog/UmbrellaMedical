@@ -1,4 +1,6 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { RealtimeService } from '../../core/realtime.service';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
@@ -17,7 +19,7 @@ const LIST_MS = 10000;
   template: `
     <div class="page-head">
       <div>
-        <h1>{{ 'Support chat' | t }}</h1>
+        <h1>{{ 'Support chat' | t }} <span class="live-badge" [class.on]="realtime.connected()" [title]="(realtime.connected() ? 'Messages arrive instantly' : 'Reconnecting…') | t">{{ (realtime.connected() ? 'Live' : 'Reconnecting…') | t }}</span></h1>
         <p class="muted">{{ (isStaff() ? 'Chat with patients who contacted the clinic.' : 'Write to the clinic team. We usually answer within the hour.') | t }}</p>
       </div>
       @if (!isStaff()) {
@@ -105,6 +107,12 @@ const LIST_MS = 10000;
                 </div>
               </div>
             }
+            @if (typing()) {
+              <div class="bubble-row typing-row" aria-live="polite">
+                <div class="chat-bubble typing-bubble"><span class="typing-dots" aria-hidden="true"><i></i><i></i><i></i></span> <span class="sr-only">{{ 'typing…' | t }}</span></div>
+                <span class="muted small">{{ (isStaff() ? c.userName : ('Umbrella support' | t)) }} {{ 'typing…' | t }}</span>
+              </div>
+            }
           </div>
 
           @if (c.isClosed && !isStaff()) {
@@ -113,7 +121,7 @@ const LIST_MS = 10000;
             <form class="composer" (ngSubmit)="send()">
               <label for="sc-input" class="sr-only">{{ 'Message' | t }}</label>
               <textarea id="sc-input" name="text" rows="2" maxlength="2000" [placeholder]="'Write a message…' | t"
-                [(ngModel)]="text" (keydown.enter)="onEnter($event)"></textarea>
+                [(ngModel)]="text" (keydown.enter)="onEnter($event)" (input)="onTyping()"></textarea>
               <button class="btn primary" type="submit" [disabled]="busy() || !text.trim()">{{ 'Send' | t }}</button>
             </form>
           }
@@ -131,6 +139,11 @@ export class SupportPage {
   private readonly router = inject(Router);
   private readonly i18n = inject(I18n);
   private readonly body = viewChild<ElementRef<HTMLElement>>('body');
+  protected readonly realtime = inject(RealtimeService);
+  /** The other side is typing in the open conversation. */
+  protected readonly typing = signal(false);
+  private typingTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastTypingSent = 0;
 
   protected readonly isStaff = computed(() => this.auth.hasRole('Admin'));
   protected readonly conversations = signal<SupportConversation[]>([]);
@@ -150,9 +163,38 @@ export class SupportPage {
     const id = Number(this.route.snapshot.queryParamMap.get('c'));
     if (id > 0) this.open(id);
 
+    // Live updates pushed by the server (SignalR).
+    const live = inject(DestroyRef);
+    this.realtime.on('support:message').pipe(takeUntilDestroyed(live)).subscribe(e => {
+      if (e.conversationId === this.openId()) {
+        if (!this.messages().some(m => m.id === e.message.id)) this.messages.set([...this.messages(), e.message]);
+        if (e.message.fromStaff !== this.isStaff()) { this.typing.set(false); this.markRead(); }
+        this.scrollDown();
+      }
+      this.loadList();
+    });
+    this.realtime.on('support:read').pipe(takeUntilDestroyed(live)).subscribe(e => {
+      // The other side read the conversation: refresh the ✓✓ Seen marks.
+      const id = this.openId();
+      if (e.conversationId === id && e.byStaff !== this.isStaff()) this.support.messages(id).subscribe({ next: all => this.messages.set(all) });
+    });
+    this.realtime.on('support:changed').pipe(takeUntilDestroyed(live)).subscribe(e => {
+      this.loadList();
+      if (e.conversationId === this.openId()) this.refreshCurrent();
+    });
+    this.realtime.on('support:typing').pipe(takeUntilDestroyed(live)).subscribe(e => {
+      if (e.conversationId !== this.openId() || e.fromStaff === this.isStaff()) return;
+      this.typing.set(true);
+      if (this.typingTimer) clearTimeout(this.typingTimer);
+      this.typingTimer = setTimeout(() => this.typing.set(false), 4000);
+      this.scrollDown();
+    });
+    this.realtime.on('presence').pipe(takeUntilDestroyed(live)).subscribe(() => { this.loadList(); this.refreshCurrent(); });
+
+    // Polling only while the live connection is down.
     const timers = [
-      setInterval(() => this.pollMessages(), MESSAGES_MS),
-      setInterval(() => { this.loadList(); this.refreshCurrent(); }, LIST_MS)
+      setInterval(() => { if (!this.realtime.connected()) this.pollMessages(); }, MESSAGES_MS),
+      setInterval(() => { if (!this.realtime.connected()) { this.loadList(); this.refreshCurrent(); } }, LIST_MS)
     ];
     inject(DestroyRef).onDestroy(() => timers.forEach(clearInterval));
   }
@@ -188,6 +230,14 @@ export class SupportPage {
       next: c => { this.busy.set(false); this.newSubject = ''; this.newMessage = ''; this.loadList(); this.open(c.id); },
       error: err => { this.busy.set(false); this.error.set(apiErrorMessage(err)); }
     });
+  }
+
+  /** Tells the other side we're typing, at most every 2.5 seconds. */
+  protected onTyping(): void {
+    const id = this.openId();
+    if (!id || Date.now() - this.lastTypingSent < 2500) return;
+    this.lastTypingSent = Date.now();
+    this.support.typing(id);
   }
 
   protected onEnter(event: Event): void {

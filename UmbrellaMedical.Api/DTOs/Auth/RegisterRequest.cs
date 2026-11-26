@@ -24,5 +24,9 @@ namespace UmbrellaMedical.Api.DTOs.Auth
         public Gender Gender { get; set; }
         [Required(ErrorMessage = "Phone number is required."), Phone(ErrorMessage = "Enter a valid phone number."), StringLength(30, MinimumLength = 6, ErrorMessage = "Enter a valid phone number.")]
         public string Phone { get; set; } = string.Empty;
+
+        /// <summary>The site language at sign-up (en, ka, de, fr, it, es, ru): used for e-mails and saved as the preference.</summary>
+        [StringLength(5)]
+        public string? Language { get; set; }
     }
 }

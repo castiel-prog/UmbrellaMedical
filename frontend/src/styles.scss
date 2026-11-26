@@ -1516,3 +1516,28 @@ h1, h2 { text-wrap: balance; }
 }
 dd { min-width: 0; overflow-wrap: anywhere; }
 dd .badge { white-space: normal; max-width: 100%; }
+
+/* ---------- Real-time (SignalR) ---------- */
+.live-badge { display: inline-flex; align-items: center; gap: 0.3rem; vertical-align: middle; margin-left: 0.5rem; padding: 0.15rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.02em; background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
+.live-badge::before { content: ''; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: #b0b0b8; }
+.live-badge.on { color: #1f9d55; border-color: #bfe8cf; background: #e9f8ef; }
+.live-badge.on::before { background: #1f9d55; animation: live-pulse 1.6s ease-in-out infinite; }
+@keyframes live-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgb(31 157 85 / 0.5); } 50% { box-shadow: 0 0 0 5px rgb(31 157 85 / 0); } }
+.typing-row { align-items: center; gap: 0.5rem; }
+.typing-bubble { padding: 0.6rem 0.8rem; }
+.typing-dots { display: inline-flex; gap: 0.25rem; }
+.typing-dots i { width: 0.45rem; height: 0.45rem; border-radius: 50%; background: var(--muted); animation: typing-bounce 1.2s infinite ease-in-out; }
+.typing-dots i:nth-child(2) { animation-delay: 0.15s; }
+.typing-dots i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes typing-bounce { 0%, 60%, 100% { transform: translateY(0); opacity: 0.5; } 30% { transform: translateY(-4px); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .live-badge.on::before, .typing-dots i { animation: none; } }
+
+/* ---------- Confirm e-mail before booking / buying ---------- */
+.confirm-email { display: grid; gap: 0.75rem; padding: 1rem; border: 1.5px solid var(--primary); border-radius: 14px; background: var(--error-bg); }
+.confirm-email-head { display: flex; gap: 0.75rem; align-items: flex-start; }
+.confirm-email-icon { font-size: 1.6rem; line-height: 1; }
+.confirm-email h4 { margin: 0 0 0.2rem; font-size: 1.05rem; }
+.confirm-email p { margin: 0; overflow-wrap: anywhere; }
+.confirm-email-form { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.confirm-email-form .code-input { flex: 1 1 9rem; min-width: 0; font-size: 1.3rem; letter-spacing: 0.4em; text-align: center; font-variant-numeric: tabular-nums; }
+.confirm-email-form .btn { flex: 0 0 auto; }

@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using UmbrellaMedical.Api.Hubs;
 using UmbrellaMedical.Api.Services;
 using UmbrellaMedical.Domain.Entities;
 using UmbrellaMedical.Infrastructure.Data;
@@ -81,9 +82,11 @@ public class SupportController : ControllerBase
     private readonly PresenceTracker _presence;
     private readonly INotificationService _notifications;
     private readonly IAuditService _audit;
+    private readonly IRealtimeNotifier _realtime;
 
-    public SupportController(UmbrellaDbContext db, ICurrentUser current, PresenceTracker presence, INotificationService notifications, IAuditService audit)
+    public SupportController(UmbrellaDbContext db, ICurrentUser current, PresenceTracker presence, INotificationService notifications, IAuditService audit, IRealtimeNotifier realtime)
     {
+        _realtime = realtime;
         _db = db;
         _current = current;
         _presence = presence;
@@ -177,6 +180,7 @@ public class SupportController : ControllerBase
             _db.SupportConversations.Add(conversation);
             await _db.SaveChangesAsync();
             await _audit.LogAsync("StartedSupportChat", nameof(SupportConversation), conversation.Id, $"ContactMessageId={contactId}");
+            await _realtime.SupportChangedAsync(conversation.UserId, conversation.Id);
             return await Conversation(conversation.Id);
         }
 
@@ -190,6 +194,7 @@ public class SupportController : ControllerBase
         _db.SupportConversations.Add(own);
         await _db.SaveChangesAsync();
         _presence.Active(me);
+        await _realtime.SupportChangedAsync(me, own.Id);
         return await Conversation(own.Id);
     }
 
@@ -201,6 +206,7 @@ public class SupportController : ControllerBase
         if (conversation is null) return NotFound();
         conversation.IsClosed = value;
         await _db.SaveChangesAsync();
+        await _realtime.SupportChangedAsync(conversation.UserId, id);
         return await Conversation(id);
     }
 
@@ -256,7 +262,9 @@ public class SupportController : ControllerBase
 
         await _db.SaveChangesAsync();
         _presence.Active(me);
-        return Ok(new SupportMessageDto { Id = message.Id, FromStaff = message.FromStaff, SenderName = IsStaff ? "Umbrella support" : "", Body = message.Body, SentAt = now });
+        var dto = new SupportMessageDto { Id = message.Id, FromStaff = message.FromStaff, SenderName = IsStaff ? "Umbrella support" : "", Body = message.Body, SentAt = now };
+        await _realtime.SupportMessageAsync(conversation.UserId, id, dto);
+        return Ok(dto);
     }
 
     [HttpPost("conversations/{id:int}/read")]
@@ -266,6 +274,7 @@ public class SupportController : ControllerBase
         var conversation = await _db.SupportConversations.FirstAsync(c => c.Id == id);
         if (IsStaff) conversation.StaffReadAt = DateTime.UtcNow; else conversation.UserReadAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+        await _realtime.SupportReadAsync(conversation.UserId, id, IsStaff);
         return NoContent();
     }
 

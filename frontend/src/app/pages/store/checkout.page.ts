@@ -13,6 +13,8 @@ import { CardFields, emptyCard, readCard } from '../../shared/card-fields';
 import { ProductImage } from '../../shared/product-image';
 import { I18n, LocalDatePipe, TranslatePipe } from '../../core/i18n';
 import { AuthService } from '../../core/auth.service';
+import { ConfirmEmail } from '../../shared/confirm-email';
+import { EmailStatusService } from '../../core/email-status.service';
 
 type RxMethod = 'code' | 'upload';
 interface RxChoice { method: RxMethod; selected: string; typed: string; options: UsablePrescription[]; loading: boolean; }
@@ -21,7 +23,7 @@ const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
 @Component({
   selector: 'app-checkout',
-  imports: [FormsModule, RouterLink, CurrencyPipe, CardFields, ProductImage, TranslatePipe, LocalDatePipe],
+  imports: [FormsModule, RouterLink, CurrencyPipe, CardFields, ProductImage, TranslatePipe, LocalDatePipe, ConfirmEmail],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (placed(); as o) {
@@ -222,12 +224,16 @@ const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
           <section class="card pay-step">
             <h3>{{ 'Payment' | t }}</h3>
+            @if (emailStatus.needsConfirmation()) {
+              <app-confirm-email purpose="buy" />
+            } @else {
             <app-card-fields [card]="card" />
             @if (error()) { <p class="alert error" role="alert">{{ error() }}</p> }
             <button class="btn primary block" type="button" (click)="placeOrder()" [disabled]="busy()">
               {{ busy() ? ('Processing...' | t) : ('Pay {amount}' | t: { amount: (grandTotal() | currency: 'GEL' : 'symbol-narrow') }) }}
             </button>
             <p class="muted small center">🔒 {{ 'Secure payment. Card details are never stored.' | t }}</p>
+            }
             @if (method() === 'Delivery') {
               <p class="muted small center">🚚 {{ 'Delivered to your door in Tbilisi within {hours} hours.' | t: { hours: delivery()?.withinHours ?? 24 } }}</p>
             } @else {
@@ -246,6 +252,8 @@ export class CheckoutPage {
   protected readonly cart = inject(CartService);
   private readonly i18n = inject(I18n);
   protected readonly auth = inject(AuthService);
+  /** Patients must confirm their e-mail before buying. */
+  protected readonly emailStatus = inject(EmailStatusService);
   /** Patients order on their account; everyone else (visitors and staff) gives contact details. */
   protected readonly isPatient = computed(() => this.auth.hasRole('Patient'));
   protected contact = { name: '', email: this.auth.hasRole('Patient') ? '' : (this.auth.email() ?? ''), phone: '', personalNumber: '' };
@@ -268,6 +276,7 @@ export class CheckoutPage {
   protected readonly grandTotal = computed(() => Math.round((this.cart.total() + this.fee()) * 100) / 100);
 
   constructor() {
+    this.emailStatus.refresh();
     // Refresh stock and prices, then look up the patient's prescriptions for each prescription-only item.
     this.api.products().subscribe({ next: list => {
       this.cart.sync(list);

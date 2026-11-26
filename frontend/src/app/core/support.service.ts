@@ -2,6 +2,7 @@ import { Injectable, NgZone, effect, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
 import { AuthService } from './auth.service';
+import { RealtimeService } from './realtime.service';
 
 export type PresenceStatus = 'Online' | 'Away' | 'Offline';
 
@@ -44,6 +45,7 @@ export class SupportService {
   private readonly http = inject(HttpClient);
   private readonly auth = inject(AuthService);
   private readonly zone = inject(NgZone);
+  private readonly realtime = inject(RealtimeService);
 
   /** Unread support messages (badge in the top bar). */
   readonly unread = signal(0);
@@ -52,6 +54,11 @@ export class SupportService {
   private timers: ReturnType<typeof setInterval>[] = [];
 
   constructor() {
+    // Pushed support events update the unread badge at once.
+    for (const name of ['support:message', 'support:read', 'support:changed'] as const) {
+      this.realtime.on(name).subscribe(() => this.refreshUnread());
+    }
+
     // Any interaction counts as activity; listened to outside Angular so it never triggers change detection.
     this.zone.runOutsideAngular(() => {
       const mark = () => { this.lastActivity = Date.now(); };
@@ -68,7 +75,8 @@ export class SupportService {
       this.refreshUnread();
       this.zone.runOutsideAngular(() => {
         this.timers.push(setInterval(() => this.beat(), HEARTBEAT_MS));
-        this.timers.push(setInterval(() => this.zone.run(() => this.refreshUnread()), UNREAD_MS));
+        // Polling is only the fallback for when the live connection is down.
+        this.timers.push(setInterval(() => { if (!this.realtime.connected()) this.zone.run(() => this.refreshUnread()); }, UNREAD_MS));
       });
     });
   }
@@ -78,9 +86,18 @@ export class SupportService {
     return Math.round((Date.now() - this.lastActivity) / 1000);
   }
 
+  /** Tells the server how long the person has been idle: over the live connection, or by HTTP when it is down. */
   private beat(): void {
     if (!this.auth.isLoggedIn()) return;
-    this.http.post('/api/presence', { idleSeconds: this.idleSeconds() }).subscribe({ error: () => { /* offline for a moment: fine */ } });
+    const idleSeconds = this.idleSeconds();
+    void this.realtime.invoke('Heartbeat', idleSeconds).then(sent => {
+      if (!sent) this.http.post('/api/presence', { idleSeconds }).subscribe({ error: () => { /* offline for a moment: fine */ } });
+    });
+  }
+
+  /** Lets the other side of a conversation see "typing…". */
+  typing(conversationId: number): void {
+    void this.realtime.invoke('Typing', conversationId);
   }
 
   refreshUnread(): void {

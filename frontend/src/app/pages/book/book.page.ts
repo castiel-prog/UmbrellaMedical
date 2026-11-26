@@ -14,9 +14,12 @@ import { PatientPicker } from '../../shared/patient-picker';
 
 interface CardForm { holderName: string; number: string; expiry: string; cvc: string; }
 
+import { ConfirmEmail } from '../../shared/confirm-email';
+import { EmailStatusService } from '../../core/email-status.service';
+
 @Component({
   selector: 'app-book',
-  imports: [ReactiveFormsModule, FormsModule, RouterLink, LocalDatePipe, TranslatePipe, CurrencyPipe, SlotPicker, PatientPicker],
+  imports: [ReactiveFormsModule, FormsModule, RouterLink, LocalDatePipe, TranslatePipe, CurrencyPipe, SlotPicker, PatientPicker, ConfirmEmail],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (booked(); as a) {
@@ -124,7 +127,9 @@ interface CardForm { holderName: string; number: string; expiry: string; cvc: st
                   <dt class="total">{{ 'You pay now' | t }}</dt><dd class="total">{{ q.amountDue | currency: 'GEL' : 'symbol-narrow' }}</dd>
                 </dl>
 
-                @if (q.paymentRequired) {
+                @if (emailStatus.needsConfirmation()) {
+                  <app-confirm-email purpose="book" />
+                } @else if (q.paymentRequired) {
                   <form class="card-form" (ngSubmit)="book()" autocomplete="on">
                     <div class="field">
                       <label for="cc-name">{{ 'Name on card' | t }}</label>
@@ -176,6 +181,9 @@ interface CardForm { holderName: string; number: string; expiry: string; cvc: st
   `
 })
 export class BookPage {
+  /** Patients must confirm their e-mail before booking. */
+  protected readonly emailStatus = inject(EmailStatusService);
+
   protected readonly i18n = inject(I18n);
   private readonly route = inject(ActivatedRoute);
   private readonly doctorsApi = inject(DoctorsApi);
@@ -204,6 +212,7 @@ export class BookPage {
   protected readonly canBook = computed(() => this.serviceId() !== null && this.start() !== null);
 
   constructor() {
+    this.emailStatus.refresh();
     this.doctorsApi.get(this.doctorId).subscribe({
       next: d => {
         this.doctor.set(d);
